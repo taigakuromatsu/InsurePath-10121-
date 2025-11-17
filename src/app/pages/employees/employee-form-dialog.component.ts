@@ -1,4 +1,3 @@
-import { NgIf } from '@angular/common';
 import { Component, Inject, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -25,8 +24,7 @@ export interface EmployeeDialogData {
     MatInputModule,
     MatSelectModule,
     MatSlideToggleModule,
-    MatButtonModule,
-    NgIf
+    MatButtonModule
   ],
   template: `
     <h1 mat-dialog-title>{{ data.employee ? '従業員を編集' : '従業員を追加' }}</h1>
@@ -132,7 +130,12 @@ export class EmployeeFormDialogComponent {
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDialogData) {
     if (data.employee) {
-      this.form.patchValue(data.employee);
+      const employee = data.employee;
+      this.form.patchValue({
+        ...employee,
+        healthGrade: employee.healthGrade ?? null,
+        pensionGrade: employee.pensionGrade ?? null
+      } as any);
     }
   }
 

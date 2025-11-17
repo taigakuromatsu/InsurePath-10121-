@@ -1,4 +1,4 @@
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, NgFor } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -11,7 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { CurrentUserService } from '../../services/current-user.service';
 import { OfficesService } from '../../services/offices.service';
-import { Office } from '../../types';
+import { Office, HealthPlanType } from '../../types';
 import { Observable } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
@@ -27,7 +27,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     MatSnackBarModule,
     ReactiveFormsModule,
     NgFor,
-    NgIf,
     AsyncPipe
   ],
   template: `
@@ -155,7 +154,12 @@ export class OfficeSetupPage {
     }
     try {
       this.loading.set(true);
-      const office = await this.officesService.createOffice(this.form.value);
+      const formValue = this.form.value;
+      const office = await this.officesService.createOffice({
+        name: formValue.name ?? '',
+        address: formValue.address ?? undefined,
+        healthPlanType: (formValue.healthPlanType ?? 'kyokai') as HealthPlanType
+      });
       await this.currentUser.assignOffice(office.id);
       await this.router.navigateByUrl('/offices');
       this.snackBar.open('新しい事業所を作成しました', '閉じる', { duration: 3000 });

@@ -1,0 +1,491 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- 共通ユーティリティ ----
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(projectId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
+    }
+
+    function role(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin(projectId) {
+      return isSignedIn() && role(projectId) == 'admin';
+    }
+
+    function isEditor(projectId) {
+      return isSignedIn() && (role(projectId) in ['admin', 'member']);
+    }
+
+    function isValidRole(newRole) {
+      return newRole in ['admin', 'member', 'viewer'];
+    }
+
+    match /projects/{projectId} {
+
+      // ===== Invites（招待リンク）=====
+      function validInvite(d) {
+        return d.keys().hasOnly([
+          'email',
+          'role',
+          'createdBy',
+          'createdAt',
+          'status',
+          'expiresAt',
+          'acceptedBy',
+          'acceptedAt'
+        ])
+        && (d.email is string) && d.email.size() > 3 && d.email.size() <= 320
+        && isValidRole(d.role)
+        && (d.createdBy is string) && d.createdBy == request.auth.uid
+        && (d.createdAt is timestamp)
+        && (!('status' in d) || (d.status is string && d.status.size() <= 30))
+        && (!('expiresAt' in d) || (d.expiresAt is timestamp))
+        && (!('acceptedBy' in d) || (d.acceptedBy is string))
+        && (!('acceptedAt' in d) || (d.acceptedAt is timestamp));
+      }
+
+      match /invites/{inviteId} {
+        allow read: if
+          // 1. プロジェクト管理者
+          isAdmin(projectId)
+          // 2. ログイン済み & メール一致（従来ロジック）
+          || (isSignedIn()
+              && request.auth.token.email != null
+              && resource.data.email == request.auth.token.email)
+          // 3. 未使用招待はトークンを知っていれば閲覧可
+          || (!('acceptedBy' in resource.data));
+
+        allow create: if isAdmin(projectId)
+          && validInvite(request.resource.data);
+
+        allow update: if isAdmin(projectId)
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(['status','expiresAt','role','acceptedBy','acceptedAt'])
+          && (!('role' in request.resource.data) || isValidRole(request.resource.data.role));
+
+        allow delete: if isAdmin(projectId);
+      }
+
+      // ===== Analytics =====
+      match /analytics/currentSummary {
+        allow read: if isMember(projectId);
+        allow create, update, delete: if false;
+      }
+
+      match /analyticsPerUser/{uid} {
+        allow read: if isMember(projectId)
+          && request.auth != null
+          && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      // ===== Reports =====
+      match /reports/{reportId} {
+        allow read: if isMember(projectId);
+        allow create, update, delete: if isEditor(projectId);
+      }
+
+      // プロジェクト直下の読み取りはメンバーのみ
+      allow read: if isMember(projectId);
+
+      // 監査ログ
+      match /auditLogs/{logId} {
+        allow read: if isMember(projectId);
+        allow create, update, delete: if false;
+      }
+
+      // 新規プロジェクト作成
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['meta'])
+        && request.resource.data.meta.keys().hasOnly(['name','createdBy','createdAt'])
+        && request.resource.data.meta.createdBy == request.auth.uid;
+
+      // 既存プロジェクトの更新/削除は admin のみ
+      allow update, delete: if isAdmin(projectId);
+
+      // ===== members =====
+      match /members/{uid} {
+        allow read: if isMember(projectId);
+
+        // 本人が displayName / email / updatedAt を更新
+        // ★ updatedAt を許可するように修正
+        allow update: if isSignedIn()
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).changedKeys()
+               .hasOnly(['displayName','email','updatedAt'])
+          && (!('displayName' in request.resource.data)
+              || (
+                   (request.resource.data.displayName is string)
+                   && request.resource.data.displayName.size() > 0
+                   && request.resource.data.displayName.size() <= 120
+                 ))
+          && (!('email' in request.resource.data)
+              || (
+                   request.auth.token.email != null
+                   && request.resource.data.email == request.auth.token.email
+                 ))
+          && (!('updatedAt' in request.resource.data)
+              || (request.resource.data.updatedAt is timestamp));
+
+        // admin 作成（自己作成 or admin招待）
+        allow create: if isSignedIn()
+          && request.auth.uid == uid
+          && request.resource.data.role == 'admin'
+          && (
+            request.resource.data.keys().hasOnly(['role','joinedAt','displayName','email'])
+            ||
+            (
+              request.resource.data.keys().hasOnly(['role','joinedAt','inviteId','invitedBy','displayName','email'])
+              && request.auth.token.email != null
+              && exists(/databases/$(database)/documents/projects/$(projectId)/invites/$(request.resource.data.inviteId))
+              && get(/databases/$(database)/documents/projects/$(projectId)/invites/$(request.resource.data.inviteId)).data.email
+                   == request.auth.token.email
+            )
+          );
+
+        // member/viewer の招待登録
+        allow create: if isSignedIn()
+          && request.auth.uid == uid
+          && (request.resource.data.role in ['member','viewer'])
+          && request.resource.data.keys().hasOnly(['role','joinedAt','inviteId','invitedBy','displayName','email'])
+          && request.auth.token.email != null
+          && exists(/databases/$(database)/documents/projects/$(projectId)/invites/$(request.resource.data.inviteId))
+          && get(/databases/$(database)/documents/projects/$(projectId)/invites/$(request.resource.data.inviteId)).data.email
+               == request.auth.token.email;
+
+        // 管理者によるロール変更（role のみ）
+        allow update: if isAdmin(projectId)
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['role'])
+          && isValidRole(request.resource.data.role);
+
+        // 削除
+        allow delete: if isAdmin(projectId);
+      }
+
+      // --- カンバン列 ---
+      function isValidBoardColumn(col) {
+        return col.keys().hasOnly([
+          'columnId','title','order','categoryHint','progressHint'
+        ])
+        && (!('title' in col) || ((col.title is string) && col.title.size() >= 0 && col.title.size() <= 120))
+        && (!('order' in col) || (col.order is int || col.order is float))
+        && (!('categoryHint' in col) || (col.categoryHint in ['not_started','in_progress','done']))
+        && (!('progressHint' in col) || ((col.progressHint is int || col.progressHint is float) && col.progressHint >= 0 && col.progressHint <= 100))
+        && (!('columnId' in col) || (col.columnId is string && col.columnId.size() > 0 && col.columnId.size() <= 200));
+      }
+
+      match /boardColumns/{columnId} {
+        allow read: if isMember(projectId);
+        allow create, update: if isEditor(projectId) && isValidBoardColumn(request.resource.data);
+        allow delete: if isEditor(projectId);
+      }
+
+            // ===== Problems / Issues / Tasks =====
+      match /problems/{problemId} {
+        allow read: if isMember(projectId);
+
+        function validProblemDef(def, oldDef) {
+          return def.keys().hasOnly(['phenomenon','cause','solution','goal','updatedAt','updatedBy'])
+            && (def.phenomenon is string)
+            && def.phenomenon.matches('^[\\s\\S]{1,1000}$')
+            && (def.goal is string)
+            && def.goal.matches('^[\\s\\S]{1,500}$')
+            && (!('cause' in def) || (def.cause is string && def.cause.matches('^[\\s\\S]{0,1000}$')))
+            && (!('solution' in def) || (def.solution is string && def.solution.matches('^[\\s\\S]{0,1000}$')))
+            // updatedBy の扱い:
+            // - 作成時: 自分の uid であれば OK
+            // - 更新時: 変更されていなければ OK
+            //           変更するなら自分の uid であること
+            && (
+              !('updatedBy' in def)
+              || def.updatedBy == request.auth.uid
+              || (
+                   oldDef != null
+                   && 'updatedBy' in oldDef
+                   && def.updatedBy == oldDef.updatedBy
+                 )
+            );
+        }
+
+        function validAttachmentData(d) {
+          return d.keys().hasOnly(['name','contentType','size','storagePath','downloadURL','createdAt','updatedAt','createdBy'])
+            && (d.name is string) && d.name.size() > 0 && d.name.size() <= 200
+            && (d.contentType is string) && d.contentType.size() > 0
+            && ((d.size is int) || (d.size is float)) && d.size >= 0 && d.size <= 20 * 1024 * 1024
+            && (d.storagePath is string) && d.storagePath.size() > 0
+            && (d.downloadURL is string) && d.downloadURL.size() > 0
+            && (d.createdBy is string) && d.createdBy == request.auth.uid;
+        }
+
+        allow create, update: if isEditor(projectId)
+          && (
+            !('problemDef' in request.resource.data)
+            || validProblemDef(
+                 request.resource.data.problemDef,
+                 ('problemDef' in resource.data) ? resource.data.problemDef : null
+               )
+          );
+
+        allow delete: if isEditor(projectId);
+
+        match /attachments/{attId} {
+          allow read: if isMember(projectId);
+
+          allow create: if isEditor(projectId) && validAttachmentData(request.resource.data);
+
+          allow update: if isSignedIn()
+            && resource.data.createdBy == request.auth.uid
+            && request.resource.data.keys().hasOnly(['name','updatedAt'])
+            && (request.resource.data.name is string)
+            && request.resource.data.name.size() > 0
+            && request.resource.data.name.size() <= 200;
+
+          allow delete: if isSignedIn()
+            && resource.data.createdBy == request.auth.uid;
+        }
+
+        match /comments/{commentId} {
+          allow read: if isMember(projectId);
+          allow create: if isEditor(projectId) && request.resource.data.authorId == request.auth.uid;
+
+          allow update: if isSignedIn()
+            && resource.data.authorId == request.auth.uid
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['body','updatedAt'])
+            && (request.resource.data.body is string)
+            && request.resource.data.body.size() > 0
+            && request.resource.data.body.size() <= 2000;
+
+          allow delete: if isSignedIn()
+            && resource.data.authorId == request.auth.uid;
+        }
+
+        // ===== Issues =====
+        match /issues/{issueId} {
+          allow read: if isMember(projectId);
+          allow create, update: if isEditor(projectId);
+          allow delete: if isEditor(projectId);
+
+          match /attachments/{attId} {
+            allow read: if isMember(projectId);
+            allow create: if isEditor(projectId) && validAttachmentData(request.resource.data);
+
+            allow update: if isSignedIn()
+              && resource.data.createdBy == request.auth.uid
+              && request.resource.data.keys().hasOnly(['name','updatedAt'])
+              && (request.resource.data.name is string)
+              && request.resource.data.name.size() > 0
+              && request.resource.data.name.size() <= 200;
+
+            allow delete: if isSignedIn()
+              && resource.data.createdBy == request.auth.uid;
+          }
+
+          match /comments/{commentId} {
+            allow read: if isMember(projectId);
+            allow create: if isEditor(projectId) && request.resource.data.authorId == request.auth.uid;
+            allow update, delete: if (
+              (request.auth != null && resource.data.authorId == request.auth.uid)
+              || isAdmin(projectId)
+            );
+          }
+
+                    match /tasks/{taskId} {
+            allow read: if isMember(projectId);
+
+            // 非Admin Editor が新規作成する場合:
+            // assignees / assigneeLocks を送らない or 空ならOK
+            function canEditorCreateWithoutAssignments(d) {
+              return (
+                !('assignees' in d)
+                || (
+                  (d.assignees is list && d.assignees.size() == 0)
+                  || (d.assignees is map && d.assignees.keys().size() == 0)
+                )
+              ) && (
+                !('assigneeLocks' in d)
+                || (
+                  (d.assigneeLocks is list && d.assigneeLocks.size() == 0)
+                  || (d.assigneeLocks is map && d.assigneeLocks.keys().size() == 0)
+                )
+              );
+            }
+
+            // 作成:
+            // Admin: assignees / assigneeLocks 自由
+            // 非Admin Editor: assignees / assigneeLocks を実質設定不可（空のみ）
+            allow create: if
+              isAdmin(projectId)
+              || (
+                isEditor(projectId)
+                && canEditorCreateWithoutAssignments(request.resource.data)
+              );
+
+            // 更新:
+            // Admin: 自由
+            // 非Admin Editor: assignees / assigneeLocks を変更しない場合のみ
+            allow update: if
+              isAdmin(projectId)
+              || (
+                isEditor(projectId)
+                && !request.resource.data
+                    .diff(resource.data)
+                    .changedKeys()
+                    .hasAny(['assignees', 'assigneeLocks'])
+              );
+
+            // 削除: Editor 以上
+            allow delete: if isEditor(projectId);
+
+            match /attachments/{attId} {
+              allow read: if isMember(projectId);
+              allow create: if isEditor(projectId) && validAttachmentData(request.resource.data);
+
+              allow update: if isSignedIn()
+                && resource.data.createdBy == request.auth.uid
+                && request.resource.data.keys().hasOnly(['name','updatedAt'])
+                && (request.resource.data.name is string)
+                && request.resource.data.name.size() > 0
+                && request.resource.data.name.size() <= 200;
+
+              allow delete: if isSignedIn()
+                && resource.data.createdBy == request.auth.uid;
+            }
+
+            match /comments/{commentId} {
+              allow read: if isMember(projectId);
+              allow create: if isEditor(projectId) && request.resource.data.authorId == request.auth.uid;
+              allow update, delete: if (
+                (request.auth != null && resource.data.authorId == request.auth.uid)
+                || isAdmin(projectId)
+              );
+            }
+          }
+
+        }
+      }
+    } // end /projects/{projectId}
+
+    // ---- users コレクション ----
+    // InsurePath: users/{uid} にユーザープロファイルを保存
+    // ProblemPath: users/{uid}/... のサブコレクションを利用
+    match /users/{uid} {
+      // InsurePath 用: プロファイルのバリデーション
+      function validInsureUserProfile(d) {
+        return d.keys().hasOnly([
+          'id',
+          'officeId',
+          'role',
+          'displayName',
+          'email',
+          'createdAt',
+          'updatedAt'
+        ])
+        && (d.id is string && d.id == uid)
+        && (!('officeId' in d) || (d.officeId is string))
+        && (!('role' in d) || (d.role is string && d.role.size() > 0 && d.role.size() <= 30))
+        && (d.displayName is string
+            && d.displayName.size() > 0
+            && d.displayName.size() <= 120)
+        && (d.email is string
+            && d.email.size() > 3
+            && d.email.size() <= 320)
+        && (d.createdAt is string)
+        && (d.updatedAt is string);
+      }
+
+      // 自分の users/{uid} だけ読み書きできる (InsurePath 用)
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow create, update: if
+        isSignedIn()
+        && request.auth.uid == uid
+        && validInsureUserProfile(request.resource.data);
+
+      // 削除はとりあえず禁止（必要ならあとで検討）
+      allow delete: if false;
+
+      // ===== ここから下は ProblemPath 用のサブコレクション =====
+
+      // 通知設定: users/{uid}/notifyPrefs/app
+      function isValidNotifyPrefs(d) {
+        return d.keys().hasOnly([
+          'instantComment',
+          'instantFile',
+          'dueReminderMode',
+          'dueReminderHour',
+        ])
+        && (!('instantComment' in d) || (d.instantComment is bool))
+        && (!('instantFile' in d)   || (d.instantFile is bool))
+        && (!('dueReminderMode' in d)
+            || (d.dueReminderMode in ['none', '1d', '7d', '1d7d']))
+        && (!('dueReminderHour' in d)
+            || (d.dueReminderHour is int
+                && d.dueReminderHour >= 0
+                && d.dueReminderHour <= 23));
+      }
+
+      match /notifyPrefs/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update: if
+          isSignedIn()
+          && request.auth.uid == uid
+          && isValidNotifyPrefs(request.resource.data);
+        allow delete: if false;
+      }
+
+      match /memberships/{projectId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create: if isSignedIn() && request.auth.uid == uid;
+        allow update: if isSignedIn() && (
+          request.auth.uid == uid
+          || (
+            isAdmin(projectId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['role'])
+            && isValidRole(request.resource.data.role)
+          )
+        );
+        allow delete: if isSignedIn()
+          && (request.auth.uid == uid || isAdmin(projectId));
+      }
+
+      match /fcmTokens/{token} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update, delete: if isSignedIn() && request.auth.uid == uid;
+      }
+
+      match /fcmStatus/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update: if isSignedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['enabled','lastTokenSavedAt','lastError']);
+        allow delete: if false;
+      }
+    }
+
+    // ---- InsurePath 用: offices 以下 ----
+    match /offices/{officeId} {
+      // とりあえずログイン済みなら事業所情報を読み書き可能
+      allow read, create, update, delete: if isSignedIn();
+
+      // offices/{officeId} 配下の任意のサブコレクション（employees など）
+      match /{subcollection}/{docId} {
+        allow read, create, update, delete: if isSignedIn();
+      }
+    }
+
+    // === collectionGroup('tasks') 用 (読み取り専用) ===
+    match /{path=**}/tasks/{taskId} {
+      allow read: if isMember(resource.data.projectId);
+      // 書き込みは上の具体的パスでのみ許可
+    }
+  }
+}
+
+

@@ -41,7 +41,7 @@ import { EmployeeFormDialogComponent } from './employee-form-dialog.component';
           </button>
         </div>
 
-        <table mat-table [dataSource]="employees$ | async" class="employee-table" *ngIf="officeId(); else emptyOffice">
+        <table mat-table [dataSource]="(employees$ | async) || []" class="employee-table" *ngIf="officeId(); else emptyOffice">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>氏名</th>
             <td mat-cell *matCellDef="let row">{{ row.name }}</td>

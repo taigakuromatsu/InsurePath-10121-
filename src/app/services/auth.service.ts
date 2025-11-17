@@ -14,9 +14,11 @@ import { UserProfile } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  readonly authState$: Observable<User | null> = authState(this.auth);
+  readonly authState$: Observable<User | null>;
 
-  constructor(private readonly auth: Auth, private readonly firestore: Firestore) {}
+  constructor(private readonly auth: Auth, private readonly firestore: Firestore) {
+    this.authState$ = authState(this.auth);
+  }
 
   async signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();

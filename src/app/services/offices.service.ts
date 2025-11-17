@@ -6,18 +6,21 @@ import { Office } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class OfficesService {
-  private readonly collectionRef = collection(this.firestore, 'offices');
+  private readonly collectionRef: ReturnType<typeof collection>;
 
-  constructor(private readonly firestore: Firestore) {}
+  constructor(private readonly firestore: Firestore) {
+    this.collectionRef = collection(this.firestore, 'offices');
+  }
 
   watchOffice(id: string): Observable<Office | null> {
     const ref = doc(this.collectionRef, id);
-    return docSnapshots(ref).pipe(
+    return docSnapshots(ref as any).pipe(
       map((snapshot) => {
         if (!snapshot.exists()) {
           return null;
         }
-        return { id: snapshot.id, ...(snapshot.data() as Office) };
+        const data = snapshot.data() as Office;
+        return { ...data, id: snapshot.id };
       })
     );
   }

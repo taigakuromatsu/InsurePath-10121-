@@ -1,11 +1,14 @@
 export const environment = {
   production: true,
   firebase: {
-    apiKey: 'INSUREPATH_FIREBASE_API_KEY',
-    authDomain: 'INSUREPATH_FIREBASE_AUTH_DOMAIN',
+    apiKey: 'AIzaSyDgfe0dX1VPD9ggmYc2xbk5OjY3ZmjzVWQ',
+    authDomain: 'kensyu10121.firebaseapp.com',
     projectId: 'kensyu10121',
-    storageBucket: 'INSUREPATH_FIREBASE_STORAGE_BUCKET',
-    messagingSenderId: 'INSUREPATH_FIREBASE_MESSAGING_SENDER_ID',
-    appId: 'INSUREPATH_FIREBASE_APP_ID'
-  }
+    storageBucket: 'kensyu10121.firebasestorage.app',
+    messagingSenderId: '210275340301',
+    appId: '1:210275340301:web:39a70058e10be00d3a8544',
+    measurementId: 'G-SL96D775X1'
+  },
+  appCheckSiteKey: '6LfbAfQrAAAAAC3vk2WxyL2FTZTQ5mkLLZErGEfv'
 };
+
