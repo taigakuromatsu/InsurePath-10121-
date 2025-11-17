@@ -1,36 +1,52 @@
-<mat-sidenav-container class="layout-container">
-  <mat-sidenav class="app-sidenav" mode="side" opened>
-    <div class="brand">
-      <div class="brand__title">InsurePath</div>
-      <div class="brand__subtitle">Social Insurance Ops</div>
-    </div>
+<ng-container *ngIf="isAuthenticated$ | async; else loggedOut">
+  <mat-sidenav-container class="layout-container">
+    <mat-sidenav class="app-sidenav" mode="side" opened>
+      <div class="brand">
+        <div class="brand__title">InsurePath</div>
+        <div class="brand__subtitle">Social Insurance Ops</div>
+      </div>
 
-    <mat-nav-list>
-      <a
-        mat-list-item
-        *ngFor="let link of navLinks"
-        [routerLink]="link.path"
-        routerLinkActive="active-link"
-        [routerLinkActiveOptions]="{ exact: true }"
-      >
-        <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
-        <span>{{ link.label }}</span>
-      </a>
-    </mat-nav-list>
-  </mat-sidenav>
+      <mat-nav-list>
+        <a
+          mat-list-item
+          *ngFor="let link of navLinks"
+          [routerLink]="link.path"
+          routerLinkActive="active-link"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
+          <span>{{ link.label }}</span>
+        </a>
+      </mat-nav-list>
+    </mat-sidenav>
 
-  <mat-sidenav-content>
-    <mat-toolbar color="primary" class="top-toolbar">
-      <span class="app-name">InsurePath</span>
-      <span class="spacer"></span>
-      <button mat-button class="user-chip" disableRipple>
-        <mat-icon aria-hidden="true">account_circle</mat-icon>
-        Taiga Kuromatsu (admin)
-      </button>
-    </mat-toolbar>
+    <mat-sidenav-content>
+      <mat-toolbar color="primary" class="top-toolbar">
+        <span class="app-name">InsurePath</span>
+        <span class="spacer"></span>
+        <ng-container *ngIf="userProfile$ | async as user">
+          <div class="user-meta" *ngIf="office$ | async as office">
+            <mat-icon aria-hidden="true">apartment</mat-icon>
+            <span>{{ office?.name }}</span>
+          </div>
+          <button mat-button class="user-chip" disableRipple>
+            <mat-icon aria-hidden="true">account_circle</mat-icon>
+            {{ user.displayName }} ({{ user.role }})
+          </button>
+        </ng-container>
+        <button mat-stroked-button color="accent" (click)="signOut()">
+          <mat-icon aria-hidden="true">logout</mat-icon>
+          ログアウト
+        </button>
+      </mat-toolbar>
 
-    <div class="main-content">
-      <router-outlet></router-outlet>
-    </div>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+      <div class="main-content">
+        <router-outlet></router-outlet>
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</ng-container>
+
+<ng-template #loggedOut>
+  <router-outlet></router-outlet>
+</ng-template>
