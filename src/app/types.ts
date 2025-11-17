@@ -9,7 +9,7 @@ export type GradeDecisionSource = 'auto' | 'manual' | 'imported';
 // User & Office
 export interface UserProfile {
   id: string;
-  officeId: string;
+  officeId?: string;
   role: UserRole;
   email: string;
   displayName: string;

@@ -69,6 +69,14 @@ a[mat-list-item] mat-icon {
   font-weight: 500;
 }
 
+.user-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-right: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .main-content {
   padding: 1.5rem;
   min-height: calc(100vh - 64px);
