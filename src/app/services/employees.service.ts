@@ -1,6 +1,13 @@
 import { Injectable } from '@angular/core';
-import { Firestore, collection, collectionData, deleteDoc, doc, setDoc } from '@angular/fire/firestore';
-import { Observable } from 'rxjs';
+import {
+  Firestore,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  setDoc
+} from '@angular/fire/firestore';
+import { from, map, Observable } from 'rxjs';
 
 import { Employee } from '../types';
 
@@ -13,9 +20,18 @@ export class EmployeesService {
   }
 
   list(officeId: string): Observable<Employee[]> {
-    return collectionData(this.collectionPath(officeId), {
-      idField: 'id'
-    }) as Observable<Employee[]>;
+    const ref = this.collectionPath(officeId);
+    return from(getDocs(ref)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as Employee)
+        )
+      )
+    );
   }
 
   async save(officeId: string, employee: Partial<Employee> & { id?: string }): Promise<void> {

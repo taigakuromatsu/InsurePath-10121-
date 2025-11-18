@@ -36,11 +36,15 @@ export class AuthService {
 
     const baseProfile: UserProfile = {
       id: user.uid,
-      officeId: snapshot.exists() ? (snapshot.data()['officeId'] as string | undefined) : undefined,
+      officeId: snapshot.exists()
+        ? (snapshot.data()['officeId'] as string | undefined)
+        : undefined,
       role: (snapshot.exists() ? snapshot.data()['role'] : 'admin') as UserProfile['role'],
       displayName: user.displayName ?? user.email ?? 'User',
       email: user.email ?? 'unknown@example.com',
-      createdAt: snapshot.exists() ? snapshot.data()['createdAt'] : new Date().toISOString(),
+      createdAt: snapshot.exists()
+        ? snapshot.data()['createdAt']
+        : new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
@@ -53,6 +57,13 @@ export class AuthService {
       return;
     }
 
-    await setDoc(userDoc, baseProfile);
+    // ★ここだけ変更★
+    // Firestore は undefined を受け付けないので、officeId が undefined なら削除してから保存する
+    const dataToSave: any = { ...baseProfile };
+    if (dataToSave.officeId === undefined) {
+      delete dataToSave.officeId;
+    }
+
+    await setDoc(userDoc, dataToSave);
   }
 }

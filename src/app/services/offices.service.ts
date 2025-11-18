@@ -1,6 +1,13 @@
 import { Injectable } from '@angular/core';
-import { Firestore, collection, collectionData, doc, docSnapshots, setDoc } from '@angular/fire/firestore';
-import { map, Observable } from 'rxjs';
+import {
+  Firestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc
+} from '@angular/fire/firestore';
+import { from, map, Observable } from 'rxjs';
 
 import { Office } from '../types';
 
@@ -12,26 +19,41 @@ export class OfficesService {
     this.collectionRef = collection(this.firestore, 'offices');
   }
 
+  // 事業所を1件取得（現在は1回読み切りにしています）
   watchOffice(id: string): Observable<Office | null> {
     const ref = doc(this.collectionRef, id);
-    return docSnapshots(ref as any).pipe(
+    return from(getDoc(ref)).pipe(
       map((snapshot) => {
         if (!snapshot.exists()) {
           return null;
         }
-        const data = snapshot.data() as Office;
-        return { ...data, id: snapshot.id };
+        return {
+          id: snapshot.id,
+          ...(snapshot.data() as any)
+        } as Office;
       })
     );
   }
 
+  // 事業所一覧を1回取得
   listOffices(): Observable<Office[]> {
-    return collectionData(this.collectionRef, { idField: 'id' }) as Observable<Office[]>;
+    return from(getDocs(this.collectionRef)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as Office)
+        )
+      )
+    );
   }
 
   async createOffice(partial: Partial<Office>): Promise<Office> {
     const ref = doc(this.collectionRef);
     const now = new Date().toISOString();
+
     const office: Office = {
       id: ref.id,
       name: partial.name ?? '新規事業所',
@@ -42,15 +64,32 @@ export class OfficesService {
       unionCode: partial.unionCode,
       unionName: partial.unionName,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
-    await setDoc(ref, office);
+
+    // undefined を含むフィールドを落としてから Firestore に送る
+    const payload = Object.fromEntries(
+      Object.entries(office).filter(([, value]) => value !== undefined)
+    ) as Office;
+
+    await setDoc(ref, payload);
     return office;
   }
 
   async saveOffice(office: Office): Promise<void> {
     const ref = doc(this.collectionRef, office.id);
     const now = new Date().toISOString();
-    await setDoc(ref, { ...office, updatedAt: now }, { merge: true });
+
+    const officeWithUpdated: Office = {
+      ...office,
+      updatedAt: now,
+    };
+
+    // ここでも undefined を削除してから送る
+    const payload = Object.fromEntries(
+      Object.entries(officeWithUpdated).filter(([, value]) => value !== undefined)
+    );
+
+    await setDoc(ref, payload, { merge: true });
   }
 }
