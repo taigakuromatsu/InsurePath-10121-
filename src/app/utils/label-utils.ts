@@ -1,0 +1,64 @@
+import {
+  InsuranceLossReasonKind,
+  InsuranceQualificationKind,
+  PremiumTreatment,
+  WorkingStatus
+} from '../types';
+
+export function getInsuranceQualificationKindLabel(kind?: InsuranceQualificationKind): string {
+  switch (kind) {
+    case 'new_hire':
+      return '新規採用';
+    case 'expansion':
+      return '適用拡大';
+    case 'hours_change':
+      return '所定労働時間変更';
+    case 'other':
+      return 'その他';
+    default:
+      return '-';
+  }
+}
+
+export function getInsuranceLossReasonKindLabel(kind?: InsuranceLossReasonKind): string {
+  switch (kind) {
+    case 'retirement':
+      return '退職';
+    case 'hours_decrease':
+      return '所定労働時間減少';
+    case 'death':
+      return '死亡';
+    case 'other':
+      return 'その他';
+    default:
+      return '-';
+  }
+}
+
+export function getWorkingStatusLabel(status?: WorkingStatus): string {
+  switch (status) {
+    case 'normal':
+      return '通常勤務';
+    case 'maternity_leave':
+      return '産前産後休業';
+    case 'childcare_leave':
+      return '育児休業';
+    case 'sick_leave':
+      return '傷病休職';
+    case 'other':
+      return 'その他';
+    default:
+      return '-';
+  }
+}
+
+export function getPremiumTreatmentLabel(treatment?: PremiumTreatment): string {
+  switch (treatment) {
+    case 'normal':
+      return '通常徴収';
+    case 'exempt':
+      return '保険料免除';
+    default:
+      return '-';
+  }
+}

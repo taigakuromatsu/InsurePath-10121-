@@ -10,6 +10,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { DecimalPipe } from '@angular/common'; // ★ 追加
 
 import { Employee } from '../../types';
+import {
+  getInsuranceLossReasonKindLabel,
+  getInsuranceQualificationKindLabel,
+  getPremiumTreatmentLabel,
+  getWorkingStatusLabel
+} from '../../utils/label-utils';
 
 export interface EmployeeDetailDialogData {
   employee: Employee;
@@ -127,6 +133,74 @@ export interface EmployeeDetailDialogData {
         </div>
       </div>
 
+      <!-- 資格情報（健康保険） -->
+      <h2 class="section-title">
+        <mat-icon aria-hidden="true" class="icon">badge</mat-icon>
+        資格情報（健康保険）
+      </h2>
+      <div class="grid">
+        <div class="label">資格取得日（健保）</div>
+        <div class="value">{{ data.employee.healthQualificationDate || '-' }}</div>
+
+        <div class="label">資格取得区分（健保）</div>
+        <div class="value">
+          {{ getInsuranceQualificationKindLabel(data.employee.healthQualificationKind) }}
+        </div>
+
+        <div class="label">資格喪失日（健保）</div>
+        <div class="value">{{ data.employee.healthLossDate || '-' }}</div>
+
+        <div class="label">喪失理由区分（健保）</div>
+        <div class="value">
+          {{ getInsuranceLossReasonKindLabel(data.employee.healthLossReasonKind) }}
+        </div>
+      </div>
+
+      <!-- 資格情報（厚生年金） -->
+      <h2 class="section-title">
+        <mat-icon aria-hidden="true" class="icon">workspace_premium</mat-icon>
+        資格情報（厚生年金）
+      </h2>
+      <div class="grid">
+        <div class="label">資格取得日（厚年）</div>
+        <div class="value">{{ data.employee.pensionQualificationDate || '-' }}</div>
+
+        <div class="label">資格取得区分（厚年）</div>
+        <div class="value">
+          {{ getInsuranceQualificationKindLabel(data.employee.pensionQualificationKind) }}
+        </div>
+
+        <div class="label">資格喪失日（厚年）</div>
+        <div class="value">{{ data.employee.pensionLossDate || '-' }}</div>
+
+        <div class="label">喪失理由区分（厚年）</div>
+        <div class="value">
+          {{ getInsuranceLossReasonKindLabel(data.employee.pensionLossReasonKind) }}
+        </div>
+      </div>
+
+      <!-- 就業状態 -->
+      <h2 class="section-title">
+        <mat-icon aria-hidden="true" class="icon">event_repeat</mat-icon>
+        就業状態
+      </h2>
+      <div class="grid">
+        <div class="label">就業状態</div>
+        <div class="value">{{ getWorkingStatusLabel(data.employee.workingStatus) }}</div>
+
+        <div class="label">状態開始日</div>
+        <div class="value">{{ data.employee.workingStatusStartDate || '-' }}</div>
+
+        <div class="label">状態終了日</div>
+        <div class="value">{{ data.employee.workingStatusEndDate || '-' }}</div>
+
+        <div class="label">保険料の扱い</div>
+        <div class="value">{{ getPremiumTreatmentLabel(data.employee.premiumTreatment) }}</div>
+
+        <div class="label">備考</div>
+        <div class="value">{{ data.employee.workingStatusNote || '-' }}</div>
+      </div>
+
       <!-- システム情報 -->
       <h2 class="section-title">
         <mat-icon aria-hidden="true" class="icon">info</mat-icon>
@@ -209,4 +283,9 @@ export class EmployeeDetailDialogComponent {
     private readonly dialogRef: MatDialogRef<EmployeeDetailDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: EmployeeDetailDialogData
   ) {}
+
+  protected readonly getInsuranceQualificationKindLabel = getInsuranceQualificationKindLabel;
+  protected readonly getInsuranceLossReasonKindLabel = getInsuranceLossReasonKindLabel;
+  protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
+  protected readonly getPremiumTreatmentLabel = getPremiumTreatmentLabel;
 }

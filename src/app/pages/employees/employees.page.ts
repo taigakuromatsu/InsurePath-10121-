@@ -22,6 +22,7 @@ import { EmployeesService } from '../../services/employees.service';
 import { Employee } from '../../types';
 import { EmployeeFormDialogComponent } from './employee-form-dialog.component';
 import { EmployeeDetailDialogComponent } from './employee-detail-dialog.component';
+import { getWorkingStatusLabel } from '../../utils/label-utils';
 
 @Component({
   selector: 'ip-employees-page',
@@ -115,6 +116,13 @@ import { EmployeeDetailDialogComponent } from './employee-detail-dialog.componen
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="workingStatus">
+              <th mat-header-cell *matHeaderCellDef>就業状態</th>
+              <td mat-cell *matCellDef="let row">
+                {{ getWorkingStatusLabel(row.workingStatus) }}
+              </td>
+            </ng-container>
+
             <!-- 操作列 -->
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="center">操作</th>
@@ -204,6 +212,7 @@ export class EmployeesPage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly employeesService = inject(EmployeesService);
   private readonly currentOffice = inject(CurrentOfficeService);
+  protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
 
   readonly displayedColumns = [
     'name',
@@ -214,6 +223,7 @@ export class EmployeesPage {
     'isStudent',
     'monthlyWage',
     'isInsured',
+    'workingStatus',
     'actions'
   ];
 
