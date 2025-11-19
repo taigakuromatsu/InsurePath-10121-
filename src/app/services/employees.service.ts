@@ -19,6 +19,7 @@ export class EmployeesService {
     return collection(this.firestore, 'offices', officeId, 'employees');
   }
 
+  // ★ここは getDocs に戻す（元の形）
   list(officeId: string): Observable<Employee[]> {
     const ref = this.collectionPath(officeId);
     return from(getDocs(ref)).pipe(
@@ -34,45 +35,75 @@ export class EmployeesService {
     );
   }
 
-  async save(officeId: string, employee: Partial<Employee> & { id?: string }): Promise<void> {
+  async save(
+    officeId: string,
+    employee: Partial<Employee> & { id?: string }
+  ): Promise<void> {
     const employeesRef = this.collectionPath(officeId);
     const ref = employee.id ? doc(employeesRef, employee.id) : doc(employeesRef);
     const now = new Date().toISOString();
 
+    // 必須系＋よく使う基本項目だけをまずセット
     const payload: Employee = {
       id: ref.id,
       officeId,
       name: employee.name ?? '未入力',
-      kana: employee.kana,
       birthDate: employee.birthDate ?? now.substring(0, 10),
-      department: employee.department,
       hireDate: employee.hireDate ?? now.substring(0, 10),
-      retireDate: employee.retireDate,
       employmentType: employee.employmentType ?? 'regular',
-      address: employee.address,
-      phone: employee.phone,
-      contactEmail: employee.contactEmail,
-      weeklyWorkingHours:
-        employee.weeklyWorkingHours != null ? Number(employee.weeklyWorkingHours) : undefined,
-      weeklyWorkingDays:
-        employee.weeklyWorkingDays != null ? Number(employee.weeklyWorkingDays) : undefined,
-      contractPeriodNote: employee.contractPeriodNote,
-      isStudent: employee.isStudent ?? false,
       monthlyWage: Number(employee.monthlyWage ?? 0),
       isInsured: employee.isInsured ?? true,
-      healthInsuredSymbol: employee.healthInsuredSymbol,
-      healthInsuredNumber: employee.healthInsuredNumber,
-      pensionNumber: employee.pensionNumber,
-      healthGrade: employee.healthGrade != null ? Number(employee.healthGrade) : undefined,
-      healthStandardMonthly: employee.healthStandardMonthly,
-      healthGradeSource: employee.healthGradeSource,
-      pensionGrade: employee.pensionGrade != null ? Number(employee.pensionGrade) : undefined,
-      pensionStandardMonthly: employee.pensionStandardMonthly,
-      pensionGradeSource: employee.pensionGradeSource,
+      isStudent: employee.isStudent ?? false,
       createdAt: employee.createdAt ?? now,
-      updatedAt: now,
-      updatedByUserId: employee.updatedByUserId
+      updatedAt: now
     };
+
+    // --- ここから下は「値が入っているものだけ追加する」 ---
+    if (employee.kana != null) payload.kana = employee.kana;
+    if (employee.department != null) payload.department = employee.department;
+    if (employee.retireDate != null) payload.retireDate = employee.retireDate;
+    if (employee.address != null) payload.address = employee.address;
+    if (employee.phone != null) payload.phone = employee.phone;
+    if (employee.contactEmail != null) payload.contactEmail = employee.contactEmail;
+    if (employee.contractPeriodNote != null) payload.contractPeriodNote = employee.contractPeriodNote;
+    if (employee.updatedByUserId != null) payload.updatedByUserId = employee.updatedByUserId;
+
+    if (employee.weeklyWorkingHours != null) {
+      payload.weeklyWorkingHours = Number(employee.weeklyWorkingHours);
+    }
+    if (employee.weeklyWorkingDays != null) {
+      payload.weeklyWorkingDays = Number(employee.weeklyWorkingDays);
+    }
+
+    if (employee.healthInsuredSymbol != null) {
+      payload.healthInsuredSymbol = employee.healthInsuredSymbol;
+    }
+    if (employee.healthInsuredNumber != null) {
+      payload.healthInsuredNumber = employee.healthInsuredNumber;
+    }
+    if (employee.pensionNumber != null) {
+      payload.pensionNumber = employee.pensionNumber;
+    }
+
+    if (employee.healthGrade != null) {
+      payload.healthGrade = Number(employee.healthGrade);
+    }
+    if (employee.healthStandardMonthly != null) {
+      payload.healthStandardMonthly = Number(employee.healthStandardMonthly);
+    }
+    if (employee.healthGradeSource != null) {
+      payload.healthGradeSource = employee.healthGradeSource;
+    }
+
+    if (employee.pensionGrade != null) {
+      payload.pensionGrade = Number(employee.pensionGrade);
+    }
+    if (employee.pensionStandardMonthly != null) {
+      payload.pensionStandardMonthly = Number(employee.pensionStandardMonthly);
+    }
+    if (employee.pensionGradeSource != null) {
+      payload.pensionGradeSource = employee.pensionGradeSource;
+    }
 
     await setDoc(ref, payload, { merge: true });
   }
@@ -82,3 +113,4 @@ export class EmployeesService {
     return deleteDoc(ref);
   }
 }
+

@@ -88,7 +88,7 @@ export interface EmployeeDialogData {
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>標準報酬月額（給与）</mat-label>
+        <mat-label>報酬月額（給与）</mat-label>
         <input matInput type="number" formControlName="monthlyWage" />
       </mat-form-field>
 
