@@ -51,12 +51,26 @@ export interface Employee {
   hireDate: IsoDateString;
   retireDate?: IsoDateString;
   employmentType: EmploymentType;
+  address?: string;
+  phone?: string;
+  contactEmail?: string;
+
+  /** 所定労働条件 */
+  weeklyWorkingHours?: number;
+  weeklyWorkingDays?: number;
+  contractPeriodNote?: string;
+  isStudent?: boolean;
 
   /** 社会保険上の報酬月額（手当込みの月給ベース） */
   monthlyWage: number;
 
   /** 社会保険の加入対象かどうか（true のみ計算対象） */
   isInsured: boolean;
+
+  /** 保険関連番号 */
+  healthInsuredSymbol?: string;
+  healthInsuredNumber?: string;
+  pensionNumber?: string;
 
   /** 健康保険の等級・標準報酬（月額） */
   healthGrade?: number;
