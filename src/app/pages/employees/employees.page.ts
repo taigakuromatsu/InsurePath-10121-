@@ -52,6 +52,26 @@ import { EmployeeFormDialogComponent } from './employee-form-dialog.component';
             <td mat-cell *matCellDef="let row">{{ row.department || '-' }}</td>
           </ng-container>
 
+          <ng-container matColumnDef="address">
+            <th mat-header-cell *matHeaderCellDef>住所</th>
+            <td mat-cell *matCellDef="let row">{{ row.address || '-' }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="weeklyWorkingHours">
+            <th mat-header-cell *matHeaderCellDef>所定労働時間</th>
+            <td mat-cell *matCellDef="let row">{{ row.weeklyWorkingHours ?? '-' }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="weeklyWorkingDays">
+            <th mat-header-cell *matHeaderCellDef>所定労働日数</th>
+            <td mat-cell *matCellDef="let row">{{ row.weeklyWorkingDays ?? '-' }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="isStudent">
+            <th mat-header-cell *matHeaderCellDef>学生</th>
+            <td mat-cell *matCellDef="let row">{{ row.isStudent ? '学生' : '-' }}</td>
+          </ng-container>
+
           <ng-container matColumnDef="monthlyWage">
             <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
             <td mat-cell *matCellDef="let row">{{ row.monthlyWage | number }}</td>
@@ -110,7 +130,17 @@ export class EmployeesPage {
   private readonly employeesService = inject(EmployeesService);
   private readonly currentOffice = inject(CurrentOfficeService);
 
-  readonly displayedColumns = ['name', 'department', 'monthlyWage', 'isInsured', 'actions'];
+  readonly displayedColumns = [
+    'name',
+    'department',
+    'address',
+    'weeklyWorkingHours',
+    'weeklyWorkingDays',
+    'isStudent',
+    'monthlyWage',
+    'isInsured',
+    'actions'
+  ];
   readonly officeId = signal<string | null>(null);
 
   readonly employees$ = this.currentOffice.officeId$.pipe(
