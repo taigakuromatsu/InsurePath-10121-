@@ -41,6 +41,27 @@ export type EmploymentType =
   | 'アルバイト'
   | 'other';
 
+// 資格取得区分（簡易）
+export type InsuranceQualificationKind =
+  | 'new_hire'
+  | 'expansion'
+  | 'hours_change'
+  | 'other';
+
+// 資格喪失理由区分（簡易）
+export type InsuranceLossReasonKind = 'retirement' | 'hours_decrease' | 'death' | 'other';
+
+// 就業状態（簡易）
+export type WorkingStatus =
+  | 'normal'
+  | 'maternity_leave'
+  | 'childcare_leave'
+  | 'sick_leave'
+  | 'other';
+
+// 就業状態における保険料の扱い（簡易）
+export type PremiumTreatment = 'normal' | 'exempt';
+
 export interface Employee {
   id: string;
   officeId: string;
@@ -71,6 +92,25 @@ export interface Employee {
   healthInsuredSymbol?: string;
   healthInsuredNumber?: string;
   pensionNumber?: string;
+
+  /** 健康保険の資格情報 */
+  healthQualificationDate?: IsoDateString;
+  healthLossDate?: IsoDateString;
+  healthQualificationKind?: InsuranceQualificationKind;
+  healthLossReasonKind?: InsuranceLossReasonKind;
+
+  /** 厚生年金の資格情報 */
+  pensionQualificationDate?: IsoDateString;
+  pensionLossDate?: IsoDateString;
+  pensionQualificationKind?: InsuranceQualificationKind;
+  pensionLossReasonKind?: InsuranceLossReasonKind;
+
+  /** 就業状態（産休・育休・休職など） */
+  workingStatus?: WorkingStatus;
+  workingStatusStartDate?: IsoDateString;
+  workingStatusEndDate?: IsoDateString;
+  premiumTreatment?: PremiumTreatment;
+  workingStatusNote?: string;
 
   /** 健康保険の等級・標準報酬（月額） */
   healthGrade?: number;

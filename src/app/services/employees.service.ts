@@ -105,6 +105,51 @@ export class EmployeesService {
       payload.pensionGradeSource = employee.pensionGradeSource;
     }
 
+    // 健康保険の資格情報
+    if (employee.healthQualificationDate != null) {
+      payload.healthQualificationDate = employee.healthQualificationDate;
+    }
+    if (employee.healthLossDate != null) {
+      payload.healthLossDate = employee.healthLossDate;
+    }
+    if (employee.healthQualificationKind != null) {
+      payload.healthQualificationKind = employee.healthQualificationKind;
+    }
+    if (employee.healthLossReasonKind != null) {
+      payload.healthLossReasonKind = employee.healthLossReasonKind;
+    }
+
+    // 厚生年金の資格情報
+    if (employee.pensionQualificationDate != null) {
+      payload.pensionQualificationDate = employee.pensionQualificationDate;
+    }
+    if (employee.pensionLossDate != null) {
+      payload.pensionLossDate = employee.pensionLossDate;
+    }
+    if (employee.pensionQualificationKind != null) {
+      payload.pensionQualificationKind = employee.pensionQualificationKind;
+    }
+    if (employee.pensionLossReasonKind != null) {
+      payload.pensionLossReasonKind = employee.pensionLossReasonKind;
+    }
+
+    // 就業状態
+    if (employee.workingStatus != null) {
+      payload.workingStatus = employee.workingStatus;
+    }
+    if (employee.workingStatusStartDate != null) {
+      payload.workingStatusStartDate = employee.workingStatusStartDate;
+    }
+    if (employee.workingStatusEndDate != null) {
+      payload.workingStatusEndDate = employee.workingStatusEndDate;
+    }
+    if (employee.premiumTreatment != null) {
+      payload.premiumTreatment = employee.premiumTreatment;
+    }
+    if (employee.workingStatusNote != null) {
+      payload.workingStatusNote = employee.workingStatusNote;
+    }
+
     await setDoc(ref, payload, { merge: true });
   }
 

@@ -136,6 +136,109 @@ export interface EmployeeDialogData {
         <mat-label>厚生年金番号</mat-label>
         <input matInput formControlName="pensionNumber" />
       </mat-form-field>
+
+      <!-- 資格情報（健康保険） -->
+      <p class="section-title">資格情報（健康保険）</p>
+
+      <mat-form-field appearance="outline">
+        <mat-label>資格取得日（健保）</mat-label>
+        <input matInput type="date" formControlName="healthQualificationDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>資格取得区分（健保）</mat-label>
+        <mat-select formControlName="healthQualificationKind">
+          <mat-option [value]="'new_hire'">新規採用</mat-option>
+          <mat-option [value]="'expansion'">適用拡大</mat-option>
+          <mat-option [value]="'hours_change'">所定労働時間変更</mat-option>
+          <mat-option [value]="'other'">その他</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>資格喪失日（健保）</mat-label>
+        <input matInput type="date" formControlName="healthLossDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>喪失理由区分（健保）</mat-label>
+        <mat-select formControlName="healthLossReasonKind">
+          <mat-option [value]="'retirement'">退職</mat-option>
+          <mat-option [value]="'hours_decrease'">所定労働時間減少</mat-option>
+          <mat-option [value]="'death'">死亡</mat-option>
+          <mat-option [value]="'other'">その他</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- 資格情報（厚生年金） -->
+      <p class="section-title">資格情報（厚生年金）</p>
+
+      <mat-form-field appearance="outline">
+        <mat-label>資格取得日（厚年）</mat-label>
+        <input matInput type="date" formControlName="pensionQualificationDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>資格取得区分（厚年）</mat-label>
+        <mat-select formControlName="pensionQualificationKind">
+          <mat-option [value]="'new_hire'">新規採用</mat-option>
+          <mat-option [value]="'expansion'">適用拡大</mat-option>
+          <mat-option [value]="'hours_change'">所定労働時間変更</mat-option>
+          <mat-option [value]="'other'">その他</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>資格喪失日（厚年）</mat-label>
+        <input matInput type="date" formControlName="pensionLossDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>喪失理由区分（厚年）</mat-label>
+        <mat-select formControlName="pensionLossReasonKind">
+          <mat-option [value]="'retirement'">退職</mat-option>
+          <mat-option [value]="'hours_decrease'">所定労働時間減少</mat-option>
+          <mat-option [value]="'death'">死亡</mat-option>
+          <mat-option [value]="'other'">その他</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- 就業状態 -->
+      <p class="section-title">就業状態</p>
+
+      <mat-form-field appearance="outline">
+        <mat-label>就業状態</mat-label>
+        <mat-select formControlName="workingStatus">
+          <mat-option [value]="'normal'">通常勤務</mat-option>
+          <mat-option [value]="'maternity_leave'">産前産後休業</mat-option>
+          <mat-option [value]="'childcare_leave'">育児休業</mat-option>
+          <mat-option [value]="'sick_leave'">傷病休職</mat-option>
+          <mat-option [value]="'other'">その他</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>状態開始日</mat-label>
+        <input matInput type="date" formControlName="workingStatusStartDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>状態終了日</mat-label>
+        <input matInput type="date" formControlName="workingStatusEndDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>保険料の扱い</mat-label>
+        <mat-select formControlName="premiumTreatment">
+          <mat-option [value]="'normal'">通常徴収</mat-option>
+          <mat-option [value]="'exempt'">保険料免除</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-row">
+        <mat-label>備考（就業状態）</mat-label>
+        <textarea matInput rows="2" formControlName="workingStatusNote"></textarea>
+      </mat-form-field>
     </form>
     <div mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>キャンセル</button>
@@ -160,6 +263,9 @@ export interface EmployeeDialogData {
         font-size: 0.95rem;
         font-weight: 600;
         color: #555;
+      }
+      .full-row {
+        grid-column: 1 / -1;
       }
       [mat-dialog-actions] {
         margin-top: 12px;
@@ -192,7 +298,20 @@ export class EmployeeFormDialogComponent {
     pensionGrade: [null],
     healthInsuredSymbol: [''],
     healthInsuredNumber: [''],
-    pensionNumber: ['']
+    pensionNumber: [''],
+    healthQualificationDate: [''],
+    healthLossDate: [''],
+    healthQualificationKind: [''],
+    healthLossReasonKind: [''],
+    pensionQualificationDate: [''],
+    pensionLossDate: [''],
+    pensionQualificationKind: [''],
+    pensionLossReasonKind: [''],
+    workingStatus: ['normal'],
+    workingStatusStartDate: [''],
+    workingStatusEndDate: [''],
+    premiumTreatment: ['normal'],
+    workingStatusNote: ['']
   });
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDialogData) {
@@ -203,7 +322,20 @@ export class EmployeeFormDialogComponent {
         healthGrade: employee.healthGrade ?? null,
         pensionGrade: employee.pensionGrade ?? null,
         weeklyWorkingHours: employee.weeklyWorkingHours ?? null,
-        weeklyWorkingDays: employee.weeklyWorkingDays ?? null
+        weeklyWorkingDays: employee.weeklyWorkingDays ?? null,
+        healthQualificationDate: employee.healthQualificationDate ?? '',
+        healthLossDate: employee.healthLossDate ?? '',
+        healthQualificationKind: employee.healthQualificationKind ?? '',
+        healthLossReasonKind: employee.healthLossReasonKind ?? '',
+        pensionQualificationDate: employee.pensionQualificationDate ?? '',
+        pensionLossDate: employee.pensionLossDate ?? '',
+        pensionQualificationKind: employee.pensionQualificationKind ?? '',
+        pensionLossReasonKind: employee.pensionLossReasonKind ?? '',
+        workingStatus: employee.workingStatus ?? 'normal',
+        workingStatusStartDate: employee.workingStatusStartDate ?? '',
+        workingStatusEndDate: employee.workingStatusEndDate ?? '',
+        premiumTreatment: employee.premiumTreatment ?? 'normal',
+        workingStatusNote: employee.workingStatusNote ?? ''
       } as any);
     }
   }
