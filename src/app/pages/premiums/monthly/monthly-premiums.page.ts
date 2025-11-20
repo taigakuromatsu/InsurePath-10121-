@@ -13,8 +13,9 @@ import { firstValueFrom } from 'rxjs';
 
 import { CurrentOfficeService } from '../../../services/current-office.service';
 import { EmployeesService } from '../../../services/employees.service';
+import { MastersService } from '../../../services/masters.service';
 import { MonthlyPremiumsService } from '../../../services/monthly-premiums.service';
-import { Employee, MonthlyPremium } from '../../../types';
+import { Employee, MonthlyPremium, Office } from '../../../types';
 
 @Component({
   selector: 'ip-monthly-premiums-page',
@@ -35,9 +36,9 @@ import { Employee, MonthlyPremium } from '../../../types';
   template: `
     <section class="page monthly-premiums">
       <mat-card>
-        <h1>月次保険料 計算・保存</h1>
+        <h1>月次保険料 一覧・再計算</h1>
         <p>
-          対象年月と、健康保険・介護保険・厚生年金の「事業主＋被保険者合計の料率」を入力して、
+          対象年月を指定し、マスタで定義された保険料率を用いて
           現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
         </p>
 
@@ -47,21 +48,15 @@ import { Employee, MonthlyPremium } from '../../../types';
               <mat-label>対象年月</mat-label>
               <input matInput type="month" formControlName="yearMonth" required />
             </mat-form-field>
+          </div>
 
-            <mat-form-field appearance="outline">
-              <mat-label>健康保険 料率（合計）</mat-label>
-              <input matInput type="number" step="0.0001" placeholder="0.0991" formControlName="healthRate" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>介護保険 料率（合計）</mat-label>
-              <input matInput type="number" step="0.0001" placeholder="0.0191" formControlName="careRate" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>厚生年金 料率（合計）</mat-label>
-              <input matInput type="number" step="0.0001" placeholder="0.183" formControlName="pensionRate" />
-            </mat-form-field>
+          <div class="rate-summary" *ngIf="rateSummary() as r">
+            <p>適用される保険料率（{{ form.get('yearMonth')?.value }}）</p>
+            <ul>
+              <li>健康保険: {{ r.healthRate != null ? (r.healthRate | percent: '1.2-2') : '未設定' }}</li>
+              <li>介護保険: {{ r.careRate != null ? (r.careRate | percent: '1.2-2') : '-' }}</li>
+              <li>厚生年金: {{ r.pensionRate != null ? (r.pensionRate | percent: '1.2-2') : '未設定' }}</li>
+            </ul>
           </div>
 
           <div class="actions">
@@ -158,6 +153,12 @@ import { Employee, MonthlyPremium } from '../../../types';
         gap: 1rem;
       }
 
+      .rate-summary {
+        background: #fafafa;
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+      }
+
       .actions {
         display: flex;
         justify-content: flex-end;
@@ -190,6 +191,7 @@ export class MonthlyPremiumsPage {
   private readonly fb = inject(FormBuilder);
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly employeesService = inject(EmployeesService);
+  private readonly mastersService = inject(MastersService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly auth = inject(Auth);
@@ -197,12 +199,10 @@ export class MonthlyPremiumsPage {
   readonly officeId$ = this.currentOffice.officeId$;
   readonly loading = signal(false);
   readonly results = signal<(MonthlyPremium & { employeeName: string })[]>([]);
+  readonly rateSummary = signal<{ healthRate?: number; careRate?: number; pensionRate?: number } | null>(null);
 
   readonly form = this.fb.group({
-    yearMonth: [new Date().toISOString().substring(0, 7), Validators.required],
-    healthRate: [null, [Validators.required, Validators.min(0), Validators.max(1)]],
-    careRate: [null, [Validators.min(0), Validators.max(1)]],
-    pensionRate: [null, [Validators.required, Validators.min(0), Validators.max(1)]]
+    yearMonth: [new Date().toISOString().substring(0, 7), Validators.required]
   });
 
   readonly displayedColumns = [
@@ -226,6 +226,32 @@ export class MonthlyPremiumsPage {
     return this.results().reduce((sum, r) => sum + r.totalEmployer, 0);
   });
 
+  constructor() {
+    this.form.get('yearMonth')?.valueChanges.subscribe(() => {
+      this.refreshRateSummary();
+    });
+    this.refreshRateSummary();
+  }
+
+  private async refreshRateSummary(office?: Office | null, yearMonth?: string | null): Promise<void> {
+    const targetOffice = office ?? (await firstValueFrom(this.currentOffice.office$));
+    const targetYearMonth = yearMonth ?? this.form.get('yearMonth')?.value;
+    if (!targetOffice || !targetYearMonth) {
+      this.rateSummary.set(null);
+      return;
+    }
+    try {
+      const rates = await this.mastersService.getRatesForYearMonth(
+        targetOffice,
+        targetYearMonth as string
+      );
+      this.rateSummary.set(rates);
+    } catch (error) {
+      console.error(error);
+      this.rateSummary.set(null);
+    }
+  }
+
   async onCalculateAndSave(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -241,6 +267,12 @@ export class MonthlyPremiumsPage {
         return;
       }
 
+      const office = await firstValueFrom(this.currentOffice.office$);
+      if (!office) {
+        this.snackBar.open('事業所情報を取得できませんでした', '閉じる', { duration: 3000 });
+        return;
+      }
+
       const currentUser = this.auth.currentUser;
       if (!currentUser) {
         this.snackBar.open('ログイン情報を取得できませんでした', '閉じる', { duration: 3000 });
@@ -250,13 +282,9 @@ export class MonthlyPremiumsPage {
 
       const formValue = this.form.value;
       const yearMonth = formValue.yearMonth as string;
-      const healthRate = Number(formValue.healthRate);
-      const careRate =
-        formValue.careRate !== null && formValue.careRate !== undefined
-          ? Number(formValue.careRate)
-          : undefined;
-      const pensionRate = Number(formValue.pensionRate);
       const calcDate = new Date().toISOString();
+
+      await this.refreshRateSummary(office, yearMonth);
 
       const employees = await firstValueFrom(this.employeesService.list(officeId));
 
@@ -264,9 +292,6 @@ export class MonthlyPremiumsPage {
         officeId,
         yearMonth,
         calcDate,
-        healthRate,
-        careRate,
-        pensionRate,
         employees: employees as Employee[],
         calculatedByUserId
       });
@@ -291,7 +316,7 @@ export class MonthlyPremiumsPage {
       this.snackBar.open(message, '閉じる', { duration: 5000 });
     } catch (error) {
       console.error('月次保険料の計算・保存に失敗しました', error);
-      this.snackBar.open('月次保険料の計算・保存に失敗しました。コンソールを確認してください。', '閉じる', {
+      this.snackBar.open('月次保険料の計算・保存に失敗しました。マスタ設定を確認してください。', '閉じる', {
         duration: 5000
       });
     } finally {
