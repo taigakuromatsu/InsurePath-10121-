@@ -1,4 +1,4 @@
-# P1-5 指示書
+# P1-5 指示書（最終ドラフト）
 
 **テーマ**: 標準報酬月額・等級・保険プランマスタ管理機能の実装
 
@@ -6,68 +6,99 @@
 
 ## 0. ゴール・位置づけ
 
-CATALOG の (6)「標準報酬月額・等級・保険プランマスタ管理機能」を実装する。
+CATALOG の (6)「標準報酬月額・等級・保険プランマスタ管理機能」を、InsurePath の実装として具体化するフェーズ。
 
-現在、P1-4 の月次保険料計算画面では料率を手動入力しているが、本機能により：
-- 事業所ごとに保険料率マスタを登録・管理できる
-- 年度別にマスタを管理できる（改定対応）
-- 協会けんぽの初期値プリセット機能を提供
-- 標準報酬等級表を登録・管理できる
+今回は、以下 2 点までを P1-5 のスコープとする。
 
-**後続フェーズ（P1-6 以降）で、月次保険料計算画面からマスタを自動取得して使用する想定。**
+### 0-1. 標準報酬月額・保険料率マスタ管理の実装
+
+- 事業所ごとの健康保険・介護保険・厚生年金のマスタ（年度別）を Firestore に保存・編集できる。
+- 協会けんぽプリセット（都道府県別）、厚生年金・介護保険のプリセットを用意する。
+- `MastersPage` から CRUD（一覧・追加・編集・削除）ができる。
+
+### 0-2. 月次保険料計算画面をマスタ連携に切り替える
+
+- `monthly-premiums.page.ts` から料率の手入力 UI を撤去し、対象年月を指定して計算するだけの画面にする。
+- `MonthlyPremiumsService.saveForMonth()` がマスタから料率を自動取得して計算するように変更する。
+- 画面上には、「この年月に適用される料率（健保・介護・厚年）」を参照用に表示する。
+
+**※ 今回は標準報酬等級表（StandardRewardBand）は「登録・管理まで」。実際の計算ロジックではまだ使わず、現行通り `monthlyWage` + `healthGrade`/`pensionGrade` を利用する。**
 
 ---
 
-## 1. 前提・現状確認
+## 1. 前提・現状
 
-### 1-1. 既存実装の確認
+### 1-1. 既存の前提
 
-- ✅ `HealthRateTable`, `CareRateTable`, `PensionRateTable`, `StandardRewardBand` 型は `types.ts` に定義済み
-- ✅ `MastersPage` はプレースホルダー状態
-- ✅ `Office` 型に `healthPlanType`, `kyokaiPrefCode`, `kyokaiPrefName`, `unionName`, `unionCode` が定義済み
-- ✅ `CurrentOfficeService` で事業所情報を取得可能
+- `types.ts` に以下の型が定義済み（必要に応じて微調整可）
+  - `Employee`
+  - `HealthRateTable`, `CareRateTable`, `PensionRateTable`
+  - `StandardRewardBand`
+  - `Office`
+  - `MonthlyPremium`, `YearMonthString`, `IsoDateString` など
+
+- `premium-calculator.ts` は P1-4 で以下が済んでいる前提
+  - `monthlyWage` を「健保・厚年共通の標準報酬月額」として扱う
+  - 等級は `employee.healthGrade` / `employee.pensionGrade`
+  - `isInsured` が false の場合は対象外
+  - `healthQualificationDate` / `healthLossDate` / `pensionQualificationDate` / `pensionLossDate` を使って、「当月に資格があるか」を判定済み
+
+- `MonthlyPremiumsPage` / `MonthlyPremiumsService` は、まだ料率を画面から直接入力して計算する暫定版の実装になっている。
 
 ### 1-2. 注意事項
 
-- マスタデータは年度（`year`）で管理する
-- 協会けんぽの場合は都道府県別の料率を管理
-- 組合健保の場合は事業所ごとに異なる料率を設定可能
-- 厚生年金は全国共通のため、事業所に関係なく年度別に管理
+- `premium-calculator.ts` は P1-5 では変更しない。料率（`PremiumRateContext`）の中身をどこから持ってくるかだけを差し替える。
+- 標準報酬等級表（`StandardRewardBand[]`）は今は計算に使わない。将来の「等級自動判定」や「過去月の等級履歴管理」で利用予定。
 
 ---
 
 ## 2. 対象ファイル
 
-### 既存ファイル（編集）
+### 2-1. 既存ファイル（編集）
 
 - `src/app/pages/masters/masters.page.ts`
-  → プレースホルダーを実装に置き換える
+  → 現状プレースホルダー → 実装に置き換える。
+
+- `src/app/services/monthly-premiums.service.ts`
+  → 料率をフォームから受け取る形 → マスタを参照する形に変更。
+
+- `src/app/pages/premiums/monthly/monthly-premiums.page.ts`
+  → 料率入力フォームを削除し、「対象年月＋結果表示」中心の画面に変更。
 
 - `src/app/types.ts`
-  → 型定義は既にある前提（必要に応じて微調整）
+  → 既存の `HealthRateTable`, `CareRateTable`, `PensionRateTable`, `StandardRewardBand`, `Office` の定義を、実装と矛盾しないよう必要に応じて微調整。
 
-### 新規作成ファイル
+**前提**: `Office` に以下が存在している前提（前フェーズで定義済み）
+- `healthPlanType: 'kyokai' | 'kumiai'`
+- `kyokaiPrefCode?: string`
+- `kyokaiPrefName?: string`
+- `unionName?: string`
+- `unionCode?: string`
+
+### 2-2. 新規ファイル
 
 - `src/app/services/masters.service.ts`
-  → マスタデータのCRUD操作を担当
+  → 保険料率マスタ（健康・介護・厚年）の CRUD と、「対象年月での料率取得」ユーティリティ。
 
 - `src/app/utils/kyokai-presets.ts`
-  → 協会けんぽの初期値プリセットデータ
+  → 協会けんぽプリセット・標準報酬等級表・介護／厚年の基本プリセット。
 
 - `src/app/pages/masters/health-master-form-dialog.component.ts`
-  → 健康保険マスタ編集ダイアログ
+  → 健康保険マスタ編集用ダイアログ。
 
 - `src/app/pages/masters/care-master-form-dialog.component.ts`
-  → 介護保険マスタ編集ダイアログ
+  → 介護保険マスタ編集用ダイアログ。
 
 - `src/app/pages/masters/pension-master-form-dialog.component.ts`
-  → 厚生年金マスタ編集ダイアログ
+  → 厚生年金マスタ編集用ダイアログ。
+
+**補足**: Office 情報の取得には、既存の `CurrentOfficeService` または `OfficesService` 等、現行実装に合わせて最適な手段を利用して良い。
 
 ---
 
 ## 3. Firestore コレクション構造
 
-### コレクション構造
+`offices/{officeId}` 配下に、年度別のマスタを持つ。
 
 ```
 offices/
@@ -107,11 +138,13 @@ offices/
         updatedAt: string
 ```
 
-**注意**: 厚生年金マスタは全国共通のため、`officeId` は保持するが、実質的には年度のみで管理する。
+**「厚生年金マスタは全国共通」だが、実装の簡潔さのために `officeId` も保持する（UI 的には事業所ごとに見える形で OK）。**
+
+年度の扱いはシンプルに「`year = 年`（例: 2025）」で管理する。
 
 ---
 
-## 4. MastersService の実装
+## 4. MastersService の仕様
 
 **ファイル**: `src/app/services/masters.service.ts`
 
@@ -124,54 +157,49 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   setDoc,
   where,
   orderBy
 } from '@angular/fire/firestore';
-import { from, map, Observable } from 'rxjs';
+import { from, map, Observable, firstValueFrom } from 'rxjs';
 
 import {
   CareRateTable,
   HealthRateTable,
+  Office,
   PensionRateTable,
-  StandardRewardBand
+  StandardRewardBand,
+  YearMonthString
 } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class MastersService {
   constructor(private readonly firestore: Firestore) {}
+
+  // 健保／介護／厚年 各コレクションの ref 取得ヘルパー
 }
 ```
 
-### 4-2. 内部ヘルパー
-
-#### `private getHealthCollectionRef(officeId: string)`
+### 4-2. コレクション参照ヘルパー
 
 ```typescript
 private getHealthCollectionRef(officeId: string) {
   return collection(this.firestore, 'offices', officeId, 'healthRateTables');
 }
-```
 
-#### `private getCareCollectionRef(officeId: string)`
-
-```typescript
 private getCareCollectionRef(officeId: string) {
   return collection(this.firestore, 'offices', officeId, 'careRateTables');
 }
-```
 
-#### `private getPensionCollectionRef(officeId: string)`
-
-```typescript
 private getPensionCollectionRef(officeId: string) {
   return collection(this.firestore, 'offices', officeId, 'pensionRateTables');
 }
 ```
 
-### 4-3. 健康保険マスタのメソッド
+### 4-3. 健康保険マスタ CRUD
 
 #### `listHealthRateTables(officeId: string): Observable<HealthRateTable[]>`
 
@@ -271,40 +299,123 @@ async deleteHealthRateTable(officeId: string, id: string): Promise<void> {
 }
 ```
 
-### 4-4. 介護保険マスタのメソッド
+### 4-4. 介護保険マスタ CRUD
 
-同様のパターンで以下を実装：
+同様の構造で以下を実装：
 
 - `listCareRateTables(officeId: string): Observable<CareRateTable[]>`
 - `getCareRateTable(officeId: string, id: string): Observable<CareRateTable | null>`
 - `async saveCareRateTable(officeId: string, table: Partial<CareRateTable> & { id?: string }): Promise<void>`
+  - `careRate` のみ（等級表なし）。
 - `async deleteCareRateTable(officeId: string, id: string): Promise<void>`
 
-**注意**: 介護保険マスタは `bands` を持たない（料率のみ）。
+### 4-5. 厚生年金マスタ CRUD
 
-### 4-5. 厚生年金マスタのメソッド
-
-同様のパターンで以下を実装：
+同様の構造で以下を実装：
 
 - `listPensionRateTables(officeId: string): Observable<PensionRateTable[]>`
 - `getPensionRateTable(officeId: string, id: string): Observable<PensionRateTable | null>`
 - `async savePensionRateTable(officeId: string, table: Partial<PensionRateTable> & { id?: string }): Promise<void>`
 - `async deletePensionRateTable(officeId: string, id: string): Promise<void>`
 
-**注意**: 厚生年金マスタは全国共通だが、`officeId` は保持する（実装の一貫性のため）。
+### 4-6. 対象年月の料率取得ユーティリティ
+
+**P1-5 の肝。`MonthlyPremiumsService` から利用する。**
+
+```typescript
+/**
+ * 対象年月に適用される保険料率セットを取得する。
+ *
+ * - yearMonth の「年」（例: '2025-09' → 2025）を年度として扱う。
+ * - 健康保険:
+ *   - office.healthPlanType === 'kyokai' の場合:
+ *     - office.kyokaiPrefCode と year が一致するレコードから1件選ぶ（なければ null 相当）。
+ *   - office.healthPlanType === 'kumiai' の場合:
+ *     - officeId + year で 1件選ぶ（組合名・コードは office に保持）。
+ * - 介護保険:
+ *   - officeId + year で 1件選ぶ。
+ * - 厚生年金:
+ *   - officeId + year で 1件選ぶ（全国共通だが実装簡略化のため officeId も含める）。
+ *
+ * 戻り値:
+ *  - healthRate / careRate / pensionRate は、見つからなければ undefined。
+ */
+async getRatesForYearMonth(
+  office: Office,
+  yearMonth: YearMonthString
+): Promise<{
+  healthRate?: number;
+  careRate?: number;
+  pensionRate?: number;
+}> {
+  const year = parseInt(yearMonth.substring(0, 4), 10);
+  const officeId = office.id;
+
+  const results: {
+    healthRate?: number;
+    careRate?: number;
+    pensionRate?: number;
+  } = {};
+
+  // 健康保険料率の取得
+  if (office.healthPlanType === 'kyokai' && office.kyokaiPrefCode) {
+    // 協会けんぽ: 都道府県コード + 年度で検索
+    const healthRef = this.getHealthCollectionRef(officeId);
+    const healthQuery = query(
+      healthRef,
+      where('year', '==', year),
+      where('planType', '==', 'kyokai'),
+      where('kyokaiPrefCode', '==', office.kyokaiPrefCode)
+    );
+    const healthSnapshot = await firstValueFrom(from(getDocs(healthQuery)));
+    if (!healthSnapshot.empty) {
+      results.healthRate = healthSnapshot.docs[0].data()['healthRate'] as number;
+    }
+  } else if (office.healthPlanType === 'kumiai') {
+    // 組合健保: officeId + 年度で検索
+    const healthRef = this.getHealthCollectionRef(officeId);
+    const healthQuery = query(
+      healthRef,
+      where('year', '==', year),
+      where('planType', '==', 'kumiai')
+    );
+    const healthSnapshot = await firstValueFrom(from(getDocs(healthQuery)));
+    if (!healthSnapshot.empty) {
+      results.healthRate = healthSnapshot.docs[0].data()['healthRate'] as number;
+    }
+  }
+
+  // 介護保険料率の取得
+  const careRef = this.getCareCollectionRef(officeId);
+  const careQuery = query(careRef, where('year', '==', year));
+  const careSnapshot = await firstValueFrom(from(getDocs(careQuery)));
+  if (!careSnapshot.empty) {
+    results.careRate = careSnapshot.docs[0].data()['careRate'] as number;
+  }
+
+  // 厚生年金料率の取得
+  const pensionRef = this.getPensionCollectionRef(officeId);
+  const pensionQuery = query(pensionRef, where('year', '==', year));
+  const pensionSnapshot = await firstValueFrom(from(getDocs(pensionQuery)));
+  if (!pensionSnapshot.empty) {
+    results.pensionRate = pensionSnapshot.docs[0].data()['pensionRate'] as number;
+  }
+
+  return results;
+}
+```
+
+**重要**: ここでは「単純に year 一致のレコードを1件選ぶ」だけでよい。将来の「改定月による切り替え」は別フェーズで拡張する。
 
 ---
 
-## 5. 協会けんぽプリセットデータの実装
+## 5. 協会けんぽプリセット & 等級表
 
 **ファイル**: `src/app/utils/kyokai-presets.ts`
 
 ### 5-1. 都道府県コードマッピング
 
 ```typescript
-/**
- * 都道府県コードと名称のマッピング
- */
 export const PREFECTURE_CODES: Record<string, string> = {
   '01': '北海道',
   '02': '青森県',
@@ -356,32 +467,31 @@ export const PREFECTURE_CODES: Record<string, string> = {
 };
 ```
 
-### 5-2. 協会けんぽ健康保険料率（2024年度参考値）
+### 5-2. 協会けんぽ健康保険料率（例・ダミー値）
 
 ```typescript
 /**
- * 協会けんぽの健康保険料率（都道府県別、2024年度参考値）
- * 
- * 注意: 実際の値は公式サイトで確認が必要。ここでは参考値として実装。
- * ユーザーがマスタ画面で実際の値を入力・更新できるようにする。
+ * 協会けんぽの健康保険料率（都道府県別、例としての値）
+ *
+ * ※ 実際の値はユーザーがマスタ画面で編集できる前提。
+ *   ここでは「初期値としてのサンプル」を用意するだけ。
  */
 export const KYOKAI_HEALTH_RATES_2024: Record<string, number> = {
-  '01': 0.1000, // 北海道の例
-  '13': 0.0981, // 東京都の例
-  '27': 0.0985, // 大阪府の例
-  // ... 他の都道府県も同様に定義
-  // 実際の値は公式サイトで確認が必要
+  '01': 0.1000,
+  '13': 0.0981,
+  '27': 0.0985,
+  // ... 必要に応じて主要都道府県のみ定義してもよい
 };
 ```
 
-### 5-3. 標準報酬等級表（基本構造）
+### 5-3. 標準報酬等級表の基本配列
 
 ```typescript
 import { StandardRewardBand } from '../types';
 
 /**
  * 標準報酬等級表（健康保険・厚生年金共通の基本構造）
- * 
+ *
  * 実際の等級表は等級1〜47まで存在するが、ここでは主要な等級のみを定義。
  * ユーザーがマスタ画面で全等級を登録できるようにする。
  */
@@ -401,38 +511,20 @@ export const STANDARD_REWARD_BANDS_BASE: StandardRewardBand[] = [
 ];
 ```
 
-### 5-4. 介護保険料率（2024年度参考値）
+**注意**: P1-5 では「等級表を管理する UI がある」ことが目的。計算ではまだ `standardMonthly` を参照しない。
+
+### 5-4. 介護・厚年のプリセット
 
 ```typescript
-/**
- * 介護保険料率（全国一律、2024年度参考値）
- * 
- * 注意: 実際の値は公式サイトで確認が必要。ここでは参考値として実装。
- */
-export const CARE_RATE_2024 = 0.0191; // 1.91%
+export const CARE_RATE_2024 = 0.0191;   // サンプル値
+export const PENSION_RATE_2024 = 0.183; // サンプル値
 ```
 
-### 5-5. 厚生年金保険料率（2024年度参考値）
+### 5-5. プリセット取得関数
 
 ```typescript
-/**
- * 厚生年金保険料率（全国共通、2024年度参考値）
- * 
- * 注意: 実際の値は公式サイトで確認が必要。ここでは参考値として実装。
- */
-export const PENSION_RATE_2024 = 0.183; // 18.3%
-```
+import { CareRateTable, HealthRateTable, PensionRateTable } from '../types';
 
-### 5-6. プリセット取得関数
-
-```typescript
-/**
- * 協会けんぽの健康保険マスタプリセットを取得
- * 
- * @param prefCode - 都道府県コード（例: '13'）
- * @param year - 年度（例: 2024）
- * @returns 健康保険マスタのプリセットデータ
- */
 export function getKyokaiHealthRatePreset(
   prefCode: string,
   year: number
@@ -447,12 +539,6 @@ export function getKyokaiHealthRatePreset(
   };
 }
 
-/**
- * 介護保険マスタプリセットを取得
- * 
- * @param year - 年度（例: 2024）
- * @returns 介護保険マスタのプリセットデータ
- */
 export function getCareRatePreset(year: number): Partial<CareRateTable> {
   return {
     year,
@@ -460,12 +546,6 @@ export function getCareRatePreset(year: number): Partial<CareRateTable> {
   };
 }
 
-/**
- * 厚生年金マスタプリセットを取得
- * 
- * @param year - 年度（例: 2024）
- * @returns 厚生年金マスタのプリセットデータ
- */
 export function getPensionRatePreset(year: number): Partial<PensionRateTable> {
   return {
     year,
@@ -477,233 +557,321 @@ export function getPensionRatePreset(year: number): Partial<PensionRateTable> {
 
 ---
 
-## 6. MastersPage の実装
+## 6. MastersPage（マスタ管理画面）の仕様
 
 **ファイル**: `src/app/pages/masters/masters.page.ts`
 
-### 6-1. UI要件
+### 6-1. UI 概要
 
-- **タブ形式**で3つのマスタを切り替え
-  - 「健康保険マスタ」タブ
-  - 「介護保険マスタ」タブ
-  - 「厚生年金マスタ」タブ
+**画面構成**:
+- タイトル: 「マスタ管理」
+- 説明文: 「保険料率や標準報酬等級を年度別に管理します。」
+- タブ:
+  - 「健康保険マスタ」
+  - 「介護保険マスタ」
+  - 「厚生年金マスタ」
 
-- 各タブには以下を表示:
-  - 年度別のマスタ一覧（テーブル形式）
-  - 「新規登録」ボタン
-  - 各行に「編集」「削除」ボタン
+### 6-2. 各タブの共通要素
 
-### 6-2. テーブル列（健康保険マスタ例）
+- 年度別のマスタ一覧を `MatTable` で表示
+- 上部右側に「新規登録」ボタン
+- 行末に「編集」「削除」ボタン
+- 読み取りは `MastersService` の `listXXXRateTables` を利用
+- ダイアログは以下コンポーネントを利用
+  - 健保: `HealthMasterFormDialogComponent`
+  - 介護: `CareMasterFormDialogComponent`
+  - 厚年: `PensionMasterFormDialogComponent`
 
-- 年度
-- プラン種別（協会けんぽ/組合健保）
-- 都道府県名（協会けんぽの場合）
-- 組合名（組合健保の場合）
-- 健康保険料率
-- 等級数
+### 6-3. 表示項目例（健康保険マスタ）
+
+- 年度（year）
+- プラン種別（協会けんぽ / 組合健保）
+- 都道府県名 or 組合名
+- 健康保険料率（パーセント表示）
+- 等級数（`bands.length`）
 - 操作（編集・削除）
 
-### 6-3. 実装パターン
+介護・厚年は適宜簡略化してよい（料率 + 等級数 など）。
 
+---
+
+## 7. マスタ編集ダイアログの仕様（概要）
+
+### 7-1. HealthMasterFormDialog
+
+**フォーム項目**:
+- 年度（number, required）
+- プラン種別（select: 'kyokai' | 'kumiai'）
+- 協会けんぽの場合:
+  - 都道府県コード（select + `PREFECTURE_CODES`）
+  - 都道府県名（表示のみ or 自動入力）
+- 組合健保の場合:
+  - 組合名
+  - 組合コード
+- 健康保険料率（number, 0.01〜1.0）
+- 標準報酬等級表（`FormArray<StandardRewardBand>`）
+
+**新規作成時のみ「協会けんぽの初期値を読み込む」ボタン**
+- クリックで `getKyokaiHealthRatePreset` を呼び出してフォームにセット。
+
+### 7-2. CareMasterFormDialog
+
+- 年度
+- 介護保険料率
+- **新規作成時のみ「初期値を読み込む」**（`getCareRatePreset`）
+
+### 7-3. PensionMasterFormDialog
+
+- 年度
+- 厚生年金料率
+- 標準報酬等級表
+- **新規作成時のみ「初期値を読み込む」**（`getPensionRatePreset`）
+
+実装パターンは `EmployeeFormDialogComponent` と同じく `ReactiveFormsModule` + `MatDialog` + `FormArray` で OK。
+
+---
+
+## 8. 月次保険料計算との連携
+
+ここが P1-5 の後半のメイン。
+
+### 8-1. SaveForMonthOptions の変更
+
+**ファイル**: `src/app/services/monthly-premiums.service.ts`
+
+**現状**:
 ```typescript
-import { Component, inject, signal } from '@angular/core';
-import { MatTabsModule } from '@angular/material/tabs';
-import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { AsyncPipe, DecimalPipe, NgIf } from '@angular/common';
-import { firstValueFrom } from 'rxjs';
-
-import { CurrentOfficeService } from '../../services/current-office.service';
-import { MastersService } from '../../services/masters.service';
-import { HealthRateTable, CareRateTable, PensionRateTable } from '../../types';
-import { HealthMasterFormDialogComponent } from './health-master-form-dialog.component';
-import { CareMasterFormDialogComponent } from './care-master-form-dialog.component';
-import { PensionMasterFormDialogComponent } from './pension-master-form-dialog.component';
-
-@Component({
-  selector: 'ip-masters-page',
-  standalone: true,
-  imports: [
-    MatCardModule,
-    MatTabsModule,
-    MatTableModule,
-    MatButtonModule,
-    MatIconModule,
-    MatDialogModule,
-    MatSnackBarModule,
-    AsyncPipe,
-    DecimalPipe,
-    NgIf
-  ],
-  template: `
-    <section class="page masters">
-      <mat-card>
-        <h1>マスタ管理</h1>
-        <p>保険料率や標準報酬等級を年度別に管理します。</p>
-
-        <mat-tab-group>
-          <!-- 健康保険マスタタブ -->
-          <mat-tab label="健康保険マスタ">
-            <!-- テーブルとボタン -->
-          </mat-tab>
-
-          <!-- 介護保険マスタタブ -->
-          <mat-tab label="介護保険マスタ">
-            <!-- テーブルとボタン -->
-          </mat-tab>
-
-          <!-- 厚生年金マスタタブ -->
-          <mat-tab label="厚生年金マスタ">
-            <!-- テーブルとボタン -->
-          </mat-tab>
-        </mat-tab-group>
-      </mat-card>
-    </section>
-  `
-})
-export class MastersPage {
-  // 実装
+export interface SaveForMonthOptions {
+  officeId: string;
+  yearMonth: YearMonthString;
+  calcDate: IsoDateString;
+  healthRate: number;
+  careRate?: number;
+  pensionRate: number;
+  employees: Employee[];
+  calculatedByUserId: string;
 }
 ```
 
----
+**これを、料率を含まない形に変更する**:
+```typescript
+export interface SaveForMonthOptions {
+  officeId: string;
+  yearMonth: YearMonthString;
+  calcDate: IsoDateString;
+  employees: Employee[];
+  calculatedByUserId: string;
+}
+```
 
-## 7. 健康保険マスタ編集ダイアログの実装
+### 8-2. saveForMonth 内のロジック変更
 
-**ファイル**: `src/app/pages/masters/health-master-form-dialog.component.ts`
+引数から `healthRate` / `careRate` / `pensionRate` を削除。
 
-### 7-1. UI要件
+`MastersService` と `Office` 情報を使って、当該年月の料率を取得する。
 
-- フォーム項目:
-  - 年度（number, required）
-  - プラン種別（select: 'kyokai' | 'kumiai', required）
-  - 協会けんぽの場合:
-    - 都道府県コード（select）
-    - 都道府県名（自動入力）
-  - 組合健保の場合:
-    - 組合名（text）
-    - 組合コード（text）
-  - 健康保険料率（number, required, 0.01〜1.0の範囲）
-  - 標準報酬等級表（動的フォーム配列）
-    - 等級（number）
-    - 下限額（number）
-    - 上限額（number）
-    - 標準報酬月額（number）
+```typescript
+async saveForMonth(options: SaveForMonthOptions): Promise<MonthlyPremium[]> {
+  const { officeId, yearMonth, calcDate, employees, calculatedByUserId } = options;
 
-- 「協会けんぽの初期値を読み込む」ボタン（新規作成時のみ表示）
-  - クリックで `kyokai-presets.ts` から該当都道府県のデータを読み込み
+  // 1. Office 情報の取得（既存の仕組みに合わせる）
+  // OfficesService に getOfficeById があればそれを使う、なければ firstValueFrom(watchOffice) を使う
+  const office = await firstValueFrom(this.officesService.watchOffice(officeId));
+  if (!office) {
+    throw new Error(`事業所が見つかりません: ${officeId}`);
+  }
 
-- 等級表の追加・削除ボタン
+  // 2. MastersService から対象年月の料率セットを取得
+  const { healthRate, careRate, pensionRate } =
+    await this.mastersService.getRatesForYearMonth(office, yearMonth);
 
-### 7-2. 実装パターン
+  if (healthRate == null || pensionRate == null) {
+    // 健保・厚年のどちらかが取得できなければエラー
+    throw new Error('healthRate / pensionRate がマスタに設定されていません');
+  }
 
-`EmployeeFormDialogComponent` のパターンに従う。`FormArray` で等級表を動的に管理。
+  const rateContext: PremiumRateContext = {
+    yearMonth,
+    calcDate,
+    healthRate,
+    careRate,
+    pensionRate,
+  };
 
----
+  // 以降は現行実装と同じロジックでOK（従業員ループ→ calculateMonthlyPremiumForEmployee → Firestore 保存）
+  // ...
+}
+```
 
-## 8. 介護保険マスタ編集ダイアログの実装
+**ポイント**:
+- `premium-calculator.ts` の仕様に合わせて `healthRate`/`pensionRate` は必須。
+- `careRate` は `undefined` でも計算できる（計算側で 0 扱い）。
 
-**ファイル**: `src/app/pages/masters/care-master-form-dialog.component.ts`
-
-### 8-1. UI要件
-
-- フォーム項目:
-  - 年度（number, required）
-  - 介護保険料率（number, required, 0.01〜1.0の範囲）
-
-- 「協会けんぽの初期値を読み込む」ボタン（新規作成時のみ表示）
-
-**注意**: 介護保険マスタは等級表を持たない（料率のみ）。
-
----
-
-## 9. 厚生年金マスタ編集ダイアログの実装
-
-**ファイル**: `src/app/pages/masters/pension-master-form-dialog.component.ts`
-
-### 9-1. UI要件
-
-- フォーム項目:
-  - 年度（number, required）
-  - 厚生年金保険料率（number, required, 0.01〜1.0の範囲）
-  - 標準報酬等級表（動的フォーム配列）
-
-- 「初期値を読み込む」ボタン（新規作成時のみ表示）
-
-**注意**: 厚生年金は全国共通のため、事業所情報は不要。
+**注意**: `MonthlyPremiumsService` に `MastersService` と `OfficesService` を注入する必要がある。
 
 ---
 
-## 10. バリデーション・エラーハンドリング
+## 9. 月次保険料ページ（UI）の修正
 
-### 10-1. バリデーションルール
+**ファイル**: `src/app/pages/premiums/monthly/monthly-premiums.page.ts`
 
-- 年度: 1900以上2100以下
-- 保険料率: 0.01以上1.0以下（1%以上100%以下）
-- 等級表:
-  - 等級は1以上47以下
-  - 下限額 < 上限額
-  - 等級間の重複チェック（任意）
+### 9-1. フォーム構造の変更
 
-### 10-2. エラーハンドリング
+**現状**:
+```typescript
+readonly form = this.fb.group({
+  yearMonth: [new Date().toISOString().substring(0, 7), Validators.required],
+  healthRate: [null, ...],
+  careRate: [null, ...],
+  pensionRate: [null, ...]
+});
+```
 
-- Firestore の保存エラーは `MatSnackBar` で通知
-- フォームバリデーションエラーは適切に表示
-- 削除時は確認ダイアログを表示
+**これを対象年月のみにする**:
+```typescript
+readonly form = this.fb.group({
+  yearMonth: [new Date().toISOString().substring(0, 7), Validators.required]
+});
+```
+
+### 9-2. 料率入力欄の削除
+
+テンプレート内の以下 3 つの `mat-form-field` を削除：
+- 健康保険 料率（合計）
+- 介護保険 料率（合計）
+- 厚生年金 料率（合計）
+
+### 9-3. 適用料率の表示ブロック追加
+
+`MastersService` から取得した料率を `signal` に保持し、テンプレート上に「適用料率」として表示する。
+
+```typescript
+readonly rateSummary = signal<{
+  healthRate?: number;
+  careRate?: number;
+  pensionRate?: number;
+} | null>(null);
+```
+
+`onCalculateAndSave` 実行前 or 中で、`MastersService.getRatesForYearMonth` を呼び出して `rateSummary` を更新する。
+
+**テンプレート例**:
+```html
+<mat-card>
+  <h1>月次保険料 一覧・再計算</h1>
+  <p>
+    対象年月を指定し、マスタで定義された保険料率を用いて
+    現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
+  </p>
+
+  <form [formGroup]="form" (ngSubmit)="onCalculateAndSave()" class="premium-form">
+    <div class="form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>対象年月</mat-label>
+        <input matInput type="month" formControlName="yearMonth" required />
+      </mat-form-field>
+    </div>
+
+    <div class="rate-summary" *ngIf="rateSummary() as r">
+      <p>適用される保険料率（{{ form.get('yearMonth')?.value }}）</p>
+      <ul>
+        <li>健康保険: {{ r.healthRate != null ? (r.healthRate | percent:'1.2-2') : '未設定' }}</li>
+        <li>介護保険: {{ r.careRate != null ? (r.careRate | percent:'1.2-2') : '-' }}</li>
+        <li>厚生年金: {{ r.pensionRate != null ? (r.pensionRate | percent:'1.2-2') : '未設定' }}</li>
+      </ul>
+    </div>
+
+    <div class="actions">
+      <button
+        mat-raised-button
+        color="primary"
+        type="submit"
+        [disabled]="form.invalid || !(officeId$ | async) || loading()"
+      >
+        <mat-spinner *ngIf="loading()" diameter="20" class="inline-spinner"></mat-spinner>
+        計算して保存
+      </button>
+    </div>
+  </form>
+</mat-card>
+```
+
+**任意**: 「`healthRate` / `pensionRate` が未設定の場合はボタンを無効化」などの UX 改良はおまかせ。
+
+### 9-4. onCalculateAndSave の変更
+
+料率を `form` から読む処理を削除。
+
+`MonthlyPremiumsService.saveForMonth` への引数も対応させる。
+
+```typescript
+const yearMonth = formValue.yearMonth as string;
+const calcDate = new Date().toISOString();
+
+const employees = await firstValueFrom(this.employeesService.list(officeId));
+
+const savedPremiums = await this.monthlyPremiumsService.saveForMonth({
+  officeId,
+  yearMonth,
+  calcDate,
+  employees: employees as Employee[],
+  calculatedByUserId
+});
+```
+
+その直前か `saveForMonth` の中で、`MastersService.getRatesForYearMonth` を呼び、`rateSummary` にセットしておく。
+
+**注意**: `MonthlyPremiumsPage` に `MastersService` と `CurrentOfficeService`（または `OfficesService`）を注入する必要がある。
 
 ---
 
-## 11. スキップ・非対象事項
+## 10. スコープ外（今回やらないこと）
 
-この P1-5 では **やらない** と明示：
+P1-5 では以下はやらない：
 
-- ❌ 月次保険料計算画面からのマスタ自動取得（P1-6 以降で対応）
-- ❌ 等級自動判定機能（報酬月額から等級を自動判定）
+- ❌ 報酬月額からの「標準報酬等級の自動判定」
+- ❌ 標準報酬等級表を利用した等級自動更新
+- ❌ 過去年度にまたがる細かい改定月の管理（4月改定などの境目ロジック）
 - ❌ CSVインポート・エクスポート
-- ❌ 外部サイトからの自動取得
+- ❌ ボーナス（賞与）保険料画面とのマスタ連携
 
 ---
 
-## 12. 受け入れ条件（動作確認の観点）
+## 11. 動作確認・受け入れ条件
 
-### 12-1. 基本動作
+### 11-1. マスタ管理
 
-- ✅ マスタ管理画面が表示される
-- ✅ 3つのタブが切り替えられる
-- ✅ 各タブでマスタ一覧が表示される
+`MastersPage` で：
+- ✅ 健康保険 / 介護保険 / 厚生年金 のタブが切り替えられる。
+- ✅ 各タブで年度別マスタの一覧が表示される（空の場合は空表示）。
+- ✅ 「新規登録」からマスタを登録できる。
+- ✅ 既存マスタを編集できる。
+- ✅ マスタを削除できる（確認ダイアログあり）。
+- ✅ 健康保険マスタで「協会けんぽの初期値を読み込む」ボタンが動作し、フォームにプリセット値が入る。
 
-### 12-2. CRUD操作
+### 11-2. 月次保険料計算画面
 
-- ✅ 新規マスタを登録できる
-- ✅ 既存マスタを編集できる
-- ✅ マスタを削除できる（確認ダイアログ表示）
-
-### 12-3. プリセット機能
-
-- ✅ 協会けんぽの初期値を読み込める
-- ✅ 読み込んだ値がフォームに反映される
-
-### 12-4. バリデーション
-
-- ✅ フォームバリデーションが正しく動作する
-- ✅ エラーメッセージが適切に表示される
+- ✅ 月次保険料画面から料率入力欄がなくなっている。
+- ✅ 対象年月を選んだとき、画面上部に「適用料率」が表示される。
+- ✅ 健康保険・厚生年金のマスタが未設定の場合、計算時にエラー扱いになり、`MatSnackBar` で分かりやすいメッセージが表示される。
+- ✅ マスタが設定されている場合、従業員ごとの月次保険料が正しく計算・保存され、テーブルに表示される。
+- ✅ 入社前・資格取得前の月には、その従業員のレコードが作成されない（P1-4 のロジック維持）。
+- ✅ 過去の年月を指定しても、当時のマスタ（対象年度のレコード）で計算される。
 
 ---
 
-## 13. 実装時の注意事項
+## 12. 実装時の注意事項
 
-1. **既存コードの保護**: 既存の型定義やサービスを壊さない
+1. **既存コードの保護**: `premium-calculator.ts` は変更しない
 2. **年度管理**: 年度ごとに複数のマスタが存在可能（改定対応）
 3. **協会けんぽの都道府県情報**: `Office` の `kyokaiPrefCode` と連携
 4. **標準報酬等級表のバリデーション**: 等級間の重複チェック（任意）
 5. **Firestore の undefined**: `undefined` フィールドは保存しない
+6. **エラーハンドリング**: マスタ未設定時のエラーメッセージを分かりやすく
 
 ---
 
-## 14. 参考実装
+## 13. 参考実装
 
 既存の `EmployeesPage` や `OfficesPage` のパターンを参考にしてください：
 
@@ -716,4 +884,3 @@ export class MastersPage {
 ---
 
 **実装完了後は、この指示書のチェックリストを確認して、実装状況を更新してください。**
-
