@@ -1,4 +1,3 @@
-// src/app/pages/employees/employee-detail-dialog.component.ts
 import { Component, Inject } from '@angular/core';
 import {
   MAT_DIALOG_DATA,
@@ -7,7 +6,7 @@ import {
 } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { DecimalPipe } from '@angular/common'; // ★ 追加
+import { DecimalPipe } from '@angular/common'; // ★ number パイプ用
 
 import { Employee } from '../../types';
 import {
@@ -28,7 +27,7 @@ export interface EmployeeDetailDialogData {
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
-    DecimalPipe // ★ 追加
+    DecimalPipe // ★ 追加済み
   ],
   template: `
     <h1 mat-dialog-title>
@@ -99,10 +98,12 @@ export interface EmployeeDetailDialogData {
         社会保険情報
       </h2>
       <div class="grid">
-        <div class="label">標準報酬月額（給与）</div>
+        <!-- ★ フォームと同じ「標準報酬月額」に統一 -->
+        <div class="label">標準報酬月額</div>
         <div class="value">{{ data.employee.monthlyWage | number }}</div>
 
-        <div class="label">社会保険</div>
+        <!-- ★ フォームのラベル「社会保険対象」に合わせる -->
+        <div class="label">社会保険対象</div>
         <div class="value">
           {{ data.employee.isInsured ? '加入' : '対象外' }}
         </div>
@@ -119,18 +120,12 @@ export interface EmployeeDetailDialogData {
         <div class="label">健康保険 等級</div>
         <div class="value">{{ data.employee.healthGrade ?? '-' }}</div>
 
-        <div class="label">健康保険 標準報酬</div>
-        <div class="value">
-          {{ data.employee.healthStandardMonthly ?? '-' }}
-        </div>
+        <!-- ★ healthStandardMonthly はフォームに無いので削除 -->
 
         <div class="label">厚生年金 等級</div>
         <div class="value">{{ data.employee.pensionGrade ?? '-' }}</div>
 
-        <div class="label">厚生年金 標準報酬</div>
-        <div class="value">
-          {{ data.employee.pensionStandardMonthly ?? '-' }}
-        </div>
+        <!-- ★ pensionStandardMonthly もフォームに無いので削除 -->
       </div>
 
       <!-- 資格情報（健康保険） -->
@@ -144,7 +139,11 @@ export interface EmployeeDetailDialogData {
 
         <div class="label">資格取得区分（健保）</div>
         <div class="value">
-          {{ getInsuranceQualificationKindLabel(data.employee.healthQualificationKind) }}
+          {{
+            getInsuranceQualificationKindLabel(
+              data.employee.healthQualificationKind
+            )
+          }}
         </div>
 
         <div class="label">資格喪失日（健保）</div>
@@ -152,7 +151,11 @@ export interface EmployeeDetailDialogData {
 
         <div class="label">喪失理由区分（健保）</div>
         <div class="value">
-          {{ getInsuranceLossReasonKindLabel(data.employee.healthLossReasonKind) }}
+          {{
+            getInsuranceLossReasonKindLabel(
+              data.employee.healthLossReasonKind
+            )
+          }}
         </div>
       </div>
 
@@ -167,7 +170,11 @@ export interface EmployeeDetailDialogData {
 
         <div class="label">資格取得区分（厚年）</div>
         <div class="value">
-          {{ getInsuranceQualificationKindLabel(data.employee.pensionQualificationKind) }}
+          {{
+            getInsuranceQualificationKindLabel(
+              data.employee.pensionQualificationKind
+            )
+          }}
         </div>
 
         <div class="label">資格喪失日（厚年）</div>
@@ -175,7 +182,11 @@ export interface EmployeeDetailDialogData {
 
         <div class="label">喪失理由区分（厚年）</div>
         <div class="value">
-          {{ getInsuranceLossReasonKindLabel(data.employee.pensionLossReasonKind) }}
+          {{
+            getInsuranceLossReasonKindLabel(
+              data.employee.pensionLossReasonKind
+            )
+          }}
         </div>
       </div>
 
@@ -201,7 +212,7 @@ export interface EmployeeDetailDialogData {
         <div class="value">{{ data.employee.workingStatusNote || '-' }}</div>
       </div>
 
-      <!-- システム情報 -->
+      <!-- システム情報（フォームに無いが、メタ情報として残す） -->
       <h2 class="section-title">
         <mat-icon aria-hidden="true" class="icon">info</mat-icon>
         システム情報
@@ -284,8 +295,10 @@ export class EmployeeDetailDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: EmployeeDetailDialogData
   ) {}
 
-  protected readonly getInsuranceQualificationKindLabel = getInsuranceQualificationKindLabel;
-  protected readonly getInsuranceLossReasonKindLabel = getInsuranceLossReasonKindLabel;
+  protected readonly getInsuranceQualificationKindLabel =
+    getInsuranceQualificationKindLabel;
+  protected readonly getInsuranceLossReasonKindLabel =
+    getInsuranceLossReasonKindLabel;
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
   protected readonly getPremiumTreatmentLabel = getPremiumTreatmentLabel;
 }

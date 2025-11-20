@@ -11,10 +11,10 @@ import { MatTableModule } from '@angular/material/table';
 import { Auth } from '@angular/fire/auth';
 import { firstValueFrom } from 'rxjs';
 
-import { CurrentOfficeService } from '../../services/current-office.service';
-import { EmployeesService } from '../../services/employees.service';
-import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
-import { Employee, MonthlyPremium } from '../../types';
+import { CurrentOfficeService } from '../../../services/current-office.service';
+import { EmployeesService } from '../../../services/employees.service';
+import { MonthlyPremiumsService } from '../../../services/monthly-premiums.service';
+import { Employee, MonthlyPremium } from '../../../types';
 
 @Component({
   selector: 'ip-monthly-premiums-page',

@@ -48,44 +48,58 @@ export class MonthlyPremiumsService {
     calculatedByUserId: string
   ): MonthlyPremium {
     const docId = this.buildDocId(result.employeeId, result.yearMonth);
-
-    return {
+  
+    // まず必須フィールドだけ詰める
+    const base: MonthlyPremium = {
       id: docId,
       officeId: result.officeId,
       employeeId: result.employeeId,
       yearMonth: result.yearMonth,
-
+  
       // 等級・標準報酬のスナップショット
       healthGrade: result.healthGrade,
       healthStandardMonthly: result.healthStandardMonthly,
-      healthGradeSource: employee.healthGradeSource,
-
+  
       pensionGrade: result.pensionGrade,
       pensionStandardMonthly: result.pensionStandardMonthly,
-      pensionGradeSource: employee.pensionGradeSource,
-
-      // 金額
+  
+      // 金額（必須分）
       healthTotal: result.amounts.healthTotal,
       healthEmployee: result.amounts.healthEmployee,
       healthEmployer: result.amounts.healthEmployer,
-
-      // 介護保険（0 の場合は undefined でも可、ただし 0 を明示的に保存する方が分かりやすい）
-      careTotal: result.amounts.careTotal > 0 ? result.amounts.careTotal : undefined,
-      careEmployee: result.amounts.careTotal > 0 ? result.amounts.careEmployee : undefined,
-      careEmployer: result.amounts.careTotal > 0 ? result.amounts.careEmployer : undefined,
-
+  
       pensionTotal: result.amounts.pensionTotal,
       pensionEmployee: result.amounts.pensionEmployee,
       pensionEmployer: result.amounts.pensionEmployer,
-
+  
       totalEmployee: result.amounts.totalEmployee,
       totalEmployer: result.amounts.totalEmployer,
-
+  
       // メタ情報
       calculatedAt: calcDate,
       calculatedByUserId
     };
+  
+    // ===== オプションフィールドを条件付きで追加 =====
+  
+    // 等級ソース：Employee側に入っているときだけセット
+    if (employee.healthGradeSource != null) {
+      (base as any).healthGradeSource = employee.healthGradeSource;
+    }
+    if (employee.pensionGradeSource != null) {
+      (base as any).pensionGradeSource = employee.pensionGradeSource;
+    }
+  
+    // 介護保険：金額が 0 のときはフィールド自体を持たせない
+    if (result.amounts.careTotal > 0) {
+      (base as any).careTotal = result.amounts.careTotal;
+      (base as any).careEmployee = result.amounts.careEmployee;
+      (base as any).careEmployer = result.amounts.careEmployer;
+    }
+  
+    return base;
   }
+  
 
   /**
    * 指定年月の月次保険料を一括計算・保存する
