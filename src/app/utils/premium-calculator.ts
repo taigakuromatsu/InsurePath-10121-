@@ -65,16 +65,14 @@ export interface MonthlyPremiumCalculationResult {
 }
 
 /**
- * 10円未満を切り捨てる（社会保険料の端数処理）
+ * 1円未満を切り捨てる（1円単位での端数処理）
  *
  * 例:
- * - 1234 → 1230
- * - 1239 → 1230
- * - 1240 → 1240
- * - 1245 → 1240
+ * - 1234.56 → 1234
+ * - 1234.01 → 1234
  */
-function roundTo10Yen(value: number): number {
-  return Math.floor(value / 10) * 10;
+function roundToYen(value: number): number {
+  return Math.floor(value);
 }
 
 /**
@@ -141,16 +139,18 @@ export function calculateMonthlyPremiumForEmployee(
 
   const healthTotal = isExempt
     ? 0
-    : roundTo10Yen(employee.healthStandardMonthly * rateContext.healthRate);
+    : roundToYen(employee.healthStandardMonthly * rateContext.healthRate);
 
   const pensionTotal = isExempt
     ? 0
-    : roundTo10Yen(employee.pensionStandardMonthly * rateContext.pensionRate);
+    : roundToYen(employee.pensionStandardMonthly * rateContext.pensionRate);
 
   const isCareTarget = isCareInsuranceTarget(employee.birthDate, rateContext.yearMonth);
-  const careTotal = isExempt || !isCareTarget || !rateContext.careRate
-    ? 0
-    : roundTo10Yen(employee.healthStandardMonthly * rateContext.careRate);
+  const careTotal =
+    isExempt || !isCareTarget || !rateContext.careRate
+      ? 0
+      : roundToYen(employee.healthStandardMonthly * rateContext.careRate);
+
 
   const healthEmployee = Math.floor(healthTotal / 2);
   const healthEmployer = healthTotal - healthEmployee;
