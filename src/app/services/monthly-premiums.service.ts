@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Firestore, collection, doc, getDocs, query, setDoc, where } from '@angular/fire/firestore';
-import { from, map, Observable } from 'rxjs';
+import { firstValueFrom, from, map, Observable } from 'rxjs';
 
 import { Employee, IsoDateString, MonthlyPremium, YearMonthString } from '../types';
 import {
@@ -8,21 +8,24 @@ import {
   MonthlyPremiumCalculationResult,
   PremiumRateContext
 } from '../utils/premium-calculator';
+import { OfficesService } from './offices.service';
+import { MastersService } from './masters.service';
 
 export interface SaveForMonthOptions {
   officeId: string;
   yearMonth: YearMonthString;
   calcDate: IsoDateString;
-  healthRate: number;
-  careRate?: number;
-  pensionRate: number;
   employees: Employee[];
   calculatedByUserId: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class MonthlyPremiumsService {
-  constructor(private readonly firestore: Firestore) {}
+  constructor(
+    private readonly firestore: Firestore,
+    private readonly officesService: OfficesService,
+    private readonly mastersService: MastersService
+  ) {}
 
   private getCollectionRef(officeId: string) {
     return collection(this.firestore, 'offices', officeId, 'monthlyPremiums');
@@ -108,9 +111,22 @@ export class MonthlyPremiumsService {
    * @returns 保存した MonthlyPremium の配列
    */
   async saveForMonth(options: SaveForMonthOptions): Promise<MonthlyPremium[]> {
-    const { officeId, yearMonth, calcDate, healthRate, careRate, pensionRate, employees, calculatedByUserId } = options;
+    const { officeId, yearMonth, calcDate, employees, calculatedByUserId } = options;
 
-    // PremiumRateContext を組み立て
+    const office = await firstValueFrom(this.officesService.watchOffice(officeId));
+    if (!office) {
+      throw new Error(`事業所が見つかりません: ${officeId}`);
+    }
+
+    const { healthRate, careRate, pensionRate } = await this.mastersService.getRatesForYearMonth(
+      office,
+      yearMonth
+    );
+
+    if (healthRate == null || pensionRate == null) {
+      throw new Error('healthRate / pensionRate がマスタに設定されていません');
+    }
+
     const rateContext: PremiumRateContext = {
       yearMonth,
       calcDate,
