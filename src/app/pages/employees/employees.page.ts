@@ -74,11 +74,11 @@ import { getWorkingStatusLabel } from '../../utils/label-utils';
 
         <ng-container *ngIf="officeId$ | async as officeId; else emptyOffice">
           <div class="table-container">
-            <table
-              mat-table
-              [dataSource]="(employees$ | async) || []"
-              class="employee-table"
-            >
+          <table
+            mat-table
+            [dataSource]="(employees$ | async) || []"
+            class="employee-table"
+          >
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef>氏名</th>
               <td mat-cell *matCellDef="let row">{{ row.name }}</td>
@@ -127,7 +127,7 @@ import { getWorkingStatusLabel } from '../../utils/label-utils';
               <th mat-header-cell *matHeaderCellDef class="center">社会保険</th>
               <td mat-cell *matCellDef="let row" class="center">
                 <span class="status-badge" [class.insured]="row.isInsured" [class.not-insured]="!row.isInsured">
-                  {{ row.isInsured ? '加入' : '対象外' }}
+                {{ row.isInsured ? '加入' : '対象外' }}
                 </span>
               </td>
             </ng-container>

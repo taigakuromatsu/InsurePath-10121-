@@ -27,18 +27,18 @@ import { AuthService } from '../../services/auth.service';
             <div class="login-icon">
               <mat-icon>lock</mat-icon>
             </div>
-            <h1>InsurePath へログイン</h1>
-            <p>Google アカウントでログインして従業員台帳を管理しましょう。</p>
+        <h1>InsurePath へログイン</h1>
+        <p>Google アカウントでログインして従業員台帳を管理しましょう。</p>
           </div>
 
           <div class="login-content">
             <button mat-raised-button color="primary" (click)="signIn()" [disabled]="loading()" class="login-button">
               <mat-icon *ngIf="!loading()">login</mat-icon>
               <mat-spinner *ngIf="loading()" diameter="20" class="button-spinner"></mat-spinner>
-              Google でログイン
-            </button>
-          </div>
-        </mat-card>
+          Google でログイン
+        </button>
+        </div>
+      </mat-card>
       </div>
     </section>
   `,

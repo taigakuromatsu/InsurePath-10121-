@@ -38,100 +38,100 @@ export interface HealthMasterDialogData {
     <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
       <div class="form-section">
         <h3 class="section-title">基本情報</h3>
-        <div class="form-row">
-          <mat-form-field appearance="outline">
-            <mat-label>年度</mat-label>
-            <input matInput type="number" formControlName="year" required />
-          </mat-form-field>
+      <div class="form-row">
+        <mat-form-field appearance="outline">
+          <mat-label>年度</mat-label>
+          <input matInput type="number" formControlName="year" required />
+        </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>プラン種別</mat-label>
-            <mat-select formControlName="planType">
-              <mat-option value="kyokai">協会けんぽ</mat-option>
-              <mat-option value="kumiai">組合健保</mat-option>
-            </mat-select>
-          </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>プラン種別</mat-label>
+          <mat-select formControlName="planType">
+            <mat-option value="kyokai">協会けんぽ</mat-option>
+            <mat-option value="kumiai">組合健保</mat-option>
+          </mat-select>
+        </mat-form-field>
         </div>
       </div>
 
       <div class="form-section">
         <h3 class="section-title">プラン詳細</h3>
-        <ng-container *ngIf="form.get('planType')?.value === 'kyokai'; else kumiaiFields">
-          <div class="form-row">
-            <mat-form-field appearance="outline">
-              <mat-label>都道府県</mat-label>
-              <mat-select formControlName="kyokaiPrefCode" (selectionChange)="onPrefChange($event.value)">
-                <mat-option *ngFor="let code of prefCodes" [value]="code">{{ prefectureName(code) }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+      <ng-container *ngIf="form.get('planType')?.value === 'kyokai'; else kumiaiFields">
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>都道府県</mat-label>
+            <mat-select formControlName="kyokaiPrefCode" (selectionChange)="onPrefChange($event.value)">
+              <mat-option *ngFor="let code of prefCodes" [value]="code">{{ prefectureName(code) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>都道府県名</mat-label>
-              <input matInput formControlName="kyokaiPrefName" readonly />
-            </mat-form-field>
-          </div>
-        </ng-container>
-        <ng-template #kumiaiFields>
-          <div class="form-row">
-            <mat-form-field appearance="outline">
-              <mat-label>組合名</mat-label>
-              <input matInput formControlName="unionName" />
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>都道府県名</mat-label>
+            <input matInput formControlName="kyokaiPrefName" readonly />
+          </mat-form-field>
+        </div>
+      </ng-container>
+      <ng-template #kumiaiFields>
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>組合名</mat-label>
+            <input matInput formControlName="unionName" />
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>組合コード</mat-label>
-              <input matInput formControlName="unionCode" />
-            </mat-form-field>
-          </div>
-        </ng-template>
+          <mat-form-field appearance="outline">
+            <mat-label>組合コード</mat-label>
+            <input matInput formControlName="unionCode" />
+          </mat-form-field>
+        </div>
+      </ng-template>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>健康保険料率（合計）</mat-label>
-          <input matInput type="number" formControlName="healthRate" step="0.0001" />
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>健康保険料率（合計）</mat-label>
+        <input matInput type="number" formControlName="healthRate" step="0.0001" />
           <mat-hint>例: 0.0991 (9.91%)</mat-hint>
-        </mat-form-field>
+      </mat-form-field>
       </div>
 
       <div class="form-section">
-        <div class="bands-header">
+      <div class="bands-header">
           <h3 class="section-title">
             <mat-icon>list</mat-icon>
             標準報酬等級表（{{ bands.length }}件）
           </h3>
-          <div class="band-actions">
+        <div class="band-actions">
             <button mat-stroked-button color="accent" type="button" *ngIf="!data.table" (click)="loadPreset()">
               <mat-icon>download</mat-icon>
               プリセットを読み込む
             </button>
             <button mat-raised-button color="primary" type="button" (click)="addBand()">
-              <mat-icon>add</mat-icon>
-              等級を追加
-            </button>
-          </div>
+            <mat-icon>add</mat-icon>
+            等級を追加
+          </button>
         </div>
+      </div>
 
-        <div class="bands" formArrayName="bands">
-          <div class="band-row" *ngFor="let band of bands.controls; let i = index" [formGroupName]="i">
+      <div class="bands" formArrayName="bands">
+        <div class="band-row" *ngFor="let band of bands.controls; let i = index" [formGroupName]="i">
             <div class="band-number">{{ i + 1 }}</div>
-            <mat-form-field appearance="outline">
-              <mat-label>等級</mat-label>
-              <input matInput type="number" formControlName="grade" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>下限</mat-label>
-              <input matInput type="number" formControlName="lowerLimit" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>上限</mat-label>
-              <input matInput type="number" formControlName="upperLimit" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>標準報酬月額</mat-label>
-              <input matInput type="number" formControlName="standardMonthly" />
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>等級</mat-label>
+            <input matInput type="number" formControlName="grade" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>下限</mat-label>
+            <input matInput type="number" formControlName="lowerLimit" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>上限</mat-label>
+            <input matInput type="number" formControlName="upperLimit" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>標準報酬月額</mat-label>
+            <input matInput type="number" formControlName="standardMonthly" />
+          </mat-form-field>
             <button mat-icon-button color="warn" type="button" (click)="removeBand(i)" title="削除">
-              <mat-icon>delete</mat-icon>
-            </button>
+            <mat-icon>delete</mat-icon>
+          </button>
           </div>
         </div>
         <div class="bands-empty" *ngIf="bands.length === 0">

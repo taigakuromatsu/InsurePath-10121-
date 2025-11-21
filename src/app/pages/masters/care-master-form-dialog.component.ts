@@ -28,23 +28,23 @@ export interface CareMasterDialogData {
       <div class="form-section">
         <h3 class="section-title">基本情報</h3>
         <div class="form-row">
-          <mat-form-field appearance="outline">
-            <mat-label>年度</mat-label>
-            <input matInput type="number" formControlName="year" required />
-          </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>年度</mat-label>
+        <input matInput type="number" formControlName="year" required />
+      </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>介護保険料率（合計）</mat-label>
-            <input matInput type="number" formControlName="careRate" step="0.0001" />
+      <mat-form-field appearance="outline">
+        <mat-label>介護保険料率（合計）</mat-label>
+        <input matInput type="number" formControlName="careRate" step="0.0001" />
             <mat-hint>例: 0.0191 (1.91%)</mat-hint>
-          </mat-form-field>
+      </mat-form-field>
         </div>
 
-        <div class="actions" *ngIf="!data.table">
-          <button mat-stroked-button color="accent" type="button" (click)="loadPreset()">
+      <div class="actions" *ngIf="!data.table">
+        <button mat-stroked-button color="accent" type="button" (click)="loadPreset()">
             <mat-icon>download</mat-icon>
-            初期値を読み込む
-          </button>
+          初期値を読み込む
+        </button>
         </div>
       </div>
     </form>

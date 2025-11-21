@@ -39,8 +39,8 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
             <mat-icon>settings</mat-icon>
           </div>
           <div class="header-text">
-            <h1>マスタ管理</h1>
-            <p>保険料率や標準報酬等級を年度別に管理します。</p>
+        <h1>マスタ管理</h1>
+        <p>保険料率や標準報酬等級を年度別に管理します。</p>
           </div>
         </div>
       </mat-card>
@@ -53,60 +53,60 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
               <span>健康保険マスタ</span>
             </ng-template>
             <div class="tab-content">
-              <div class="tab-header">
+            <div class="tab-header">
                 <div class="tab-title-section">
                   <h2>
                     <mat-icon>local_hospital</mat-icon>
                     健康保険マスタ
                   </h2>
-                  <p>協会けんぽ・組合健保の料率と標準報酬等級を管理します。</p>
-                </div>
-                <button mat-raised-button color="primary" (click)="openHealthDialog()" [disabled]="!(office$ | async)">
-                  <mat-icon>add</mat-icon>
-                  新規登録
-                </button>
+                <p>協会けんぽ・組合健保の料率と標準報酬等級を管理します。</p>
               </div>
+              <button mat-raised-button color="primary" (click)="openHealthDialog()" [disabled]="!(office$ | async)">
+                  <mat-icon>add</mat-icon>
+                新規登録
+              </button>
+            </div>
 
               <div class="table-container">
                 <table mat-table [dataSource]="(healthTables$ | async) || []" class="master-table">
-                  <ng-container matColumnDef="year">
-                    <th mat-header-cell *matHeaderCellDef>年度</th>
+              <ng-container matColumnDef="year">
+                <th mat-header-cell *matHeaderCellDef>年度</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="year-badge">{{ row.year }}</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="plan">
-                    <th mat-header-cell *matHeaderCellDef>プラン</th>
+              <ng-container matColumnDef="plan">
+                <th mat-header-cell *matHeaderCellDef>プラン</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="plan-badge" [class.kyokai]="row.planType === 'kyokai'" [class.kumiai]="row.planType === 'kumiai'">
                         {{ row.planType === 'kyokai' ? '協会けんぽ' : '組合健保' }}
                       </span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="area">
-                    <th mat-header-cell *matHeaderCellDef>都道府県 / 組合</th>
+              <ng-container matColumnDef="area">
+                <th mat-header-cell *matHeaderCellDef>都道府県 / 組合</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="area-text">{{ row.kyokaiPrefName || row.unionName || '-' }}</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="rate">
-                    <th mat-header-cell *matHeaderCellDef>料率</th>
+              <ng-container matColumnDef="rate">
+                <th mat-header-cell *matHeaderCellDef>料率</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="rate-value">{{ row.healthRate | percent: '1.2-2' }}</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="bands">
-                    <th mat-header-cell *matHeaderCellDef>等級数</th>
+              <ng-container matColumnDef="bands">
+                <th mat-header-cell *matHeaderCellDef>等級数</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="bands-count">{{ row.bands?.length || 0 }}件</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="actions">
+              <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
                     <td mat-cell *matCellDef="let row" class="actions-cell">
                       <button mat-icon-button color="primary" (click)="openHealthDialog(row)" title="編集">
@@ -115,12 +115,12 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
                       <button mat-icon-button color="warn" (click)="deleteHealth(row)" title="削除">
                         <mat-icon>delete</mat-icon>
                       </button>
-                    </td>
-                  </ng-container>
+                </td>
+              </ng-container>
 
                   <tr mat-header-row *matHeaderRowDef="healthDisplayedColumns" class="table-header-row"></tr>
                   <tr mat-row *matRowDef="let row; columns: healthDisplayedColumns" class="table-row"></tr>
-                </table>
+            </table>
                 <div class="empty-state" *ngIf="(healthTables$ | async)?.length === 0">
                   <mat-icon>inbox</mat-icon>
                   <p>マスタが登録されていません</p>
@@ -139,37 +139,37 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
               <span>介護保険マスタ</span>
             </ng-template>
             <div class="tab-content">
-              <div class="tab-header">
+            <div class="tab-header">
                 <div class="tab-title-section">
                   <h2>
                     <mat-icon>elderly</mat-icon>
                     介護保険マスタ
                   </h2>
-                  <p>年度別の介護保険料率を管理します。</p>
-                </div>
-                <button mat-raised-button color="primary" (click)="openCareDialog()" [disabled]="!(office$ | async)">
-                  <mat-icon>add</mat-icon>
-                  新規登録
-                </button>
+                <p>年度別の介護保険料率を管理します。</p>
               </div>
+              <button mat-raised-button color="primary" (click)="openCareDialog()" [disabled]="!(office$ | async)">
+                  <mat-icon>add</mat-icon>
+                新規登録
+              </button>
+            </div>
 
               <div class="table-container">
                 <table mat-table [dataSource]="(careTables$ | async) || []" class="master-table">
-                  <ng-container matColumnDef="year">
-                    <th mat-header-cell *matHeaderCellDef>年度</th>
+              <ng-container matColumnDef="year">
+                <th mat-header-cell *matHeaderCellDef>年度</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="year-badge">{{ row.year }}</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="rate">
-                    <th mat-header-cell *matHeaderCellDef>料率</th>
+              <ng-container matColumnDef="rate">
+                <th mat-header-cell *matHeaderCellDef>料率</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="rate-value">{{ row.careRate | percent: '1.2-2' }}</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="actions">
+              <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
                     <td mat-cell *matCellDef="let row" class="actions-cell">
                       <button mat-icon-button color="primary" (click)="openCareDialog(row)" title="編集">
@@ -178,12 +178,12 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
                       <button mat-icon-button color="warn" (click)="deleteCare(row)" title="削除">
                         <mat-icon>delete</mat-icon>
                       </button>
-                    </td>
-                  </ng-container>
+                </td>
+              </ng-container>
 
                   <tr mat-header-row *matHeaderRowDef="careDisplayedColumns" class="table-header-row"></tr>
                   <tr mat-row *matRowDef="let row; columns: careDisplayedColumns" class="table-row"></tr>
-                </table>
+            </table>
                 <div class="empty-state" *ngIf="(careTables$ | async)?.length === 0">
                   <mat-icon>inbox</mat-icon>
                   <p>マスタが登録されていません</p>
@@ -202,44 +202,44 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
               <span>厚生年金マスタ</span>
             </ng-template>
             <div class="tab-content">
-              <div class="tab-header">
+            <div class="tab-header">
                 <div class="tab-title-section">
                   <h2>
                     <mat-icon>account_balance</mat-icon>
                     厚生年金マスタ
                   </h2>
-                  <p>年度別の厚生年金料率と標準報酬等級を管理します。</p>
-                </div>
-                <button mat-raised-button color="primary" (click)="openPensionDialog()" [disabled]="!(office$ | async)">
-                  <mat-icon>add</mat-icon>
-                  新規登録
-                </button>
+                <p>年度別の厚生年金料率と標準報酬等級を管理します。</p>
               </div>
+              <button mat-raised-button color="primary" (click)="openPensionDialog()" [disabled]="!(office$ | async)">
+                  <mat-icon>add</mat-icon>
+                新規登録
+              </button>
+            </div>
 
               <div class="table-container">
                 <table mat-table [dataSource]="(pensionTables$ | async) || []" class="master-table">
-                  <ng-container matColumnDef="year">
-                    <th mat-header-cell *matHeaderCellDef>年度</th>
+              <ng-container matColumnDef="year">
+                <th mat-header-cell *matHeaderCellDef>年度</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="year-badge">{{ row.year }}</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="rate">
-                    <th mat-header-cell *matHeaderCellDef>料率</th>
+              <ng-container matColumnDef="rate">
+                <th mat-header-cell *matHeaderCellDef>料率</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="rate-value">{{ row.pensionRate | percent: '1.2-2' }}</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="bands">
-                    <th mat-header-cell *matHeaderCellDef>等級数</th>
+              <ng-container matColumnDef="bands">
+                <th mat-header-cell *matHeaderCellDef>等級数</th>
                     <td mat-cell *matCellDef="let row">
                       <span class="bands-count">{{ row.bands?.length || 0 }}件</span>
                     </td>
-                  </ng-container>
+              </ng-container>
 
-                  <ng-container matColumnDef="actions">
+              <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
                     <td mat-cell *matCellDef="let row" class="actions-cell">
                       <button mat-icon-button color="primary" (click)="openPensionDialog(row)" title="編集">
@@ -248,12 +248,12 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
                       <button mat-icon-button color="warn" (click)="deletePension(row)" title="削除">
                         <mat-icon>delete</mat-icon>
                       </button>
-                    </td>
-                  </ng-container>
+                </td>
+              </ng-container>
 
                   <tr mat-header-row *matHeaderRowDef="pensionDisplayedColumns" class="table-header-row"></tr>
                   <tr mat-row *matRowDef="let row; columns: pensionDisplayedColumns" class="table-row"></tr>
-                </table>
+            </table>
                 <div class="empty-state" *ngIf="(pensionTables$ | async)?.length === 0">
                   <mat-icon>inbox</mat-icon>
                   <p>マスタが登録されていません</p>

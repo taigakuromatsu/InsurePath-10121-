@@ -35,60 +35,60 @@ export interface PensionMasterDialogData {
     <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
       <div class="form-section">
         <h3 class="section-title">基本情報</h3>
-        <div class="form-row">
-          <mat-form-field appearance="outline">
-            <mat-label>年度</mat-label>
-            <input matInput type="number" formControlName="year" required />
-          </mat-form-field>
+      <div class="form-row">
+        <mat-form-field appearance="outline">
+          <mat-label>年度</mat-label>
+          <input matInput type="number" formControlName="year" required />
+        </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>厚生年金料率（合計）</mat-label>
-            <input matInput type="number" formControlName="pensionRate" step="0.0001" />
+        <mat-form-field appearance="outline">
+          <mat-label>厚生年金料率（合計）</mat-label>
+          <input matInput type="number" formControlName="pensionRate" step="0.0001" />
             <mat-hint>例: 0.183 (18.3%)</mat-hint>
-          </mat-form-field>
+        </mat-form-field>
         </div>
       </div>
 
       <div class="form-section">
-        <div class="bands-header">
+      <div class="bands-header">
           <h3 class="section-title">
             <mat-icon>list</mat-icon>
             標準報酬等級表（{{ bands.length }}件）
           </h3>
-          <div class="band-actions">
+        <div class="band-actions">
             <button mat-stroked-button color="accent" type="button" *ngIf="!data.table" (click)="loadPreset()">
               <mat-icon>download</mat-icon>
               初期値を読み込む
             </button>
             <button mat-raised-button color="primary" type="button" (click)="addBand()">
-              <mat-icon>add</mat-icon>
-              等級を追加
-            </button>
-          </div>
+            <mat-icon>add</mat-icon>
+            等級を追加
+          </button>
         </div>
+      </div>
 
-        <div class="bands" formArrayName="bands">
-          <div class="band-row" *ngFor="let band of bands.controls; let i = index" [formGroupName]="i">
+      <div class="bands" formArrayName="bands">
+        <div class="band-row" *ngFor="let band of bands.controls; let i = index" [formGroupName]="i">
             <div class="band-number">{{ i + 1 }}</div>
-            <mat-form-field appearance="outline">
-              <mat-label>等級</mat-label>
-              <input matInput type="number" formControlName="grade" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>下限</mat-label>
-              <input matInput type="number" formControlName="lowerLimit" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>上限</mat-label>
-              <input matInput type="number" formControlName="upperLimit" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>標準報酬月額</mat-label>
-              <input matInput type="number" formControlName="standardMonthly" />
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>等級</mat-label>
+            <input matInput type="number" formControlName="grade" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>下限</mat-label>
+            <input matInput type="number" formControlName="lowerLimit" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>上限</mat-label>
+            <input matInput type="number" formControlName="upperLimit" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>標準報酬月額</mat-label>
+            <input matInput type="number" formControlName="standardMonthly" />
+          </mat-form-field>
             <button mat-icon-button color="warn" type="button" (click)="removeBand(i)" title="削除">
-              <mat-icon>delete</mat-icon>
-            </button>
+            <mat-icon>delete</mat-icon>
+          </button>
           </div>
         </div>
         <div class="bands-empty" *ngIf="bands.length === 0">

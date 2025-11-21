@@ -30,7 +30,6 @@ interface BonusPremiumWithEmployee extends BonusPremium {
     MatDialogModule,
     AsyncPipe,
     NgIf,
-    NgForOf,
     DecimalPipe,
     DatePipe
   ],

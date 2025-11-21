@@ -62,8 +62,8 @@ import { MatIconModule } from '@angular/material/icon';
           <p>
             将来的には KPI ウィジェットや最新アクティビティをここで確認できるようになります。
             グラフやチャートによる可視化機能も追加予定です。
-          </p>
-        </mat-card>
+        </p>
+      </mat-card>
       </div>
     </section>
   `,

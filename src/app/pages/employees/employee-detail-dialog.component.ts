@@ -39,10 +39,10 @@ export interface EmployeeDetailDialogData {
     <div mat-dialog-content class="content">
       <!-- 基本情報 -->
       <div class="form-section">
-        <h2 class="section-title">
+      <h2 class="section-title">
           <mat-icon>person</mat-icon>
-          基本情報
-        </h2>
+        基本情報
+      </h2>
       <div class="grid">
         <div class="label">氏名</div>
         <div class="value">{{ data.employee.name }}</div>
@@ -78,10 +78,10 @@ export interface EmployeeDetailDialogData {
 
       <!-- 就労条件 -->
       <div class="form-section">
-        <h2 class="section-title">
+      <h2 class="section-title">
           <mat-icon>work</mat-icon>
-          就労条件
-        </h2>
+        就労条件
+      </h2>
       <div class="grid">
         <div class="label">所定労働時間（週）</div>
         <div class="value">{{ data.employee.weeklyWorkingHours ?? '-' }}</div>
@@ -99,10 +99,10 @@ export interface EmployeeDetailDialogData {
 
       <!-- 社会保険情報 -->
       <div class="form-section">
-        <h2 class="section-title">
+      <h2 class="section-title">
           <mat-icon>account_balance</mat-icon>
-          社会保険情報
-        </h2>
+        社会保険情報
+      </h2>
       <div class="grid">
         <!-- ★ フォームと同じ「標準報酬月額」に統一 -->
         <div class="label">標準報酬月額</div>
@@ -132,15 +132,15 @@ export interface EmployeeDetailDialogData {
         <div class="value">{{ data.employee.pensionGrade ?? '-' }}</div>
 
         <!-- ★ pensionStandardMonthly もフォームに無いので削除 -->
-      </div>
+        </div>
       </div>
 
       <!-- 資格情報（健康保険） -->
       <div class="form-section">
-        <h2 class="section-title">
+      <h2 class="section-title">
           <mat-icon>local_hospital</mat-icon>
-          資格情報（健康保険）
-        </h2>
+        資格情報（健康保険）
+      </h2>
       <div class="grid">
         <div class="label">資格取得日（健保）</div>
         <div class="value">{{ data.employee.healthQualificationDate || '-' }}</div>
@@ -165,15 +165,15 @@ export interface EmployeeDetailDialogData {
             )
           }}
         </div>
-      </div>
+        </div>
       </div>
 
       <!-- 資格情報（厚生年金） -->
       <div class="form-section">
-        <h2 class="section-title">
+      <h2 class="section-title">
           <mat-icon>account_balance</mat-icon>
-          資格情報（厚生年金）
-        </h2>
+        資格情報（厚生年金）
+      </h2>
       <div class="grid">
         <div class="label">資格取得日（厚年）</div>
         <div class="value">{{ data.employee.pensionQualificationDate || '-' }}</div>
@@ -198,15 +198,15 @@ export interface EmployeeDetailDialogData {
             )
           }}
         </div>
-      </div>
+        </div>
       </div>
 
       <!-- 就業状態 -->
       <div class="form-section">
-        <h2 class="section-title">
+      <h2 class="section-title">
           <mat-icon>event</mat-icon>
-          就業状態
-        </h2>
+        就業状態
+      </h2>
       <div class="grid">
         <div class="label">就業状態</div>
         <div class="value">{{ getWorkingStatusLabel(data.employee.workingStatus) }}</div>
@@ -227,10 +227,10 @@ export interface EmployeeDetailDialogData {
 
       <!-- システム情報（フォームに無いが、メタ情報として残す） -->
       <div class="form-section">
-        <h2 class="section-title">
+      <h2 class="section-title">
           <mat-icon>info</mat-icon>
-          システム情報
-        </h2>
+        システム情報
+      </h2>
       <div class="grid">
         <div class="label">ID</div>
         <div class="value">{{ data.employee.id }}</div>

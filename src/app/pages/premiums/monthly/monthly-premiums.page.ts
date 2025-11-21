@@ -44,11 +44,11 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
             <mat-icon>account_balance_wallet</mat-icon>
           </div>
           <div class="header-text">
-            <h1>月次保険料 一覧・再計算</h1>
-            <p>
-              対象年月を指定し、マスタで定義された保険料率を用いて
-              現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
-            </p>
+        <h1>月次保険料 一覧・再計算</h1>
+        <p>
+          対象年月を指定し、マスタで定義された保険料率を用いて
+          現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
+        </p>
           </div>
         </div>
       </mat-card>
@@ -66,14 +66,14 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
 
         <form [formGroup]="form" (ngSubmit)="onCalculateAndSave()" class="premium-form">
           <div class="form-section">
-            <div class="form-grid">
-              <mat-form-field appearance="outline">
-                <mat-label>対象年月</mat-label>
-                <input matInput type="month" formControlName="yearMonth" required />
-              </mat-form-field>
-            </div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>対象年月</mat-label>
+              <input matInput type="month" formControlName="yearMonth" required />
+            </mat-form-field>
+          </div>
 
-            <div class="rate-summary" *ngIf="rateSummary() as r">
+          <div class="rate-summary" *ngIf="rateSummary() as r">
               <h3 class="rate-summary-title">
                 <mat-icon>info</mat-icon>
                 適用される保険料率（{{ form.get('yearMonth')?.value }}）
@@ -125,7 +125,7 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
         </div>
 
         <div class="table-container">
-          <table mat-table [dataSource]="results()" class="premiums-table">
+        <table mat-table [dataSource]="results()" class="premiums-table">
           <ng-container matColumnDef="employeeName">
             <th mat-header-cell *matHeaderCellDef>氏名</th>
             <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
@@ -178,7 +178,7 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
 
             <tr mat-header-row *matHeaderRowDef="displayedColumns" class="table-header-row"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns" class="table-row"></tr>
-          </table>
+        </table>
         </div>
 
         <div class="totals">

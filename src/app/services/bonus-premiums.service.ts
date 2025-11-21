@@ -59,7 +59,8 @@ export class BonusPremiumsService {
    */
   async saveBonusPremium(
     officeId: string,
-    bonus: Partial<BonusPremium> & { employeeId: string; payDate: IsoDateString }
+    bonus: Partial<BonusPremium> & { employeeId: string; payDate: IsoDateString },
+    previousId?: string
   ): Promise<void> {
     const collectionRef = this.getCollectionRef(officeId);
     const docId = this.buildDocId(bonus.employeeId, bonus.payDate);
@@ -111,6 +112,13 @@ export class BonusPremiumsService {
     ) as BonusPremium;
 
     await setDoc(ref, cleanPayload, { merge: true });
+
+      // ★ 支給日 or 従業員ID変更で docId が変わった場合、旧ドキュメントを削除
+    if (previousId && previousId !== docId) {
+      const oldRef = doc(collectionRef, previousId);
+      await deleteDoc(oldRef);
+    }
+
   }
 
   /**

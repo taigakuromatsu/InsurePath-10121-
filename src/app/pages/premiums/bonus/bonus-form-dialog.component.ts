@@ -37,10 +37,8 @@ export interface BonusFormDialogData {
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
-    AsyncPipe,
     NgIf,
     NgForOf,
-    DatePipe,
     DecimalPipe
   ],
   template: `
@@ -49,78 +47,84 @@ export interface BonusFormDialogData {
       {{ data.bonus ? '賞与を編集' : '賞与を登録' }}
     </h1>
 
-    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
-      <div class="form-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>従業員</mat-label>
-          <mat-select formControlName="employeeId" required>
-            <mat-option *ngFor="let emp of insuredEmployees" [value]="emp.id">
-              {{ emp.name }}
-            </mat-option>
-          </mat-select>
+    <!-- form で全体をラップする -->
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div mat-dialog-content>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>従業員</mat-label>
+            <mat-select formControlName="employeeId" required>
+              <mat-option *ngFor="let emp of insuredEmployees" [value]="emp.id">
+                {{ emp.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>支給日</mat-label>
+            <input matInput type="date" formControlName="payDate" required />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>賞与支給額（税引前）</mat-label>
+            <input matInput type="number" formControlName="grossAmount" required />
+          </mat-form-field>
+        </div>
+
+        <mat-form-field appearance="outline" class="note-field">
+          <mat-label>メモ（任意）</mat-label>
+          <textarea matInput rows="3" formControlName="note"></textarea>
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>支給日</mat-label>
-          <input matInput type="date" formControlName="payDate" required />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>賞与支給額（税引前）</mat-label>
-          <input matInput type="number" formControlName="grossAmount" required />
-        </mat-form-field>
-      </div>
-
-      <mat-form-field appearance="outline" class="note-field">
-        <mat-label>メモ（任意）</mat-label>
-        <textarea matInput rows="3" formControlName="note"></textarea>
-      </mat-form-field>
-
-      <div class="preview" *ngIf="calculationResult() as result">
-        <h3>
-          <mat-icon>insights</mat-icon>
-          計算結果プレビュー
-        </h3>
-        <div class="preview-grid">
-          <div class="preview-item">
-            <span class="label">標準賞与額</span>
-            <span class="value">{{ result.standardBonusAmount | number }} 円</span>
-          </div>
-          <div class="preview-item">
-            <span class="label">健康保険</span>
-            <span class="value">
-              本人 {{ result.healthEmployee | number }} 円 / 会社 {{ result.healthEmployer | number }} 円
-            </span>
-            <div class="note" *ngIf="result.healthExceededAmount > 0">
-              上限超過額: {{ result.healthExceededAmount | number }} 円
+        <div class="preview" *ngIf="calculationResult() as result">
+          <h3>
+            <mat-icon>insights</mat-icon>
+            計算結果プレビュー
+          </h3>
+          <div class="preview-grid">
+            <div class="preview-item">
+              <span class="label">標準賞与額</span>
+              <span class="value">{{ result.standardBonusAmount | number }} 円</span>
             </div>
-          </div>
-          <div class="preview-item">
-            <span class="label">厚生年金</span>
-            <span class="value">
-              本人 {{ result.pensionEmployee | number }} 円 / 会社 {{ result.pensionEmployer | number }} 円
-            </span>
-            <div class="note" *ngIf="result.pensionExceededAmount > 0">
-              上限超過額: {{ result.pensionExceededAmount | number }} 円
+            <div class="preview-item">
+              <span class="label">健康保険</span>
+              <span class="value">
+                本人 {{ result.healthEmployee | number }} 円 /
+                会社 {{ result.healthEmployer | number }} 円
+              </span>
+              <div class="note" *ngIf="result.healthExceededAmount > 0">
+                上限超過額: {{ result.healthExceededAmount | number }} 円
+              </div>
             </div>
-          </div>
-          <div class="preview-item total">
-            <span class="label">合計</span>
-            <span class="value">
-              本人 {{ result.totalEmployee | number }} 円 / 会社 {{ result.totalEmployer | number }} 円
-            </span>
+            <div class="preview-item">
+              <span class="label">厚生年金</span>
+              <span class="value">
+                本人 {{ result.pensionEmployee | number }} 円 /
+                会社 {{ result.pensionEmployer | number }} 円
+              </span>
+              <div class="note" *ngIf="result.pensionExceededAmount > 0">
+                上限超過額: {{ result.pensionExceededAmount | number }} 円
+              </div>
+            </div>
+            <div class="preview-item total">
+              <span class="label">合計</span>
+              <span class="value">
+                本人 {{ result.totalEmployee | number }} 円 /
+                会社 {{ result.totalEmployer | number }} 円
+              </span>
+            </div>
           </div>
         </div>
       </div>
-    </form>
 
-    <div mat-dialog-actions align="end">
-      <button mat-button (click)="close()" type="button">キャンセル</button>
-      <button mat-raised-button color="primary" type="submit" [disabled]="loading()">
-        <mat-icon>save</mat-icon>
-        計算して保存
-      </button>
-    </div>
+      <div mat-dialog-actions align="end">
+        <button mat-button (click)="close()" type="button">キャンセル</button>
+        <button mat-raised-button color="primary" type="submit" [disabled]="loading()">
+          <mat-icon>save</mat-icon>
+          計算して保存
+        </button>
+      </div>
+    </form>
   `,
   styles: [
     `
@@ -211,18 +215,28 @@ export class BonusFormDialogComponent {
   readonly calculationResult = signal<BonusPremiumCalculationResult | null>(null);
   readonly loading = signal(false);
 
-  readonly insuredEmployees = (this.data.employees || []).filter((e) => e.isInsured);
+  get insuredEmployees(): Employee[] {
+    return (this.data.employees || []).filter((e) => e.isInsured);
+  }
 
   readonly form = this.fb.group({
-    employeeId: [this.data.bonus?.employeeId ?? this.insuredEmployees[0]?.id ?? '', Validators.required],
-    payDate: [this.data.bonus?.payDate ?? new Date().toISOString().substring(0, 10), Validators.required],
-    grossAmount: [this.data.bonus?.grossAmount ?? null, [Validators.required, Validators.min(1)]],
-    note: [this.data.bonus?.note ?? '']
+    employeeId: ['', Validators.required],
+    payDate: [new Date().toISOString().substring(0, 10), Validators.required],
+    grossAmount: [null as number | null, [Validators.required, Validators.min(1)]],
+    note: ['']
   });
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public readonly data: BonusFormDialogData
-  ) {}
+  ) {
+    // フォームの初期値を設定
+    this.form.patchValue({
+      employeeId: this.data.bonus?.employeeId ?? this.insuredEmployees[0]?.id ?? '',
+      payDate: this.data.bonus?.payDate ?? new Date().toISOString().substring(0, 10),
+      grossAmount: this.data.bonus?.grossAmount ?? null,
+      note: this.data.bonus?.note ?? ''
+    });
+  }
 
   async submit(): Promise<void> {
     if (this.form.invalid) {
@@ -293,7 +307,7 @@ export class BonusFormDialogComponent {
         createdByUserId: currentUser?.uid
       };
 
-      await this.bonusPremiumsService.saveBonusPremium(this.data.office.id, payload as BonusPremium);
+      await this.bonusPremiumsService.saveBonusPremium(this.data.office.id, payload as BonusPremium, this.data.bonus?.id);
       this.snackBar.open('賞与情報を保存しました', '閉じる', { duration: 3000 });
       this.dialogRef.close(true);
     } catch (error) {

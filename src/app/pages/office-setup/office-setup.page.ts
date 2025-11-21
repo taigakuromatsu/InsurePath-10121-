@@ -39,13 +39,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             <mat-icon>business_center</mat-icon>
           </div>
           <div class="header-text">
-            <h1>所属する事業所を設定してください</h1>
-            <p>既存の事業所を選択するか、新しく作成できます。</p>
+        <h1>所属する事業所を設定してください</h1>
+        <p>既存の事業所を選択するか、新しく作成できます。</p>
           </div>
         </div>
       </mat-card>
 
-      <div class="setup-grid">
+        <div class="setup-grid">
         <mat-card class="setup-card">
           <div class="card-header">
             <mat-icon>group_add</mat-icon>
@@ -105,7 +105,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             </form>
           </div>
         </mat-card>
-      </div>
+        </div>
     </section>
   `,
   styles: [

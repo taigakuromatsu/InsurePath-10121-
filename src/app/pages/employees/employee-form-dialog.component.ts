@@ -80,10 +80,10 @@ export interface EmployeeDialogData {
         <input matInput formControlName="phone" />
       </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>連絡先メール</mat-label>
-            <input matInput formControlName="contactEmail" type="email" />
-          </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>連絡先メール</mat-label>
+        <input matInput formControlName="contactEmail" type="email" />
+      </mat-form-field>
         </div>
       </div>
 
@@ -125,7 +125,7 @@ export interface EmployeeDialogData {
       </mat-form-field>
 
           <div class="toggle-field">
-            <mat-slide-toggle formControlName="isStudent">学生</mat-slide-toggle>
+      <mat-slide-toggle formControlName="isStudent">学生</mat-slide-toggle>
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ export interface EmployeeDialogData {
         </h3>
         <div class="form-grid">
           <div class="toggle-field">
-            <mat-slide-toggle formControlName="isInsured">社会保険対象</mat-slide-toggle>
+      <mat-slide-toggle formControlName="isInsured">社会保険対象</mat-slide-toggle>
           </div>
 
       <mat-form-field appearance="outline">
@@ -160,10 +160,10 @@ export interface EmployeeDialogData {
         <input matInput formControlName="healthInsuredNumber" />
       </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>厚生年金番号</mat-label>
-            <input matInput formControlName="pensionNumber" />
-          </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>厚生年金番号</mat-label>
+        <input matInput formControlName="pensionNumber" />
+      </mat-form-field>
         </div>
       </div>
 
@@ -173,7 +173,7 @@ export interface EmployeeDialogData {
           資格情報（健康保険）
         </h3>
         <div class="form-grid">
-          <mat-form-field appearance="outline">
+      <mat-form-field appearance="outline">
         <mat-label>資格取得日（健保）</mat-label>
         <input matInput type="date" formControlName="healthQualificationDate" />
       </mat-form-field>
@@ -200,8 +200,8 @@ export interface EmployeeDialogData {
           <mat-option [value]="'hours_decrease'">所定労働時間減少</mat-option>
           <mat-option [value]="'death'">死亡</mat-option>
           <mat-option [value]="'other'">その他</mat-option>
-          </mat-select>
-        </mat-form-field>
+        </mat-select>
+      </mat-form-field>
         </div>
       </div>
 
@@ -211,7 +211,7 @@ export interface EmployeeDialogData {
           資格情報（厚生年金）
         </h3>
         <div class="form-grid">
-          <mat-form-field appearance="outline">
+      <mat-form-field appearance="outline">
         <mat-label>資格取得日（厚年）</mat-label>
         <input matInput type="date" formControlName="pensionQualificationDate" />
       </mat-form-field>
@@ -239,7 +239,7 @@ export interface EmployeeDialogData {
           <mat-option [value]="'death'">死亡</mat-option>
           <mat-option [value]="'other'">その他</mat-option>
         </mat-select>
-        </mat-form-field>
+      </mat-form-field>
         </div>
       </div>
 
@@ -249,7 +249,7 @@ export interface EmployeeDialogData {
           就業状態
         </h3>
         <div class="form-grid">
-          <mat-form-field appearance="outline">
+      <mat-form-field appearance="outline">
         <mat-label>就業状態</mat-label>
         <mat-select formControlName="workingStatus">
           <mat-option [value]="'normal'">通常勤務</mat-option>
@@ -278,10 +278,10 @@ export interface EmployeeDialogData {
         </mat-select>
       </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-row">
-            <mat-label>備考（就業状態）</mat-label>
-            <textarea matInput rows="2" formControlName="workingStatusNote"></textarea>
-          </mat-form-field>
+      <mat-form-field appearance="outline" class="full-row">
+        <mat-label>備考（就業状態）</mat-label>
+        <textarea matInput rows="2" formControlName="workingStatusNote"></textarea>
+      </mat-form-field>
         </div>
       </div>
     </form>

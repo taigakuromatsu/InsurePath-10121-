@@ -36,8 +36,8 @@ import { HealthPlanType, Office } from '../../types';
             <mat-icon>business</mat-icon>
           </div>
           <div class="header-text">
-            <h1>事業所情報</h1>
-            <p>協会けんぽ / 健康保険組合の設定や所在地情報を管理します。</p>
+        <h1>事業所情報</h1>
+        <p>協会けんぽ / 健康保険組合の設定や所在地情報を管理します。</p>
           </div>
         </div>
       </mat-card>
@@ -56,49 +56,49 @@ import { HealthPlanType, Office } from '../../types';
         <form [formGroup]="form" (ngSubmit)="save()" *ngIf="form" class="office-form">
           <div class="form-section">
             <h3 class="section-title">基本情報</h3>
-            <div class="form-grid">
-              <mat-form-field appearance="outline">
-                <mat-label>事業所名</mat-label>
-                <input matInput formControlName="name" required />
-              </mat-form-field>
+          <div class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>事業所名</mat-label>
+              <input matInput formControlName="name" required />
+            </mat-form-field>
 
-              <mat-form-field appearance="outline">
-                <mat-label>所在地</mat-label>
-                <input matInput formControlName="address" />
-              </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>所在地</mat-label>
+              <input matInput formControlName="address" />
+            </mat-form-field>
             </div>
           </div>
 
           <div class="form-section">
             <h3 class="section-title">健康保険プラン</h3>
             <div class="form-grid">
-              <mat-form-field appearance="outline">
-                <mat-label>健康保険プラン</mat-label>
-                <mat-select formControlName="healthPlanType" required>
-                  <mat-option value="kyokai">協会けんぽ</mat-option>
-                  <mat-option value="kumiai">健康保険組合</mat-option>
-                </mat-select>
-              </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>健康保険プラン</mat-label>
+              <mat-select formControlName="healthPlanType" required>
+                <mat-option value="kyokai">協会けんぽ</mat-option>
+                <mat-option value="kumiai">健康保険組合</mat-option>
+              </mat-select>
+            </mat-form-field>
 
-              <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kyokai'">
-                <mat-label>協会けんぽ 都道府県コード</mat-label>
-                <input matInput formControlName="kyokaiPrefCode" />
-              </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kyokai'">
+              <mat-label>協会けんぽ 都道府県コード</mat-label>
+              <input matInput formControlName="kyokaiPrefCode" />
+            </mat-form-field>
 
-              <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kyokai'">
-                <mat-label>協会けんぽ 都道府県名</mat-label>
-                <input matInput formControlName="kyokaiPrefName" />
-              </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kyokai'">
+              <mat-label>協会けんぽ 都道府県名</mat-label>
+              <input matInput formControlName="kyokaiPrefName" />
+            </mat-form-field>
 
-              <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kumiai'">
-                <mat-label>組合名</mat-label>
-                <input matInput formControlName="unionName" />
-              </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kumiai'">
+              <mat-label>組合名</mat-label>
+              <input matInput formControlName="unionName" />
+            </mat-form-field>
 
-              <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kumiai'">
-                <mat-label>組合コード</mat-label>
-                <input matInput formControlName="unionCode" />
-              </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kumiai'">
+              <mat-label>組合コード</mat-label>
+              <input matInput formControlName="unionCode" />
+            </mat-form-field>
             </div>
           </div>
 
