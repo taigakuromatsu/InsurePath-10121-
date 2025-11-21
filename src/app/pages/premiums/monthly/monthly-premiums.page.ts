@@ -1,4 +1,4 @@
-import { AsyncPipe, DecimalPipe, NgIf } from '@angular/common';
+import { AsyncPipe, DecimalPipe, NgIf, PercentPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -31,7 +31,8 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
     MatProgressSpinnerModule,
     AsyncPipe,
     DecimalPipe,
-    NgIf
+    NgIf,
+    PercentPipe
   ],
   template: `
     <section class="page monthly-premiums">

@@ -1,4 +1,4 @@
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, PercentPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -26,8 +26,7 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
     MatDialogModule,
     MatSnackBarModule,
     AsyncPipe,
-    NgIf,
-    NgFor
+    PercentPipe
   ],
   template: `
     <section class="page masters">
@@ -49,7 +48,7 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
               </button>
             </div>
 
-            <table mat-table [dataSource]="healthTables$ | async" class="master-table">
+            <table mat-table [dataSource]="(healthTables$ | async) || []" class="master-table">
               <ng-container matColumnDef="year">
                 <th mat-header-cell *matHeaderCellDef>年度</th>
                 <td mat-cell *matCellDef="let row">{{ row.year }}</td>
@@ -99,7 +98,7 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
               </button>
             </div>
 
-            <table mat-table [dataSource]="careTables$ | async" class="master-table">
+            <table mat-table [dataSource]="(careTables$ | async) || []" class="master-table">
               <ng-container matColumnDef="year">
                 <th mat-header-cell *matHeaderCellDef>年度</th>
                 <td mat-cell *matCellDef="let row">{{ row.year }}</td>
@@ -134,7 +133,7 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
               </button>
             </div>
 
-            <table mat-table [dataSource]="pensionTables$ | async" class="master-table">
+            <table mat-table [dataSource]="(pensionTables$ | async) || []" class="master-table">
               <ng-container matColumnDef="year">
                 <th mat-header-cell *matHeaderCellDef>年度</th>
                 <td mat-cell *matCellDef="let row">{{ row.year }}</td>

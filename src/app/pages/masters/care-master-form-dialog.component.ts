@@ -1,3 +1,4 @@
+import { NgIf } from '@angular/common';
 import { Component, Inject, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -8,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { CareRateTable } from '../../types';
 import { getCareRatePreset } from '../../utils/kyokai-presets';
 
+
 export interface CareMasterDialogData {
   table?: CareRateTable;
 }
@@ -15,7 +17,7 @@ export interface CareMasterDialogData {
 @Component({
   selector: 'ip-care-master-form-dialog',
   standalone: true,
-  imports: [MatDialogModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [MatDialogModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, NgIf],
   template: `
     <h1 mat-dialog-title>{{ data.table ? '介護保険マスタを編集' : '介護保険マスタを作成' }}</h1>
     <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>

@@ -1,3 +1,4 @@
+import { NgFor, NgIf } from '@angular/common';
 import { Component, Inject, inject } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -25,7 +26,9 @@ export interface HealthMasterDialogData {
     MatInputModule,
     MatSelectModule,
     MatButtonModule,
-    MatIconModule
+    MatIconModule,
+    NgIf,
+    NgFor
   ],
   template: `
     <h1 mat-dialog-title>{{ data.table ? '健康保険マスタを編集' : '健康保険マスタを作成' }}</h1>

@@ -1,3 +1,4 @@
+import { NgFor, NgIf } from '@angular/common';
 import { Component, Inject, inject } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -7,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 import { PensionRateTable, StandardRewardBand } from '../../types';
-import { STANDARD_REWARD_BANDS_BASE, getPensionRatePreset } from '../../utils/kyokai-presets';
+import { PENSION_STANDARD_REWARD_BANDS_DEFAULT, STANDARD_REWARD_BANDS_BASE, getPensionRatePreset } from '../../utils/kyokai-presets';
 
 export interface PensionMasterDialogData {
   table?: PensionRateTable;
@@ -22,7 +23,9 @@ export interface PensionMasterDialogData {
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
-    MatIconModule
+    MatIconModule,
+    NgIf,
+    NgFor
   ],
   template: `
     <h1 mat-dialog-title>{{ data.table ? '厚生年金マスタを編集' : '厚生年金マスタを作成' }}</h1>
@@ -144,7 +147,7 @@ export class PensionMasterFormDialogComponent {
       });
       data.table.bands?.forEach((band) => this.addBand(band));
     } else {
-      STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
+      PENSION_STANDARD_REWARD_BANDS_DEFAULT.forEach((band) => this.addBand(band));
     }
   }
 
