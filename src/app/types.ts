@@ -228,6 +228,14 @@ export interface BonusPremium {
   totalEmployee: number;
   totalEmployer: number;
 
+  // オプション情報
+  healthStandardBonusCumulative?: number;
+  note?: string;
+  healthEffectiveAmount?: number;
+  healthExceededAmount?: number;
+  pensionEffectiveAmount?: number;
+  pensionExceededAmount?: number;
+
   createdAt: IsoDateString;
   createdByUserId?: string;
 }
