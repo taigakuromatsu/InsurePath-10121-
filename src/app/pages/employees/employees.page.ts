@@ -40,31 +40,45 @@ import { getWorkingStatusLabel } from '../../utils/label-utils';
   ],
   template: `
     <section class="page employees">
-      <mat-card>
-        <div class="header">
-          <div>
+      <mat-card class="header-card">
+        <div class="header-content">
+          <div class="header-icon">
+            <mat-icon>people</mat-icon>
+          </div>
+          <div class="header-text">
             <h1>従業員台帳</h1>
             <p>現在の事業所に紐づく従業員を登録・更新できます。</p>
           </div>
-          <!-- officeId$ | async でボタンの活性/非活性を制御 -->
+        </div>
+      </mat-card>
+
+      <mat-card class="content-card">
+        <div class="page-header">
+          <div class="page-title-section">
+            <h2>
+              <mat-icon>list</mat-icon>
+              従業員一覧
+            </h2>
+            <p>登録されている従業員の一覧を表示します。</p>
+          </div>
           <button
             mat-raised-button
             color="primary"
             (click)="openDialog()"
             [disabled]="!(officeId$ | async)"
           >
-            <mat-icon aria-hidden="true">person_add</mat-icon>
+            <mat-icon>person_add</mat-icon>
             従業員を追加
           </button>
         </div>
 
-        <!-- officeId$ | async を使ってテーブル表示を制御 -->
         <ng-container *ngIf="officeId$ | async as officeId; else emptyOffice">
-          <table
-            mat-table
-            [dataSource]="(employees$ | async) || []"
-            class="employee-table"
-          >
+          <div class="table-container">
+            <table
+              mat-table
+              [dataSource]="(employees$ | async) || []"
+              class="employee-table"
+            >
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef>氏名</th>
               <td mat-cell *matCellDef="let row">{{ row.name }}</td>
@@ -112,97 +126,322 @@ import { getWorkingStatusLabel } from '../../utils/label-utils';
             <ng-container matColumnDef="isInsured">
               <th mat-header-cell *matHeaderCellDef class="center">社会保険</th>
               <td mat-cell *matCellDef="let row" class="center">
-                {{ row.isInsured ? '加入' : '対象外' }}
+                <span class="status-badge" [class.insured]="row.isInsured" [class.not-insured]="!row.isInsured">
+                  {{ row.isInsured ? '加入' : '対象外' }}
+                </span>
               </td>
             </ng-container>
 
             <ng-container matColumnDef="workingStatus">
               <th mat-header-cell *matHeaderCellDef>就業状態</th>
               <td mat-cell *matCellDef="let row">
-                {{ getWorkingStatusLabel(row.workingStatus) }}
+                <span class="status-text">{{ getWorkingStatusLabel(row.workingStatus) }}</span>
               </td>
             </ng-container>
 
             <!-- 操作列 -->
             <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="center">操作</th>
-              <td mat-cell *matCellDef="let row" class="actions">
-                <!-- 詳細ボタン -->
+              <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
+              <td mat-cell *matCellDef="let row" class="actions-cell">
                 <button
                   mat-icon-button
                   (click)="openDetail(row)"
                   aria-label="詳細"
+                  title="詳細"
                 >
-                  <mat-icon aria-hidden="true">visibility</mat-icon>
+                  <mat-icon>visibility</mat-icon>
                 </button>
-
-                <!-- 編集ボタン -->
                 <button
                   mat-icon-button
                   color="primary"
                   (click)="openDialog(row)"
                   aria-label="編集"
+                  title="編集"
                 >
-                  <mat-icon aria-hidden="true">edit</mat-icon>
+                  <mat-icon>edit</mat-icon>
                 </button>
-
-                <!-- 削除ボタン -->
                 <button
                   mat-icon-button
                   color="warn"
                   (click)="delete(row)"
                   aria-label="削除"
+                  title="削除"
                 >
-                  <mat-icon aria-hidden="true">delete</mat-icon>
+                  <mat-icon>delete</mat-icon>
                 </button>
               </td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns" class="table-header-row"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns" class="table-row"></tr>
           </table>
+          <div class="empty-state" *ngIf="(employees$ | async)?.length === 0">
+            <mat-icon>people_outline</mat-icon>
+            <p>従業員が登録されていません</p>
+            <button mat-stroked-button color="primary" (click)="openDialog()" [disabled]="!(officeId$ | async)">
+              <mat-icon>person_add</mat-icon>
+              最初の従業員を追加
+            </button>
+          </div>
+          </div>
         </ng-container>
 
         <ng-template #emptyOffice>
-          <p>事業所が未設定です。まずは所属事業所を設定してください。</p>
+          <div class="empty-office-state">
+            <mat-icon>business</mat-icon>
+            <h3>事業所が未設定です</h3>
+            <p>まずは所属事業所を設定してください。</p>
+          </div>
         </ng-template>
       </mat-card>
     </section>
   `,
   styles: [
     `
-      .employees .header {
+      .header-card {
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .header-card ::ng-deep .mat-mdc-card-content {
+        padding: 0;
+      }
+
+      .header-content {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        gap: 1rem;
+        gap: 1.5rem;
+        padding: 2rem;
+      }
+
+      .header-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+      }
+
+      .header-icon mat-icon {
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
+        color: white;
+      }
+
+      .header-text h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.75rem;
+        font-weight: 600;
+      }
+
+      .header-text p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1rem;
+      }
+
+      .content-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid #e0e0e0;
+      }
+
+      .page-title-section h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 0.5rem 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .page-title-section h2 mat-icon {
+        color: #667eea;
+      }
+
+      .page-title-section p {
+        margin: 0;
+        color: #666;
+        font-size: 0.95rem;
+      }
+
+      .table-container {
+        position: relative;
+        overflow-x: auto;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
       }
 
       table.employee-table {
         width: 100%;
-        margin-top: 1.5rem;
-        table-layout: fixed; /* 列幅をキッチリ揃える */
+        background: white;
       }
 
-      .employee-table .mat-header-cell,
-      .employee-table .mat-cell {
-        padding-right: 12px;
-        padding-left: 12px;
+      .table-header-row {
+        background: #f5f5f5;
       }
 
-      .employee-table .center {
+      table.employee-table th {
+        font-weight: 600;
+        color: #555;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 16px;
+      }
+
+      table.employee-table td {
+        padding: 16px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .table-row {
+        transition: background-color 0.2s ease;
+      }
+
+      .table-row:hover {
+        background-color: #f9f9f9;
+      }
+
+      .table-row:last-child td {
+        border-bottom: none;
+      }
+
+      .center {
         text-align: center;
       }
 
-      /* 操作列は幅を少し広めに固定してズレを防ぐ */
-      .employee-table .mat-column-actions {
-        width: 132px;
+      .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-weight: 500;
+        font-size: 0.875rem;
       }
 
-      .actions {
+      .status-badge.insured {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+
+      .status-badge.not-insured {
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      .status-text {
+        color: #333;
+        font-weight: 500;
+      }
+
+      .actions-header {
+        text-align: center;
+      }
+
+      .actions-cell {
         display: flex;
-        justify-content: flex-end;
-        gap: 0.25rem;
+        gap: 0.5rem;
+        justify-content: center;
+      }
+
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        text-align: center;
+        color: #999;
+      }
+
+      .empty-state mat-icon {
+        font-size: 64px;
+        width: 64px;
+        height: 64px;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+      }
+
+      .empty-state p {
+        margin: 0 0 1.5rem 0;
+        font-size: 1.1rem;
+      }
+
+      .empty-office-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        text-align: center;
+        color: #999;
+      }
+
+      .empty-office-state mat-icon {
+        font-size: 64px;
+        width: 64px;
+        height: 64px;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+        color: #667eea;
+      }
+
+      .empty-office-state h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.25rem;
+        color: #666;
+      }
+
+      .empty-office-state p {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      button[mat-raised-button] {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+      }
+
+      button[mat-raised-button]:hover:not(:disabled) {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
+      }
+
+      button[mat-icon-button] {
+        transition: all 0.2s ease;
+      }
+
+      button[mat-icon-button]:hover {
+        transform: scale(1.1);
+      }
+
+      @media (max-width: 768px) {
+        .page-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .page-header button {
+          width: 100%;
+        }
+
+        .header-content {
+          flex-direction: column;
+          text-align: center;
+        }
       }
     `
   ]

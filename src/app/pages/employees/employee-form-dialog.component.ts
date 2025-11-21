@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 
 import { Employee } from '../../types';
 
@@ -24,12 +25,21 @@ export interface EmployeeDialogData {
     MatInputModule,
     MatSelectModule,
     MatSlideToggleModule,
-    MatButtonModule
+    MatButtonModule,
+    MatIconModule
   ],
   template: `
-    <h1 mat-dialog-title>{{ data.employee ? '従業員を編集' : '従業員を追加' }}</h1>
+    <h1 mat-dialog-title>
+      <mat-icon>{{ data.employee ? 'edit' : 'person_add' }}</mat-icon>
+      {{ data.employee ? '従業員を編集' : '従業員を追加' }}
+    </h1>
     <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
-      <p class="section-title">基本情報</p>
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>person</mat-icon>
+          基本情報
+        </h3>
+        <div class="form-grid">
       <mat-form-field appearance="outline">
         <mat-label>氏名</mat-label>
         <input matInput formControlName="name" required />
@@ -70,12 +80,19 @@ export interface EmployeeDialogData {
         <input matInput formControlName="phone" />
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>連絡先メール</mat-label>
-        <input matInput formControlName="contactEmail" type="email" />
-      </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>連絡先メール</mat-label>
+            <input matInput formControlName="contactEmail" type="email" />
+          </mat-form-field>
+        </div>
+      </div>
 
-      <p class="section-title">就労条件</p>
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>work</mat-icon>
+          就労条件
+        </h3>
+        <div class="form-grid">
       <mat-form-field appearance="outline">
         <mat-label>雇用形態</mat-label>
         <mat-select formControlName="employmentType">
@@ -107,10 +124,21 @@ export interface EmployeeDialogData {
         <textarea matInput formControlName="contractPeriodNote" rows="2"></textarea>
       </mat-form-field>
 
-      <mat-slide-toggle formControlName="isStudent">学生</mat-slide-toggle>
+          <div class="toggle-field">
+            <mat-slide-toggle formControlName="isStudent">学生</mat-slide-toggle>
+          </div>
+        </div>
+      </div>
 
-      <p class="section-title">社会保険関連</p>
-      <mat-slide-toggle formControlName="isInsured">社会保険対象</mat-slide-toggle>
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>account_balance</mat-icon>
+          社会保険関連
+        </h3>
+        <div class="form-grid">
+          <div class="toggle-field">
+            <mat-slide-toggle formControlName="isInsured">社会保険対象</mat-slide-toggle>
+          </div>
 
       <mat-form-field appearance="outline">
         <mat-label>健康保険 等級</mat-label>
@@ -132,15 +160,20 @@ export interface EmployeeDialogData {
         <input matInput formControlName="healthInsuredNumber" />
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>厚生年金番号</mat-label>
-        <input matInput formControlName="pensionNumber" />
-      </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>厚生年金番号</mat-label>
+            <input matInput formControlName="pensionNumber" />
+          </mat-form-field>
+        </div>
+      </div>
 
-      <!-- 資格情報（健康保険） -->
-      <p class="section-title">資格情報（健康保険）</p>
-
-      <mat-form-field appearance="outline">
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>local_hospital</mat-icon>
+          資格情報（健康保険）
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
         <mat-label>資格取得日（健保）</mat-label>
         <input matInput type="date" formControlName="healthQualificationDate" />
       </mat-form-field>
@@ -167,13 +200,18 @@ export interface EmployeeDialogData {
           <mat-option [value]="'hours_decrease'">所定労働時間減少</mat-option>
           <mat-option [value]="'death'">死亡</mat-option>
           <mat-option [value]="'other'">その他</mat-option>
-        </mat-select>
-      </mat-form-field>
+          </mat-select>
+        </mat-form-field>
+        </div>
+      </div>
 
-      <!-- 資格情報（厚生年金） -->
-      <p class="section-title">資格情報（厚生年金）</p>
-
-      <mat-form-field appearance="outline">
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>account_balance</mat-icon>
+          資格情報（厚生年金）
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
         <mat-label>資格取得日（厚年）</mat-label>
         <input matInput type="date" formControlName="pensionQualificationDate" />
       </mat-form-field>
@@ -201,12 +239,17 @@ export interface EmployeeDialogData {
           <mat-option [value]="'death'">死亡</mat-option>
           <mat-option [value]="'other'">その他</mat-option>
         </mat-select>
-      </mat-form-field>
+        </mat-form-field>
+        </div>
+      </div>
 
-      <!-- 就業状態 -->
-      <p class="section-title">就業状態</p>
-
-      <mat-form-field appearance="outline">
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>event</mat-icon>
+          就業状態
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
         <mat-label>就業状態</mat-label>
         <mat-select formControlName="workingStatus">
           <mat-option [value]="'normal'">通常勤務</mat-option>
@@ -235,40 +278,108 @@ export interface EmployeeDialogData {
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="full-row">
-        <mat-label>備考（就業状態）</mat-label>
-        <textarea matInput rows="2" formControlName="workingStatusNote"></textarea>
-      </mat-form-field>
+          <mat-form-field appearance="outline" class="full-row">
+            <mat-label>備考（就業状態）</mat-label>
+            <textarea matInput rows="2" formControlName="workingStatusNote"></textarea>
+          </mat-form-field>
+        </div>
+      </div>
     </form>
-    <div mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>キャンセル</button>
+    <div mat-dialog-actions align="end" class="dialog-actions">
+      <button mat-button mat-dialog-close>
+        <mat-icon>close</mat-icon>
+        キャンセル
+      </button>
       <button mat-raised-button color="primary" (click)="submit()" [disabled]="form.invalid">
+        <mat-icon>save</mat-icon>
         保存
       </button>
     </div>
   `,
   styles: [
     `
-      form {
+      h1[mat-dialog-title] {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0;
+        padding: 1.5rem 1.5rem 1rem;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      h1[mat-dialog-title] mat-icon {
+        color: #667eea;
+      }
+
+      form[mat-dialog-content] {
+        max-height: 70vh;
+        overflow-y: auto;
+        padding: 1.5rem;
+      }
+
+      .form-section {
+        margin-bottom: 2rem;
+      }
+
+      .form-section:last-child {
+        margin-bottom: 0;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e0e0e0;
+      }
+
+      .section-title mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #667eea;
+      }
+
+      .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 12px;
+        gap: 1rem;
       }
-      mat-slide-toggle,
-      .section-title {
-        grid-column: 1 / -1;
+
+      .toggle-field {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 0;
       }
-      .section-title {
-        margin: 8px 0 0;
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: #555;
-      }
+
       .full-row {
         grid-column: 1 / -1;
       }
-      [mat-dialog-actions] {
-        margin-top: 12px;
+
+      .dialog-actions {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e0e0e0;
+        background: #fafafa;
+      }
+
+      .dialog-actions button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      button[mat-raised-button] {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+      }
+
+      button[mat-raised-button]:hover:not(:disabled) {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
       }
     `
   ]

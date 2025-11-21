@@ -31,16 +31,18 @@ export interface EmployeeDetailDialogData {
   ],
   template: `
     <h1 mat-dialog-title>
+      <mat-icon>person</mat-icon>
       従業員詳細
       <span class="subtitle">{{ data.employee.name }}</span>
     </h1>
 
     <div mat-dialog-content class="content">
       <!-- 基本情報 -->
-      <h2 class="section-title">
-        <mat-icon aria-hidden="true" class="icon">person</mat-icon>
-        基本情報
-      </h2>
+      <div class="form-section">
+        <h2 class="section-title">
+          <mat-icon>person</mat-icon>
+          基本情報
+        </h2>
       <div class="grid">
         <div class="label">氏名</div>
         <div class="value">{{ data.employee.name }}</div>
@@ -72,12 +74,14 @@ export interface EmployeeDetailDialogData {
         <div class="label">連絡先メール</div>
         <div class="value">{{ data.employee.contactEmail || '-' }}</div>
       </div>
+      </div>
 
       <!-- 就労条件 -->
-      <h2 class="section-title">
-        <mat-icon aria-hidden="true" class="icon">work_history</mat-icon>
-        就労条件
-      </h2>
+      <div class="form-section">
+        <h2 class="section-title">
+          <mat-icon>work</mat-icon>
+          就労条件
+        </h2>
       <div class="grid">
         <div class="label">所定労働時間（週）</div>
         <div class="value">{{ data.employee.weeklyWorkingHours ?? '-' }}</div>
@@ -91,12 +95,14 @@ export interface EmployeeDetailDialogData {
         <div class="label">学生</div>
         <div class="value">{{ data.employee.isStudent ? '学生' : '-' }}</div>
       </div>
+      </div>
 
       <!-- 社会保険情報 -->
-      <h2 class="section-title">
-        <mat-icon aria-hidden="true" class="icon">health_and_safety</mat-icon>
-        社会保険情報
-      </h2>
+      <div class="form-section">
+        <h2 class="section-title">
+          <mat-icon>account_balance</mat-icon>
+          社会保険情報
+        </h2>
       <div class="grid">
         <!-- ★ フォームと同じ「標準報酬月額」に統一 -->
         <div class="label">標準報酬月額</div>
@@ -127,12 +133,14 @@ export interface EmployeeDetailDialogData {
 
         <!-- ★ pensionStandardMonthly もフォームに無いので削除 -->
       </div>
+      </div>
 
       <!-- 資格情報（健康保険） -->
-      <h2 class="section-title">
-        <mat-icon aria-hidden="true" class="icon">badge</mat-icon>
-        資格情報（健康保険）
-      </h2>
+      <div class="form-section">
+        <h2 class="section-title">
+          <mat-icon>local_hospital</mat-icon>
+          資格情報（健康保険）
+        </h2>
       <div class="grid">
         <div class="label">資格取得日（健保）</div>
         <div class="value">{{ data.employee.healthQualificationDate || '-' }}</div>
@@ -158,12 +166,14 @@ export interface EmployeeDetailDialogData {
           }}
         </div>
       </div>
+      </div>
 
       <!-- 資格情報（厚生年金） -->
-      <h2 class="section-title">
-        <mat-icon aria-hidden="true" class="icon">workspace_premium</mat-icon>
-        資格情報（厚生年金）
-      </h2>
+      <div class="form-section">
+        <h2 class="section-title">
+          <mat-icon>account_balance</mat-icon>
+          資格情報（厚生年金）
+        </h2>
       <div class="grid">
         <div class="label">資格取得日（厚年）</div>
         <div class="value">{{ data.employee.pensionQualificationDate || '-' }}</div>
@@ -189,12 +199,14 @@ export interface EmployeeDetailDialogData {
           }}
         </div>
       </div>
+      </div>
 
       <!-- 就業状態 -->
-      <h2 class="section-title">
-        <mat-icon aria-hidden="true" class="icon">event_repeat</mat-icon>
-        就業状態
-      </h2>
+      <div class="form-section">
+        <h2 class="section-title">
+          <mat-icon>event</mat-icon>
+          就業状態
+        </h2>
       <div class="grid">
         <div class="label">就業状態</div>
         <div class="value">{{ getWorkingStatusLabel(data.employee.workingStatus) }}</div>
@@ -211,12 +223,14 @@ export interface EmployeeDetailDialogData {
         <div class="label">備考</div>
         <div class="value">{{ data.employee.workingStatusNote || '-' }}</div>
       </div>
+      </div>
 
       <!-- システム情報（フォームに無いが、メタ情報として残す） -->
-      <h2 class="section-title">
-        <mat-icon aria-hidden="true" class="icon">info</mat-icon>
-        システム情報
-      </h2>
+      <div class="form-section">
+        <h2 class="section-title">
+          <mat-icon>info</mat-icon>
+          システム情報
+        </h2>
       <div class="grid">
         <div class="label">ID</div>
         <div class="value">{{ data.employee.id }}</div>
@@ -230,18 +244,33 @@ export interface EmployeeDetailDialogData {
         <div class="label">更新ユーザーID</div>
         <div class="value">{{ data.employee.updatedByUserId || '-' }}</div>
       </div>
+      </div>
     </div>
 
-    <div mat-dialog-actions align="end">
+    <div mat-dialog-actions align="end" class="dialog-actions">
       <button mat-button mat-dialog-close>
+        <mat-icon>close</mat-icon>
         閉じる
       </button>
     </div>
   `,
   styles: [
     `
+      h1[mat-dialog-title] {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0;
+        padding: 1.5rem 1.5rem 1rem;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      h1[mat-dialog-title] mat-icon {
+        color: #667eea;
+      }
+
       .subtitle {
-        margin-left: 8px;
+        margin-left: auto;
         font-size: 0.9rem;
         color: #666;
         font-weight: 400;
@@ -250,41 +279,78 @@ export interface EmployeeDetailDialogData {
       .content {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 0;
         max-height: 70vh;
-        overflow: auto;
+        overflow-y: auto;
+        padding: 1.5rem;
+      }
+
+      .form-section {
+        margin-bottom: 2rem;
+      }
+
+      .form-section:last-child {
+        margin-bottom: 0;
       }
 
       .section-title {
         display: flex;
         align-items: center;
-        gap: 4px;
-        margin: 8px 0 4px;
-        font-size: 0.95rem;
+        gap: 0.5rem;
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
         font-weight: 600;
-        color: #444;
+        color: #333;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e0e0e0;
       }
 
-      .icon {
-        font-size: 18px;
+      .section-title mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #667eea;
       }
 
       .grid {
         display: grid;
-        grid-template-columns: 140px 1fr;
-        row-gap: 4px;
-        column-gap: 8px;
-        font-size: 0.9rem;
+        grid-template-columns: 160px 1fr;
+        row-gap: 0.75rem;
+        column-gap: 1rem;
+        font-size: 0.95rem;
+        padding: 0.5rem 0;
       }
 
       .label {
         color: #666;
+        font-weight: 500;
         justify-self: flex-start;
       }
 
       .value {
-        color: #222;
-        word-break: break-all;
+        color: #333;
+        word-break: break-word;
+        font-weight: 400;
+      }
+
+      .dialog-actions {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e0e0e0;
+        background: #fafafa;
+      }
+
+      .dialog-actions button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      button[mat-button] {
+        transition: all 0.2s ease;
+      }
+
+      button[mat-button]:hover {
+        background: rgba(0, 0, 0, 0.04);
       }
     `
   ]

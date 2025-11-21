@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -26,6 +27,7 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    MatIconModule,
     MatTableModule,
     MatSnackBarModule,
     MatProgressSpinnerModule,
@@ -36,28 +38,67 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
   ],
   template: `
     <section class="page monthly-premiums">
-      <mat-card>
-        <h1>月次保険料 一覧・再計算</h1>
-        <p>
-          対象年月を指定し、マスタで定義された保険料率を用いて
-          現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
-        </p>
+      <mat-card class="header-card">
+        <div class="header-content">
+          <div class="header-icon">
+            <mat-icon>account_balance_wallet</mat-icon>
+          </div>
+          <div class="header-text">
+            <h1>月次保険料 一覧・再計算</h1>
+            <p>
+              対象年月を指定し、マスタで定義された保険料率を用いて
+              現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
+            </p>
+          </div>
+        </div>
+      </mat-card>
+
+      <mat-card class="content-card">
+        <div class="page-header">
+          <div class="page-title-section">
+            <h2>
+              <mat-icon>calculate</mat-icon>
+              保険料計算
+            </h2>
+            <p>対象年月とマスタ設定に基づいて月次保険料を計算します。</p>
+          </div>
+        </div>
 
         <form [formGroup]="form" (ngSubmit)="onCalculateAndSave()" class="premium-form">
-          <div class="form-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>対象年月</mat-label>
-              <input matInput type="month" formControlName="yearMonth" required />
-            </mat-form-field>
-          </div>
+          <div class="form-section">
+            <div class="form-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>対象年月</mat-label>
+                <input matInput type="month" formControlName="yearMonth" required />
+              </mat-form-field>
+            </div>
 
-          <div class="rate-summary" *ngIf="rateSummary() as r">
-            <p>適用される保険料率（{{ form.get('yearMonth')?.value }}）</p>
-            <ul>
-              <li>健康保険: {{ r.healthRate != null ? (r.healthRate | percent: '1.2-2') : '未設定' }}</li>
-              <li>介護保険: {{ r.careRate != null ? (r.careRate | percent: '1.2-2') : '-' }}</li>
-              <li>厚生年金: {{ r.pensionRate != null ? (r.pensionRate | percent: '1.2-2') : '未設定' }}</li>
-            </ul>
+            <div class="rate-summary" *ngIf="rateSummary() as r">
+              <h3 class="rate-summary-title">
+                <mat-icon>info</mat-icon>
+                適用される保険料率（{{ form.get('yearMonth')?.value }}）
+              </h3>
+              <div class="rate-list">
+                <div class="rate-item">
+                  <span class="rate-label">健康保険</span>
+                  <span class="rate-value" [class.not-set]="r.healthRate == null">
+                    {{ r.healthRate != null ? (r.healthRate | percent: '1.2-2') : '未設定' }}
+                  </span>
+                </div>
+                <div class="rate-item">
+                  <span class="rate-label">介護保険</span>
+                  <span class="rate-value" [class.not-set]="r.careRate == null">
+                    {{ r.careRate != null ? (r.careRate | percent: '1.2-2') : '-' }}
+                  </span>
+                </div>
+                <div class="rate-item">
+                  <span class="rate-label">厚生年金</span>
+                  <span class="rate-value" [class.not-set]="r.pensionRate == null">
+                    {{ r.pensionRate != null ? (r.pensionRate | percent: '1.2-2') : '未設定' }}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="actions">
@@ -68,6 +109,7 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
               [disabled]="form.invalid || !(officeId$ | async) || loading()"
             >
               <mat-spinner *ngIf="loading()" diameter="20" class="inline-spinner"></mat-spinner>
+              <mat-icon *ngIf="!loading()">calculate</mat-icon>
               計算して保存
             </button>
           </div>
@@ -75,9 +117,15 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
       </mat-card>
 
       <mat-card *ngIf="results().length > 0" class="result-card">
-        <h2>計算結果一覧（{{ form.get('yearMonth')?.value }}）</h2>
+        <div class="result-header">
+          <h2>
+            <mat-icon>list</mat-icon>
+            計算結果一覧（{{ form.get('yearMonth')?.value }}）
+          </h2>
+        </div>
 
-        <table mat-table [dataSource]="results()" class="premiums-table">
+        <div class="table-container">
+          <table mat-table [dataSource]="results()" class="premiums-table">
           <ng-container matColumnDef="employeeName">
             <th mat-header-cell *matHeaderCellDef>氏名</th>
             <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
@@ -128,62 +176,312 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
             <td mat-cell *matCellDef="let row">{{ row.totalEmployer | number }}</td>
           </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-        </table>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns" class="table-header-row"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns" class="table-row"></tr>
+          </table>
+        </div>
 
         <div class="totals">
-          <strong>事業所合計（本人負担）: {{ totalEmployee() | number }}円</strong>
-          <strong>事業所合計（会社負担）: {{ totalEmployer() | number }}円</strong>
+          <div class="total-item">
+            <span class="total-label">事業所合計（本人負担）</span>
+            <span class="total-value employee">{{ totalEmployee() | number }}円</span>
+          </div>
+          <div class="total-item">
+            <span class="total-label">事業所合計（会社負担）</span>
+            <span class="total-value employer">{{ totalEmployer() | number }}円</span>
+          </div>
         </div>
       </mat-card>
     </section>
   `,
   styles: [
     `
+      .header-card {
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .header-card ::ng-deep .mat-mdc-card-content {
+        padding: 0;
+      }
+
+      .header-content {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 2rem;
+      }
+
+      .header-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+      }
+
+      .header-icon mat-icon {
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
+        color: white;
+      }
+
+      .header-text h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.75rem;
+        font-weight: 600;
+      }
+
+      .header-text p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1rem;
+      }
+
+      .content-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+      }
+
+      .page-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid #e0e0e0;
+      }
+
+      .page-title-section h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 0.5rem 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .page-title-section h2 mat-icon {
+        color: #667eea;
+      }
+
+      .page-title-section p {
+        margin: 0;
+        color: #666;
+        font-size: 0.95rem;
+      }
+
       .premium-form {
         margin-top: 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
+      }
+
+      .form-section {
+        margin-bottom: 1.5rem;
       }
 
       .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 1rem;
+        margin-bottom: 1.5rem;
       }
 
       .rate-summary {
-        background: #fafafa;
-        padding: 0.75rem 1rem;
-        border-radius: 4px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+      }
+
+      .rate-summary-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .rate-summary-title mat-icon {
+        color: #667eea;
+      }
+
+      .rate-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+
+      .rate-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .rate-label {
+        font-size: 0.875rem;
+        color: #666;
+        font-weight: 500;
+      }
+
+      .rate-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1976d2;
+      }
+
+      .rate-value.not-set {
+        color: #999;
+        font-weight: 500;
       }
 
       .actions {
         display: flex;
         justify-content: flex-end;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
       }
 
       .inline-spinner {
         margin-right: 8px;
       }
 
-      table.premiums-table {
-        width: 100%;
-        margin-top: 1rem;
+      button[mat-raised-button] {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
       }
 
-      table.premiums-table th,
+      button[mat-raised-button]:hover:not(:disabled) {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
+      }
+
+      .result-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .result-header {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0e0e0;
+      }
+
+      .result-header h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .result-header h2 mat-icon {
+        color: #667eea;
+      }
+
+      .table-container {
+        position: relative;
+        overflow-x: auto;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        margin-bottom: 1.5rem;
+      }
+
+      table.premiums-table {
+        width: 100%;
+        background: white;
+      }
+
+      .table-header-row {
+        background: #f5f5f5;
+      }
+
+      table.premiums-table th {
+        font-weight: 600;
+        color: #555;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 16px;
+      }
+
       table.premiums-table td {
-        padding: 8px 12px;
+        padding: 16px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .table-row {
+        transition: background-color 0.2s ease;
+      }
+
+      .table-row:hover {
+        background-color: #f9f9f9;
+      }
+
+      .table-row:last-child td {
+        border-bottom: none;
       }
 
       .totals {
         display: flex;
         gap: 2rem;
-        margin-top: 1rem;
+        padding: 1.5rem;
+        background: #f5f5f5;
+        border-radius: 8px;
         flex-wrap: wrap;
+      }
+
+      .total-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .total-label {
+        font-size: 0.875rem;
+        color: #666;
+        font-weight: 500;
+      }
+
+      .total-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+      }
+
+      .total-value.employee {
+        color: #1976d2;
+      }
+
+      .total-value.employer {
+        color: #2e7d32;
+      }
+
+      @media (max-width: 768px) {
+        .header-content {
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .rate-list {
+          grid-template-columns: 1fr;
+        }
+
+        .totals {
+          flex-direction: column;
+        }
       }
     `
   ]

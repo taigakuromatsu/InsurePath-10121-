@@ -21,19 +21,25 @@ import { AuthService } from '../../services/auth.service';
   ],
   template: `
     <section class="page login">
-      <mat-card>
-        <h1>InsurePath へログイン</h1>
-        <p>Google アカウントでログインして従業員台帳を管理しましょう。</p>
+      <div class="login-container">
+        <mat-card class="login-card">
+          <div class="login-header">
+            <div class="login-icon">
+              <mat-icon>lock</mat-icon>
+            </div>
+            <h1>InsurePath へログイン</h1>
+            <p>Google アカウントでログインして従業員台帳を管理しましょう。</p>
+          </div>
 
-        <button mat-raised-button color="primary" (click)="signIn()" [disabled]="loading()">
-          <mat-icon aria-hidden="true">login</mat-icon>
-          Google でログイン
-        </button>
-
-        <div class="spinner" *ngIf="loading()">
-          <mat-progress-spinner mode="indeterminate" diameter="32"></mat-progress-spinner>
-        </div>
-      </mat-card>
+          <div class="login-content">
+            <button mat-raised-button color="primary" (click)="signIn()" [disabled]="loading()" class="login-button">
+              <mat-icon *ngIf="!loading()">login</mat-icon>
+              <mat-spinner *ngIf="loading()" diameter="20" class="button-spinner"></mat-spinner>
+              Google でログイン
+            </button>
+          </div>
+        </mat-card>
+      </div>
     </section>
   `,
   styles: [
@@ -42,17 +48,101 @@ import { AuthService } from '../../services/auth.service';
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 70vh;
+        min-height: 80vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
       }
-      mat-card {
-        max-width: 480px;
+
+      .login-container {
         width: 100%;
+        max-width: 480px;
+      }
+
+      .login-card {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+
+      .login-card ::ng-deep .mat-mdc-card-content {
+        padding: 0;
+      }
+
+      .login-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3rem 2rem;
         text-align: center;
       }
-      .spinner {
-        margin-top: 16px;
+
+      .login-icon {
         display: flex;
+        align-items: center;
         justify-content: center;
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+      }
+
+      .login-icon mat-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+        color: white;
+      }
+
+      .login-header h1 {
+        margin: 0 0 0.75rem 0;
+        font-size: 1.75rem;
+        font-weight: 600;
+      }
+
+      .login-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1rem;
+      }
+
+      .login-content {
+        padding: 2rem;
+        text-align: center;
+      }
+
+      .login-button {
+        width: 100%;
+        padding: 12px 24px;
+        font-size: 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .login-button:hover:not(:disabled) {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        transform: translateY(-2px);
+      }
+
+      .button-spinner {
+        margin-right: 0;
+      }
+
+      @media (max-width: 768px) {
+        .login {
+          padding: 1rem;
+        }
+
+        .login-header {
+          padding: 2rem 1.5rem;
+        }
+
+        .login-content {
+          padding: 1.5rem;
+        }
       }
     `
   ]

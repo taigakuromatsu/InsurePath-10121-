@@ -1,8 +1,9 @@
-import { AsyncPipe, PercentPipe } from '@angular/common';
+import { AsyncPipe, NgIf, PercentPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -23,143 +24,246 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
     MatTabsModule,
     MatTableModule,
     MatButtonModule,
+    MatIconModule,
     MatDialogModule,
     MatSnackBarModule,
     AsyncPipe,
+    NgIf,
     PercentPipe
   ],
   template: `
     <section class="page masters">
-      <mat-card>
-        <h1>マスタ管理</h1>
-        <p>保険料率や標準報酬等級を年度別に管理します。</p>
+      <mat-card class="header-card">
+        <div class="header-content">
+          <div class="header-icon">
+            <mat-icon>settings</mat-icon>
+          </div>
+          <div class="header-text">
+            <h1>マスタ管理</h1>
+            <p>保険料率や標準報酬等級を年度別に管理します。</p>
+          </div>
+        </div>
       </mat-card>
 
-      <mat-card>
-        <mat-tab-group>
-          <mat-tab label="健康保険マスタ">
-            <div class="tab-header">
-              <div>
-                <h2>健康保険マスタ</h2>
-                <p>協会けんぽ・組合健保の料率と標準報酬等級を管理します。</p>
+      <mat-card class="content-card">
+        <mat-tab-group class="master-tabs">
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon class="tab-icon">local_hospital</mat-icon>
+              <span>健康保険マスタ</span>
+            </ng-template>
+            <div class="tab-content">
+              <div class="tab-header">
+                <div class="tab-title-section">
+                  <h2>
+                    <mat-icon>local_hospital</mat-icon>
+                    健康保険マスタ
+                  </h2>
+                  <p>協会けんぽ・組合健保の料率と標準報酬等級を管理します。</p>
+                </div>
+                <button mat-raised-button color="primary" (click)="openHealthDialog()" [disabled]="!(office$ | async)">
+                  <mat-icon>add</mat-icon>
+                  新規登録
+                </button>
               </div>
-              <button mat-raised-button color="primary" (click)="openHealthDialog()" [disabled]="!(office$ | async)">
-                新規登録
-              </button>
+
+              <div class="table-container">
+                <table mat-table [dataSource]="(healthTables$ | async) || []" class="master-table">
+                  <ng-container matColumnDef="year">
+                    <th mat-header-cell *matHeaderCellDef>年度</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="year-badge">{{ row.year }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="plan">
+                    <th mat-header-cell *matHeaderCellDef>プラン</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="plan-badge" [class.kyokai]="row.planType === 'kyokai'" [class.kumiai]="row.planType === 'kumiai'">
+                        {{ row.planType === 'kyokai' ? '協会けんぽ' : '組合健保' }}
+                      </span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="area">
+                    <th mat-header-cell *matHeaderCellDef>都道府県 / 組合</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="area-text">{{ row.kyokaiPrefName || row.unionName || '-' }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="rate">
+                    <th mat-header-cell *matHeaderCellDef>料率</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="rate-value">{{ row.healthRate | percent: '1.2-2' }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="bands">
+                    <th mat-header-cell *matHeaderCellDef>等級数</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="bands-count">{{ row.bands?.length || 0 }}件</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
+                    <td mat-cell *matCellDef="let row" class="actions-cell">
+                      <button mat-icon-button color="primary" (click)="openHealthDialog(row)" title="編集">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button color="warn" (click)="deleteHealth(row)" title="削除">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="healthDisplayedColumns" class="table-header-row"></tr>
+                  <tr mat-row *matRowDef="let row; columns: healthDisplayedColumns" class="table-row"></tr>
+                </table>
+                <div class="empty-state" *ngIf="(healthTables$ | async)?.length === 0">
+                  <mat-icon>inbox</mat-icon>
+                  <p>マスタが登録されていません</p>
+                  <button mat-stroked-button color="primary" (click)="openHealthDialog()" [disabled]="!(office$ | async)">
+                    <mat-icon>add</mat-icon>
+                    最初のマスタを登録
+                  </button>
+                </div>
+              </div>
             </div>
-
-            <table mat-table [dataSource]="(healthTables$ | async) || []" class="master-table">
-              <ng-container matColumnDef="year">
-                <th mat-header-cell *matHeaderCellDef>年度</th>
-                <td mat-cell *matCellDef="let row">{{ row.year }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="plan">
-                <th mat-header-cell *matHeaderCellDef>プラン</th>
-                <td mat-cell *matCellDef="let row">{{ row.planType === 'kyokai' ? '協会けんぽ' : '組合健保' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="area">
-                <th mat-header-cell *matHeaderCellDef>都道府県 / 組合</th>
-                <td mat-cell *matCellDef="let row">{{ row.kyokaiPrefName || row.unionName || '-' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="rate">
-                <th mat-header-cell *matHeaderCellDef>料率</th>
-                <td mat-cell *matCellDef="let row">{{ row.healthRate | percent: '1.2-2' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="bands">
-                <th mat-header-cell *matHeaderCellDef>等級数</th>
-                <td mat-cell *matCellDef="let row">{{ row.bands?.length || 0 }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>操作</th>
-                <td mat-cell *matCellDef="let row">
-                  <button mat-button color="primary" (click)="openHealthDialog(row)">編集</button>
-                  <button mat-button color="warn" (click)="deleteHealth(row)">削除</button>
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="healthDisplayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: healthDisplayedColumns"></tr>
-            </table>
           </mat-tab>
 
-          <mat-tab label="介護保険マスタ">
-            <div class="tab-header">
-              <div>
-                <h2>介護保険マスタ</h2>
-                <p>年度別の介護保険料率を管理します。</p>
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon class="tab-icon">elderly</mat-icon>
+              <span>介護保険マスタ</span>
+            </ng-template>
+            <div class="tab-content">
+              <div class="tab-header">
+                <div class="tab-title-section">
+                  <h2>
+                    <mat-icon>elderly</mat-icon>
+                    介護保険マスタ
+                  </h2>
+                  <p>年度別の介護保険料率を管理します。</p>
+                </div>
+                <button mat-raised-button color="primary" (click)="openCareDialog()" [disabled]="!(office$ | async)">
+                  <mat-icon>add</mat-icon>
+                  新規登録
+                </button>
               </div>
-              <button mat-raised-button color="primary" (click)="openCareDialog()" [disabled]="!(office$ | async)">
-                新規登録
-              </button>
+
+              <div class="table-container">
+                <table mat-table [dataSource]="(careTables$ | async) || []" class="master-table">
+                  <ng-container matColumnDef="year">
+                    <th mat-header-cell *matHeaderCellDef>年度</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="year-badge">{{ row.year }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="rate">
+                    <th mat-header-cell *matHeaderCellDef>料率</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="rate-value">{{ row.careRate | percent: '1.2-2' }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
+                    <td mat-cell *matCellDef="let row" class="actions-cell">
+                      <button mat-icon-button color="primary" (click)="openCareDialog(row)" title="編集">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button color="warn" (click)="deleteCare(row)" title="削除">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="careDisplayedColumns" class="table-header-row"></tr>
+                  <tr mat-row *matRowDef="let row; columns: careDisplayedColumns" class="table-row"></tr>
+                </table>
+                <div class="empty-state" *ngIf="(careTables$ | async)?.length === 0">
+                  <mat-icon>inbox</mat-icon>
+                  <p>マスタが登録されていません</p>
+                  <button mat-stroked-button color="primary" (click)="openCareDialog()" [disabled]="!(office$ | async)">
+                    <mat-icon>add</mat-icon>
+                    最初のマスタを登録
+                  </button>
+                </div>
+              </div>
             </div>
-
-            <table mat-table [dataSource]="(careTables$ | async) || []" class="master-table">
-              <ng-container matColumnDef="year">
-                <th mat-header-cell *matHeaderCellDef>年度</th>
-                <td mat-cell *matCellDef="let row">{{ row.year }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="rate">
-                <th mat-header-cell *matHeaderCellDef>料率</th>
-                <td mat-cell *matCellDef="let row">{{ row.careRate | percent: '1.2-2' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>操作</th>
-                <td mat-cell *matCellDef="let row">
-                  <button mat-button color="primary" (click)="openCareDialog(row)">編集</button>
-                  <button mat-button color="warn" (click)="deleteCare(row)">削除</button>
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="careDisplayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: careDisplayedColumns"></tr>
-            </table>
           </mat-tab>
 
-          <mat-tab label="厚生年金マスタ">
-            <div class="tab-header">
-              <div>
-                <h2>厚生年金マスタ</h2>
-                <p>年度別の厚生年金料率と標準報酬等級を管理します。</p>
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon class="tab-icon">account_balance</mat-icon>
+              <span>厚生年金マスタ</span>
+            </ng-template>
+            <div class="tab-content">
+              <div class="tab-header">
+                <div class="tab-title-section">
+                  <h2>
+                    <mat-icon>account_balance</mat-icon>
+                    厚生年金マスタ
+                  </h2>
+                  <p>年度別の厚生年金料率と標準報酬等級を管理します。</p>
+                </div>
+                <button mat-raised-button color="primary" (click)="openPensionDialog()" [disabled]="!(office$ | async)">
+                  <mat-icon>add</mat-icon>
+                  新規登録
+                </button>
               </div>
-              <button mat-raised-button color="primary" (click)="openPensionDialog()" [disabled]="!(office$ | async)">
-                新規登録
-              </button>
+
+              <div class="table-container">
+                <table mat-table [dataSource]="(pensionTables$ | async) || []" class="master-table">
+                  <ng-container matColumnDef="year">
+                    <th mat-header-cell *matHeaderCellDef>年度</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="year-badge">{{ row.year }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="rate">
+                    <th mat-header-cell *matHeaderCellDef>料率</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="rate-value">{{ row.pensionRate | percent: '1.2-2' }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="bands">
+                    <th mat-header-cell *matHeaderCellDef>等級数</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="bands-count">{{ row.bands?.length || 0 }}件</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
+                    <td mat-cell *matCellDef="let row" class="actions-cell">
+                      <button mat-icon-button color="primary" (click)="openPensionDialog(row)" title="編集">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button color="warn" (click)="deletePension(row)" title="削除">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="pensionDisplayedColumns" class="table-header-row"></tr>
+                  <tr mat-row *matRowDef="let row; columns: pensionDisplayedColumns" class="table-row"></tr>
+                </table>
+                <div class="empty-state" *ngIf="(pensionTables$ | async)?.length === 0">
+                  <mat-icon>inbox</mat-icon>
+                  <p>マスタが登録されていません</p>
+                  <button mat-stroked-button color="primary" (click)="openPensionDialog()" [disabled]="!(office$ | async)">
+                    <mat-icon>add</mat-icon>
+                    最初のマスタを登録
+                  </button>
+                </div>
+              </div>
             </div>
-
-            <table mat-table [dataSource]="(pensionTables$ | async) || []" class="master-table">
-              <ng-container matColumnDef="year">
-                <th mat-header-cell *matHeaderCellDef>年度</th>
-                <td mat-cell *matCellDef="let row">{{ row.year }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="rate">
-                <th mat-header-cell *matHeaderCellDef>料率</th>
-                <td mat-cell *matCellDef="let row">{{ row.pensionRate | percent: '1.2-2' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="bands">
-                <th mat-header-cell *matHeaderCellDef>等級数</th>
-                <td mat-cell *matCellDef="let row">{{ row.bands?.length || 0 }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>操作</th>
-                <td mat-cell *matCellDef="let row">
-                  <button mat-button color="primary" (click)="openPensionDialog(row)">編集</button>
-                  <button mat-button color="warn" (click)="deletePension(row)">削除</button>
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="pensionDisplayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: pensionDisplayedColumns"></tr>
-            </table>
           </mat-tab>
         </mat-tab-group>
       </mat-card>
@@ -167,22 +271,255 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
   `,
   styles: [
     `
-      .tab-header {
+      .header-card {
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .header-card ::ng-deep .mat-mdc-card-content {
+        padding: 0;
+      }
+
+      .header-content {
         display: flex;
         align-items: center;
+        gap: 1.5rem;
+        padding: 2rem;
+      }
+
+      .header-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+      }
+
+      .header-icon mat-icon {
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
+        color: white;
+      }
+
+      .header-text h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.75rem;
+        font-weight: 600;
+      }
+
+      .header-text p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1rem;
+      }
+
+      .content-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .master-tabs ::ng-deep .mat-mdc-tab-label {
+        min-width: 180px;
+      }
+
+      .tab-icon {
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+
+      .tab-content {
+        padding: 2rem;
+      }
+
+      .tab-header {
+        display: flex;
+        align-items: flex-start;
         justify-content: space-between;
-        gap: 1rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid #e0e0e0;
+      }
+
+      .tab-title-section h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 0.5rem 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .tab-title-section h2 mat-icon {
+        color: #667eea;
+      }
+
+      .tab-title-section p {
+        margin: 0;
+        color: #666;
+        font-size: 0.95rem;
+      }
+
+      .table-container {
+        position: relative;
+        overflow-x: auto;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
       }
 
       table.master-table {
         width: 100%;
+        background: white;
       }
 
-      table.master-table th,
+      .table-header-row {
+        background: #f5f5f5;
+      }
+
+      table.master-table th {
+        font-weight: 600;
+        color: #555;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 16px;
+      }
+
       table.master-table td {
-        padding: 8px 12px;
+        padding: 16px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .table-row {
+        transition: background-color 0.2s ease;
+      }
+
+      .table-row:hover {
+        background-color: #f9f9f9;
+      }
+
+      .table-row:last-child td {
+        border-bottom: none;
+      }
+
+      .year-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        background: #e3f2fd;
+        color: #1976d2;
+        border-radius: 16px;
+        font-weight: 600;
+        font-size: 0.875rem;
+      }
+
+      .plan-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-weight: 500;
+        font-size: 0.875rem;
+      }
+
+      .plan-badge.kyokai {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+
+      .plan-badge.kumiai {
+        background: #fff3e0;
+        color: #e65100;
+      }
+
+      .area-text {
+        color: #333;
+        font-weight: 500;
+      }
+
+      .rate-value {
+        font-weight: 600;
+        color: #1976d2;
+        font-size: 1rem;
+      }
+
+      .bands-count {
+        display: inline-block;
+        padding: 4px 10px;
+        background: #f3e5f5;
+        color: #7b1fa2;
+        border-radius: 12px;
+        font-weight: 500;
+        font-size: 0.875rem;
+      }
+
+      .actions-header {
+        text-align: center;
+      }
+
+      .actions-cell {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+      }
+
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        text-align: center;
+        color: #999;
+      }
+
+      .empty-state mat-icon {
+        font-size: 64px;
+        width: 64px;
+        height: 64px;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+      }
+
+      .empty-state p {
+        margin: 0 0 1.5rem 0;
+        font-size: 1.1rem;
+      }
+
+      button[mat-raised-button] {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+      }
+
+      button[mat-raised-button]:hover:not(:disabled) {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
+      }
+
+      button[mat-icon-button] {
+        transition: all 0.2s ease;
+      }
+
+      button[mat-icon-button]:hover {
+        transform: scale(1.1);
+      }
+
+      @media (max-width: 768px) {
+        .tab-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .tab-header button {
+          width: 100%;
+        }
+
+        .header-content {
+          flex-direction: column;
+          text-align: center;
+        }
       }
     `
   ]
