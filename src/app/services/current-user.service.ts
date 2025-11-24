@@ -2,7 +2,17 @@
 
 import { Injectable } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
-import { doc, Firestore, getDoc, setDoc, updateDoc } from '@angular/fire/firestore';
+import {
+  collection,
+  doc,
+  Firestore,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from '@angular/fire/firestore';
 import { BehaviorSubject, from, of, shareReplay, switchMap, map } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -60,6 +70,34 @@ export class CurrentUserService {
       });
   }
 
+  /**
+   * メールアドレスで従業員レコードを検索し、employeeId を取得する
+   *
+   * @param officeId - 事業所ID
+   * @param email - 検索対象のメールアドレス（小文字に正規化して検索）
+   * @returns 従業員ID（見つからない場合は null）
+   */
+  private async findEmployeeIdByEmail(officeId: string, email: string): Promise<string | null> {
+    if (!officeId || !email) {
+      return null;
+    }
+
+    try {
+      const employeesRef = collection(this.firestore, 'offices', officeId, 'employees');
+      const q = query(employeesRef, where('contactEmail', '==', email.toLowerCase()));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        return null;
+      }
+
+      return snapshot.docs[0]?.id ?? null;
+    } catch (error) {
+      console.error('従業員レコードの検索に失敗しました', error);
+      return null;
+    }
+  }
+
   async assignOffice(officeId: string): Promise<void> {
     const user = this.auth.currentUser;
     if (!user) {
@@ -70,24 +108,36 @@ export class CurrentUserService {
     const now = new Date().toISOString();
     const role = this.profileSubject.value?.role ?? 'admin';
 
-    await setDoc(
-      userDoc,
-      {
-        id: user.uid,
-        officeId,
-        role,
-        displayName: user.displayName ?? user.email ?? 'User',
-        email: user.email ?? 'unknown@example.com',
-        updatedAt: now,
-        createdAt: this.profileSubject.value?.createdAt ?? now,
-      },
-      { merge: true }
-    );
+    let employeeId = this.profileSubject.value?.employeeId;
+    if (!employeeId && user.email) {
+      employeeId = await this.findEmployeeIdByEmail(officeId, user.email);
+    }
+
+    const updateData: Record<string, unknown> = {
+      id: user.uid,
+      officeId,
+      role,
+      displayName: user.displayName ?? user.email ?? 'User',
+      email: user.email ?? 'unknown@example.com',
+      updatedAt: now,
+      createdAt: this.profileSubject.value?.createdAt ?? now,
+    };
+
+    if (employeeId) {
+      updateData.employeeId = employeeId;
+    }
+
+    await setDoc(userDoc, updateData, { merge: true });
 
     // ローカルキャッシュも更新しておくとガードが即反映される
     const current = this.profileSubject.value;
     if (current) {
-      this.profileSubject.next({ ...current, officeId, updatedAt: now });
+      this.profileSubject.next({
+        ...current,
+        officeId,
+        ...(employeeId && { employeeId }),
+        updatedAt: now,
+      });
     }
   }
 
