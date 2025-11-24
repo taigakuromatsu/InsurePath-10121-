@@ -1,5 +1,15 @@
 import { Injectable } from '@angular/core';
-import { Firestore, collection, doc, getDocs, query, setDoc, where } from '@angular/fire/firestore';
+import {
+  Firestore,
+  collection,
+  doc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  setDoc,
+  where
+} from '@angular/fire/firestore';
 import { firstValueFrom, from, map, Observable } from 'rxjs';
 
 import { Employee, IsoDateString, MonthlyPremium, YearMonthString } from '../types';
@@ -176,6 +186,34 @@ export class MonthlyPremiumsService {
   listByOfficeAndYearMonth(officeId: string, yearMonth: YearMonthString): Observable<MonthlyPremium[]> {
     const collectionRef = this.getCollectionRef(officeId);
     const q = query(collectionRef, where('yearMonth', '==', yearMonth));
+
+    return from(getDocs(q)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as MonthlyPremium)
+        )
+      )
+    );
+  }
+
+  /**
+   * 指定事業所・従業員の直近12ヶ月分の月次保険料を取得する
+   */
+  listByOfficeAndEmployee(
+    officeId: string,
+    employeeId: string
+  ): Observable<MonthlyPremium[]> {
+    const collectionRef = this.getCollectionRef(officeId);
+    const q = query(
+      collectionRef,
+      where('employeeId', '==', employeeId),
+      orderBy('yearMonth', 'desc'),
+      limit(12)
+    );
 
     return from(getDocs(q)).pipe(
       map((snapshot) =>
