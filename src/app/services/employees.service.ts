@@ -64,7 +64,14 @@ export class EmployeesService {
     if (employee.retireDate != null) payload.retireDate = employee.retireDate;
     if (employee.address != null) payload.address = employee.address;
     if (employee.phone != null) payload.phone = employee.phone;
-    if (employee.contactEmail != null) payload.contactEmail = employee.contactEmail;
+    if (employee.contactEmail != null) {
+      const normalizedEmail = employee.contactEmail.trim().toLowerCase();
+      // 空文字だったら保存しない（お好みで）
+      if (normalizedEmail) {
+        payload.contactEmail = normalizedEmail;
+      }
+    }
+    
     if (employee.contractPeriodNote != null) payload.contractPeriodNote = employee.contractPeriodNote;
     if (employee.updatedByUserId != null) payload.updatedByUserId = employee.updatedByUserId;
 

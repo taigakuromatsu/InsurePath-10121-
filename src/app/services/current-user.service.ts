@@ -110,7 +110,7 @@ export class CurrentUserService {
 
     let employeeId = this.profileSubject.value?.employeeId;
     if (!employeeId && user.email) {
-      employeeId = await this.findEmployeeIdByEmail(officeId, user.email);
+      employeeId = (await this.findEmployeeIdByEmail(officeId, user.email)) ?? undefined;
     }
 
     const updateData: Record<string, unknown> = {
@@ -124,7 +124,7 @@ export class CurrentUserService {
     };
 
     if (employeeId) {
-      updateData.employeeId = employeeId;
+      updateData['employeeId'] = employeeId;
     }
 
     await setDoc(userDoc, updateData, { merge: true });

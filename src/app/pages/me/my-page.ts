@@ -1,4 +1,4 @@
-import { AsyncPipe, DatePipe, DecimalPipe, NgForOf, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, DecimalPipe, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,7 +15,7 @@ import { BonusPremium, MonthlyPremium } from '../../types';
 @Component({
   selector: 'ip-my-page',
   standalone: true,
-  imports: [MatCardModule, MatIconModule, MatTableModule, AsyncPipe, NgIf, NgForOf, DatePipe, DecimalPipe],
+  imports: [MatCardModule, MatIconModule, MatTableModule, AsyncPipe, NgIf, DatePipe, DecimalPipe],
   template: `
     <section class="page my-page">
       <mat-card class="header-card">

@@ -377,29 +377,34 @@ service cloud.firestore {
     // InsurePath: users/{uid} にユーザープロファイルを保存
     // ProblemPath: users/{uid}/... のサブコレクションを利用
     match /users/{uid} {
-      // InsurePath 用: プロファイルのバリデーション
-      function validInsureUserProfile(d) {
-        return d.keys().hasOnly([
-          'id',
-          'officeId',
-          'role',
-          'displayName',
-          'email',
-          'createdAt',
-          'updatedAt'
-        ])
-        && (d.id is string && d.id == uid)
-        && (!('officeId' in d) || (d.officeId is string))
-        && (!('role' in d) || (d.role is string && d.role.size() > 0 && d.role.size() <= 30))
-        && (d.displayName is string
-            && d.displayName.size() > 0
-            && d.displayName.size() <= 120)
-        && (d.email is string
-            && d.email.size() > 3
-            && d.email.size() <= 320)
-        && (d.createdAt is string)
-        && (d.updatedAt is string);
-      }
+    function validInsureUserProfile(d) {
+      return d.keys().hasOnly([
+        'id',
+        'officeId',
+        'role',
+        'displayName',
+        'email',
+        'createdAt',
+        'updatedAt',
+        'employeeId',        // ★追加
+      ])
+      && (d.id is string && d.id == uid)
+      && (!('officeId' in d) || (d.officeId is string))
+      && (!('role' in d) || (d.role is string && d.role.size() > 0 && d.role.size() <= 30))
+      && (d.displayName is string
+          && d.displayName.size() > 0
+          && d.displayName.size() <= 120)
+      && (d.email is string
+          && d.email.size() > 3
+          && d.email.size() <= 320)
+      && (d.createdAt is string)
+      && (d.updatedAt is string)
+      // ★ employeeId がある場合だけ型チェック
+      && (!('employeeId' in d)
+          || (d.employeeId is string
+              && d.employeeId.size() > 0
+              && d.employeeId.size() <= 200));
+    }
 
       // 自分の users/{uid} だけ読み書きできる (InsurePath 用)
       allow read: if isSignedIn() && request.auth.uid == uid;
