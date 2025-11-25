@@ -11,6 +11,7 @@ import { map } from 'rxjs/operators';
 import { AuthService } from './services/auth.service';
 import { CurrentOfficeService } from './services/current-office.service';
 import { CurrentUserService } from './services/current-user.service';
+import { UserRole } from './types';
 
 @Component({
   selector: 'app-root',
@@ -31,17 +32,17 @@ import { CurrentUserService } from './services/current-user.service';
   styleUrl: './app.scss'
 })
 export class App {
-  readonly navLinks = [
-    { label: 'ダッシュボード', path: '/dashboard', icon: 'dashboard' },
-    { label: '事業所設定', path: '/offices', icon: 'apartment' },
-    { label: '従業員台帳', path: '/employees', icon: 'group' },
-    { label: '月次保険料', path: '/premiums/monthly', icon: 'table_chart' },
-    { label: '賞与保険料', path: '/premiums/bonus', icon: 'card_giftcard' },
-    { label: 'マスタ管理', path: '/masters', icon: 'settings' },
-    { label: '申請ワークフロー', path: '/requests', icon: 'assignment' },
-    { label: 'シミュレーター', path: '/simulator', icon: 'calculate' },
-    { label: 'マイページ', path: '/me', icon: 'person' }
-  ] as const;
+  readonly navLinks: { label: string; path: string; icon: string; roles: UserRole[] }[] = [
+    { label: 'ダッシュボード', path: '/dashboard', icon: 'dashboard', roles: ['admin', 'hr'] },
+    { label: '事業所設定', path: '/offices', icon: 'apartment', roles: ['admin'] },
+    { label: '従業員台帳', path: '/employees', icon: 'group', roles: ['admin', 'hr'] },
+    { label: '月次保険料', path: '/premiums/monthly', icon: 'table_chart', roles: ['admin', 'hr'] },
+    { label: '賞与保険料', path: '/premiums/bonus', icon: 'card_giftcard', roles: ['admin', 'hr'] },
+    { label: 'マスタ管理', path: '/masters', icon: 'settings', roles: ['admin'] },
+    { label: '申請ワークフロー', path: '/requests', icon: 'assignment', roles: ['admin', 'hr', 'employee'] },
+    { label: 'シミュレーター', path: '/simulator', icon: 'calculate', roles: ['admin', 'hr'] },
+    { label: 'マイページ', path: '/me', icon: 'person', roles: ['admin', 'hr', 'employee'] }
+  ];
 
   private readonly authService = inject(AuthService);
   private readonly currentUser = inject(CurrentUserService);
@@ -51,6 +52,14 @@ export class App {
   readonly isAuthenticated$ = this.authService.authState$.pipe(map((user) => Boolean(user)));
   readonly userProfile$ = this.currentUser.profile$;
   readonly office$ = this.currentOffice.office$;
+  readonly navLinks$ = this.currentUser.profile$.pipe(
+    map((profile) => {
+      if (!profile) {
+        return [] as typeof this.navLinks;
+      }
+      return this.navLinks.filter((link) => link.roles.includes(profile.role));
+    })
+  );
 
   async signOut(): Promise<void> {
     await this.authService.signOut();

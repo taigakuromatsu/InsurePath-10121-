@@ -28,6 +28,42 @@ service cloud.firestore {
       return newRole in ['admin', 'member', 'viewer'];
     }
 
+    // ---- InsurePath 共通ユーティリティ ----
+    // 現在のユーザープロファイルを取得（同じパスへの get はキャッシュされる）
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // ユーザープロファイルからロールを取得
+    function getUserRole() {
+      return currentUser().data.role;
+    }
+
+    // ユーザーが指定事業所に所属しているかチェック
+    function belongsToOffice(officeId) {
+      return isSignedIn() && currentUser().data.officeId == officeId;
+    }
+
+    // 管理者または人事担当者かチェック
+    function isAdminOrHr(officeId) {
+      return belongsToOffice(officeId) && getUserRole() in ['admin', 'hr'];
+    }
+
+    // 管理者かチェック
+    function isInsureAdmin(officeId) {
+      return belongsToOffice(officeId) && getUserRole() == 'admin';
+    }
+
+    // 一般従業員かチェック
+    function isInsureEmployee(officeId) {
+      return belongsToOffice(officeId) && getUserRole() == 'employee';
+    }
+
+    // 自分の従業員レコードに紐づいているかチェック
+    function isOwnEmployee(officeId, employeeId) {
+      return isSignedIn() && belongsToOffice(officeId) && currentUser().data.employeeId == employeeId;
+    }
+
     match /projects/{projectId} {
 
       // ===== Invites（招待リンク）=====
@@ -476,14 +512,61 @@ service cloud.firestore {
 
     // ---- InsurePath 用: offices 以下 ----
     match /offices/{officeId} {
-      // とりあえずログイン済みなら事業所情報を読み書き可能
-      allow read, create, update, delete: if isSignedIn();
+      // 事業所情報へのアクセス制御
+      allow read: if belongsToOffice(officeId);
+      allow create: if isSignedIn();
+      allow update, delete: if isInsureAdmin(officeId);
 
-      // offices/{officeId} 配下の任意のサブコレクション（employees など）
+      // 従業員情報
+      match /employees/{employeeId} {
+        allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId));
+        allow create, update, delete: if isAdminOrHr(officeId);
+      }
+
+      // 月次保険料
+      match /monthlyPremiums/{docId} {
+        allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || (isInsureEmployee(officeId) && resource.data.employeeId == currentUser().data.employeeId));
+        allow create, update, delete: if isAdminOrHr(officeId);
+      }
+
+      // 賞与保険料
+      match /bonusPremiums/{docId} {
+        allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || (isInsureEmployee(officeId) && resource.data.employeeId == currentUser().data.employeeId));
+        allow create, update, delete: if isAdminOrHr(officeId);
+      }
+
+      // 健康保険料率マスタ
+      match /healthRateTables/{docId} {
+        allow read: if belongsToOffice(officeId);
+        allow create, update, delete: if isInsureAdmin(officeId);
+      }
+
+      // 介護保険料率マスタ
+      match /careRateTables/{docId} {
+        allow read: if belongsToOffice(officeId);
+        allow create, update, delete: if isInsureAdmin(officeId);
+      }
+
+      // 厚生年金保険料率マスタ
+      match /pensionRateTables/{docId} {
+        allow read: if belongsToOffice(officeId);
+        allow create, update, delete: if isInsureAdmin(officeId);
+      }
+
+      // その他のサブコレクション（将来拡張用）
       match /{subcollection}/{docId} {
-        allow read, create, update, delete: if isSignedIn();
+        allow read: if belongsToOffice(officeId);
+        allow create, update, delete: if isAdminOrHr(officeId);
       }
     }
+
+    // TODO: テスト完了後に削除 - 旧 InsurePath offices ルール
+    // match /offices/{officeId} {
+    //   allow read, create, update, delete: if isSignedIn();
+    //   match /{subcollection}/{docId} {
+    //     allow read, create, update, delete: if isSignedIn();
+    //   }
+    // }
 
     // === collectionGroup('tasks') 用 (読み取り専用) ===
     match /{path=**}/tasks/{taskId} {
