@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { needsOfficeGuard } from './guards/needs-office.guard';
 import { officeGuard } from './guards/office.guard';
+import { roleGuard } from './guards/role.guard';
 
 export const routes: Routes = [
   {
@@ -15,22 +16,22 @@ export const routes: Routes = [
       },
       {
         path: 'dashboard',
-        canActivate: [authGuard, officeGuard],
+        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
         loadComponent: () => import('./pages/dashboard/dashboard.page').then((m) => m.DashboardPage)
       },
       {
         path: 'offices',
-        canActivate: [authGuard, officeGuard],
+        canActivate: [authGuard, officeGuard, roleGuard(['admin'])],
         loadComponent: () => import('./pages/offices/offices.page').then((m) => m.OfficesPage)
       },
       {
         path: 'employees',
-        canActivate: [authGuard, officeGuard],
+        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
         loadComponent: () => import('./pages/employees/employees.page').then((m) => m.EmployeesPage)
       },
       {
         path: 'premiums',
-        canActivate: [authGuard, officeGuard],
+        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
         children: [
           {
             path: 'monthly',
@@ -56,12 +57,12 @@ export const routes: Routes = [
       },
       {
         path: 'simulator',
-        canActivate: [authGuard, officeGuard],
+        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
         loadComponent: () => import('./pages/simulator/simulator.page').then((m) => m.SimulatorPage)
       },
       {
         path: 'masters',
-        canActivate: [authGuard, officeGuard],
+        canActivate: [authGuard, officeGuard, roleGuard(['admin'])],
         loadComponent: () => import('./pages/masters/masters.page').then((m) => m.MastersPage)
       },
       {

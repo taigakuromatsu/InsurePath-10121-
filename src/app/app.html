@@ -9,7 +9,7 @@
       <mat-nav-list>
         <a
           mat-list-item
-          *ngFor="let link of navLinks"
+          *ngFor="let link of navLinks$ | async"
           [routerLink]="link.path"
           routerLinkActive="active-link"
           [routerLinkActiveOptions]="{ exact: true }"
