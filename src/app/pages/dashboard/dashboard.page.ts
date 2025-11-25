@@ -1,11 +1,18 @@
-import { Component } from '@angular/core';
+import { DecimalPipe, NgIf } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
+import { firstValueFrom } from 'rxjs';
+
+import { CurrentOfficeService } from '../../services/current-office.service';
+import { EmployeesService } from '../../services/employees.service';
+import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
+import { Employee, MonthlyPremium } from '../../types';
 
 @Component({
   selector: 'ip-dashboard-page',
   standalone: true,
-  imports: [MatCardModule, MatIconModule],
+  imports: [MatCardModule, MatIconModule, DecimalPipe, NgIf],
   template: `
     <section class="page dashboard">
       <mat-card class="header-card">
@@ -27,8 +34,19 @@ import { MatIconModule } from '@angular/material/icon';
           </div>
           <div class="stat-content">
             <h3>従業員数</h3>
-            <p class="stat-value">-</p>
-            <p class="stat-label">登録済み従業員</p>
+            <p class="stat-value">
+              <ng-container *ngIf="insuredEmployeeCount() !== null; else allEmployees">
+                {{ insuredEmployeeCount() }}人
+              </ng-container>
+              <ng-template #allEmployees>
+                {{ employeeCount() ?? '-' }}
+                <ng-container *ngIf="employeeCount() !== null">人</ng-container>
+              </ng-template>
+            </p>
+            <p class="stat-label">
+              <ng-container *ngIf="insuredEmployeeCount() !== null">社会保険加入者</ng-container>
+              <ng-container *ngIf="insuredEmployeeCount() === null">登録済み従業員</ng-container>
+            </p>
           </div>
         </mat-card>
 
@@ -38,7 +56,12 @@ import { MatIconModule } from '@angular/material/icon';
           </div>
           <div class="stat-content">
             <h3>月次保険料</h3>
-            <p class="stat-value">-</p>
+            <p class="stat-value">
+              <ng-container *ngIf="currentMonthTotalEmployer() !== null; else noData">
+                ¥{{ currentMonthTotalEmployer() | number }}
+              </ng-container>
+              <ng-template #noData>-</ng-template>
+            </p>
             <p class="stat-label">今月の会社負担額</p>
           </div>
         </mat-card>
@@ -49,7 +72,9 @@ import { MatIconModule } from '@angular/material/icon';
           </div>
           <div class="stat-content">
             <h3>トレンド</h3>
-            <p class="stat-value">-</p>
+            <p class="stat-value" [style.color]="trendColor()">
+              {{ trendDisplay() }}
+            </p>
             <p class="stat-label">前月比の変化</p>
           </div>
         </mat-card>
@@ -60,8 +85,8 @@ import { MatIconModule } from '@angular/material/icon';
             今後の予定
           </h3>
           <p>
-            将来的には KPI ウィジェットや最新アクティビティをここで確認できるようになります。
-            グラフやチャートによる可視化機能も追加予定です。
+            今後はグラフやチャートによる可視化機能、従業員別ランキングなどを追加予定です。
+            賞与保険料を含めたトータル負担の可視化も検討中です。
         </p>
       </mat-card>
       </div>
@@ -214,4 +239,103 @@ import { MatIconModule } from '@angular/material/icon';
     `
   ]
 })
-export class DashboardPage {}
+export class DashboardPage implements OnInit {
+  private readonly currentOffice = inject(CurrentOfficeService);
+  private readonly employeesService = inject(EmployeesService);
+  private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
+
+  readonly officeId$ = this.currentOffice.officeId$;
+
+  readonly employeeCount = signal<number | null>(null);
+  readonly insuredEmployeeCount = signal<number | null>(null);
+  readonly currentMonthTotalEmployer = signal<number | null>(null);
+  readonly previousMonthTotalEmployer = signal<number | null>(null);
+
+  readonly trendPercentage = computed(() => {
+    const current = this.currentMonthTotalEmployer();
+    const previous = this.previousMonthTotalEmployer();
+
+    if (current === null || previous === null || previous === 0) {
+      return null;
+    }
+
+    return ((current - previous) / previous) * 100;
+  });
+
+  readonly trendDisplay = computed(() => {
+    const trend = this.trendPercentage();
+    if (trend === null) {
+      return '-';
+    }
+
+    const sign = trend >= 0 ? '+' : '';
+    return `${sign}${trend.toFixed(1)}%`;
+  });
+
+  readonly trendColor = computed(() => {
+    const trend = this.trendPercentage();
+    if (trend === null) {
+      return '#999';
+    }
+    return trend >= 0 ? '#2e7d32' : '#d32f2f';
+  });
+
+  ngOnInit(): void {
+    this.loadDashboardData();
+  }
+
+  private async loadDashboardData(): Promise<void> {
+    const officeId = await firstValueFrom(this.officeId$);
+    if (!officeId) {
+      return;
+    }
+
+    try {
+      await this.loadEmployeeCount(officeId);
+      await this.loadMonthlyPremiumsTotals(officeId);
+    } catch (error) {
+      console.error('ダッシュボードデータの取得に失敗しました', error);
+    }
+  }
+
+  private async loadEmployeeCount(officeId: string): Promise<void> {
+    try {
+      const employees: Employee[] = await firstValueFrom(this.employeesService.list(officeId));
+
+      this.employeeCount.set(employees.length);
+
+      const insuredCount = employees.filter((emp) => emp.isInsured === true).length;
+      this.insuredEmployeeCount.set(insuredCount > 0 ? insuredCount : null);
+    } catch (error) {
+      console.error('従業員数の取得に失敗しました', error);
+      this.employeeCount.set(null);
+      this.insuredEmployeeCount.set(null);
+    }
+  }
+
+  private async loadMonthlyPremiumsTotals(officeId: string): Promise<void> {
+    try {
+      const now = new Date();
+      const currentYearMonth = now.toISOString().substring(0, 7);
+
+      const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousYearMonth = previousMonth.toISOString().substring(0, 7);
+
+      const currentPremiums: MonthlyPremium[] = await firstValueFrom(
+        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, currentYearMonth)
+      );
+      const currentTotal = currentPremiums.reduce((sum, p) => sum + p.totalEmployer, 0);
+      this.currentMonthTotalEmployer.set(currentTotal);
+
+      const previousPremiums: MonthlyPremium[] = await firstValueFrom(
+        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, previousYearMonth)
+      );
+      const previousTotal = previousPremiums.reduce((sum, p) => sum + p.totalEmployer, 0);
+      this.previousMonthTotalEmployer.set(previousTotal);
+    } catch (error) {
+      console.error('月次保険料の集計に失敗しました', error);
+      this.currentMonthTotalEmployer.set(null);
+      this.previousMonthTotalEmployer.set(null);
+    }
+  }
+}
