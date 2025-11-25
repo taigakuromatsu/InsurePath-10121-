@@ -4,7 +4,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { Chart, ChartData, ChartOptions, registerables } from 'chart.js';
-import { NgChartsModule } from 'ng2-charts';
+import { BaseChartDirective } from 'ng2-charts';
 import { firstValueFrom } from 'rxjs';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
@@ -18,7 +18,7 @@ Chart.register(...registerables);
 @Component({
   selector: 'ip-dashboard-page',
   standalone: true,
-  imports: [MatCardModule, MatIconModule, MatTableModule, NgChartsModule, DecimalPipe, NgIf],
+  imports: [MatCardModule, MatIconModule, MatTableModule, BaseChartDirective, DecimalPipe, NgIf],
   template: `
     <section class="page dashboard">
       <mat-card class="header-card">
@@ -484,7 +484,13 @@ export class DashboardPage implements OnInit {
       },
       tooltip: {
         callbacks: {
-          label: (context) => `¥${context.parsed.y.toLocaleString()}`
+          label: (context) => {
+            const y = context.parsed.y;
+            if (y == null) {
+              return '';
+            }
+            return `¥${y.toLocaleString()}`;
+          }
         }
       }
     },
@@ -508,7 +514,13 @@ export class DashboardPage implements OnInit {
       },
       tooltip: {
         callbacks: {
-          label: (context) => `¥${context.parsed.y.toLocaleString()}`
+          label: (context) => {
+            const y = context.parsed.y;
+            if (y == null) {
+              return '';
+            }
+            return `¥${y.toLocaleString()}`;
+          }
         }
       }
     },
