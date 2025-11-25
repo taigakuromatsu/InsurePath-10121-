@@ -1,5 +1,5 @@
 import { AsyncPipe, DecimalPipe, NgIf, PercentPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { Auth } from '@angular/fire/auth';
 import { firstValueFrom } from 'rxjs';
@@ -28,6 +29,7 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
+    MatSelectModule,
     MatTableModule,
     MatSnackBarModule,
     MatProgressSpinnerModule,
@@ -38,6 +40,30 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
   ],
   template: `
     <section class="page monthly-premiums">
+      <mat-card class="content-card selection-card">
+        <div class="page-header">
+          <div class="page-title-section">
+            <h2>
+              <mat-icon>calendar_month</mat-icon>
+              対象年月を選択
+            </h2>
+            <p>直近12ヶ月から閲覧する年月を選択できます。</p>
+          </div>
+        </div>
+
+        <div class="year-month-selector">
+          <mat-form-field appearance="outline">
+            <mat-label>対象年月</mat-label>
+            <mat-select
+              [value]="selectedYearMonth()"
+              (selectionChange)="onYearMonthSelectionChange($event.value)"
+            >
+              <mat-option *ngFor="let ym of yearMonthOptions()" [value]="ym">{{ ym }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </mat-card>
+
       <mat-card class="header-card">
         <div class="header-content">
           <div class="header-icon">
@@ -116,16 +142,38 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
         </form>
       </mat-card>
 
-      <mat-card *ngIf="results().length > 0" class="result-card">
+      <mat-card class="result-card">
         <div class="result-header">
           <h2>
             <mat-icon>list</mat-icon>
-            計算結果一覧（{{ form.get('yearMonth')?.value }}）
+            計算結果一覧（{{ selectedYearMonth() }}）
           </h2>
         </div>
 
+        <div class="filter-section">
+          <mat-form-field appearance="outline" class="filter-input">
+            <mat-label>従業員名で絞り込む</mat-label>
+            <input
+              matInput
+              [value]="filterText()"
+              (input)="filterText.set($any($event.target).value)"
+              placeholder="従業員名を入力"
+            />
+            <mat-icon matSuffix>search</mat-icon>
+            <button
+              mat-icon-button
+              matSuffix
+              *ngIf="filterText()"
+              (click)="filterText.set('')"
+              type="button"
+            >
+              <mat-icon>clear</mat-icon>
+            </button>
+          </mat-form-field>
+        </div>
+
         <div class="table-container">
-        <table mat-table [dataSource]="results()" class="premiums-table">
+        <table mat-table [dataSource]="filteredRows()" class="premiums-table">
           <ng-container matColumnDef="employeeName">
             <th mat-header-cell *matHeaderCellDef>氏名</th>
             <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
@@ -181,10 +229,16 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
         </table>
         </div>
 
+        <div class="no-results" *ngIf="filteredRows().length === 0">
+          <mat-icon>info</mat-icon>
+          <span>該当するデータがありません。</span>
+        </div>
+
         <div class="totals">
           <div class="total-item">
             <span class="total-label">事業所合計（本人負担）</span>
             <span class="total-value employee">{{ totalEmployee() | number }}円</span>
+            <span class="total-note" *ngIf="filterText()">（絞り込み後: {{ filteredRows().length }}件）</span>
           </div>
           <div class="total-item">
             <span class="total-label">事業所合計（会社負担）</span>
@@ -253,6 +307,10 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
         border-bottom: 2px solid #e0e0e0;
       }
 
+      .selection-card {
+        margin-bottom: 1.5rem;
+      }
+
       .page-title-section h2 {
         display: flex;
         align-items: center;
@@ -279,6 +337,10 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
 
       .form-section {
         margin-bottom: 1.5rem;
+      }
+
+      .year-month-selector {
+        max-width: 240px;
       }
 
       .form-grid {
@@ -398,6 +460,17 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
         margin-bottom: 1.5rem;
       }
 
+      .filter-section {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 1rem;
+      }
+
+      .filter-input {
+        width: 320px;
+        max-width: 100%;
+      }
+
       table.premiums-table {
         width: 100%;
         background: white;
@@ -469,6 +542,19 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
         color: #2e7d32;
       }
 
+      .total-note {
+        color: #666;
+        font-size: 0.9rem;
+      }
+
+      .no-results {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+        margin-bottom: 1rem;
+      }
+
       @media (max-width: 768px) {
         .header-content {
           flex-direction: column;
@@ -479,6 +565,10 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
           grid-template-columns: 1fr;
         }
 
+        .filter-section {
+          justify-content: flex-start;
+        }
+
         .totals {
           flex-direction: column;
         }
@@ -486,7 +576,7 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
     `
   ]
 })
-export class MonthlyPremiumsPage {
+export class MonthlyPremiumsPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly employeesService = inject(EmployeesService);
@@ -497,8 +587,20 @@ export class MonthlyPremiumsPage {
 
   readonly officeId$ = this.currentOffice.officeId$;
   readonly loading = signal(false);
-  readonly results = signal<(MonthlyPremium & { employeeName: string })[]>([]);
+  readonly rows = signal<(MonthlyPremium & { employeeName: string })[]>([]);
+  readonly selectedYearMonth = signal<string>(new Date().toISOString().substring(0, 7));
+  readonly filterText = signal<string>('');
   readonly rateSummary = signal<{ healthRate?: number; careRate?: number; pensionRate?: number } | null>(null);
+
+  readonly yearMonthOptions = computed(() => {
+    const options: string[] = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      options.push(date.toISOString().substring(0, 7));
+    }
+    return options;
+  });
 
   readonly form = this.fb.group({
     yearMonth: [new Date().toISOString().substring(0, 7), Validators.required]
@@ -517,12 +619,23 @@ export class MonthlyPremiumsPage {
     'totalEmployer'
   ];
 
+  readonly filteredRows = computed(() => {
+    const text = this.filterText().trim().toLowerCase();
+    const base = this.rows();
+
+    if (!text) {
+      return base;
+    }
+
+    return base.filter((r) => (r.employeeName ?? '').toLowerCase().includes(text));
+  });
+
   readonly totalEmployee = computed(() => {
-    return this.results().reduce((sum, r) => sum + r.totalEmployee, 0);
+    return this.filteredRows().reduce((sum, r) => sum + r.totalEmployee, 0);
   });
 
   readonly totalEmployer = computed(() => {
-    return this.results().reduce((sum, r) => sum + r.totalEmployer, 0);
+    return this.filteredRows().reduce((sum, r) => sum + r.totalEmployer, 0);
   });
 
   constructor() {
@@ -530,6 +643,46 @@ export class MonthlyPremiumsPage {
       this.refreshRateSummary();
     });
     this.refreshRateSummary();
+  }
+
+  ngOnInit(): void {
+    this.loadPremiumsForYearMonth(this.selectedYearMonth());
+  }
+
+  onYearMonthSelectionChange(yearMonth: string): void {
+    this.selectedYearMonth.set(yearMonth);
+    this.loadPremiumsForYearMonth(yearMonth);
+  }
+
+  private async loadPremiumsForYearMonth(yearMonth: string): Promise<void> {
+    const officeId = await firstValueFrom(this.officeId$);
+    if (!officeId) {
+      this.rows.set([]);
+      return;
+    }
+
+    try {
+      const premiums = await firstValueFrom(
+        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
+      );
+
+      const employees = await firstValueFrom(this.employeesService.list(officeId));
+      const employeeNameMap = new Map<string, string>();
+      employees.forEach((emp) => {
+        employeeNameMap.set(emp.id, emp.name);
+      });
+
+      const rowsWithName = premiums.map((premium) => ({
+        ...premium,
+        employeeName: employeeNameMap.get(premium.employeeId) ?? '(不明)'
+      }));
+
+      this.rows.set(rowsWithName);
+    } catch (error) {
+      console.error('月次保険料の取得に失敗しました', error);
+      this.snackBar.open('月次保険料の取得に失敗しました', '閉じる', { duration: 3000 });
+      this.rows.set([]);
+    }
   }
 
   private async refreshRateSummary(office?: Office | null, yearMonth?: string | null): Promise<void> {
@@ -605,7 +758,10 @@ export class MonthlyPremiumsPage {
         employeeName: employeeNameMap.get(premium.employeeId) ?? '(不明)'
       }));
 
-      this.results.set(resultsWithName);
+      this.rows.set(resultsWithName);
+
+      this.selectedYearMonth.set(yearMonth);
+      await this.loadPremiumsForYearMonth(yearMonth);
 
       const skippedCount = employees.length - savedPremiums.length;
       let message = `${yearMonth} 分の月次保険料を ${savedPremiums.length} 件計算・保存しました`;
