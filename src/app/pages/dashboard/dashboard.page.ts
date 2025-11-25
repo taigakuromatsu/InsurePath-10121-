@@ -2,17 +2,23 @@ import { DecimalPipe, NgIf } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTableModule } from '@angular/material/table';
+import { Chart, ChartData, ChartOptions, registerables } from 'chart.js';
+import { NgChartsModule } from 'ng2-charts';
 import { firstValueFrom } from 'rxjs';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { EmployeesService } from '../../services/employees.service';
+import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
-import { Employee, MonthlyPremium } from '../../types';
+import { BonusPremium, Employee, MonthlyPremium } from '../../types';
+
+Chart.register(...registerables);
 
 @Component({
   selector: 'ip-dashboard-page',
   standalone: true,
-  imports: [MatCardModule, MatIconModule, DecimalPipe, NgIf],
+  imports: [MatCardModule, MatIconModule, MatTableModule, NgChartsModule, DecimalPipe, NgIf],
   template: `
     <section class="page dashboard">
       <mat-card class="header-card">
@@ -81,14 +87,127 @@ import { Employee, MonthlyPremium } from '../../types';
 
         <mat-card class="info-card">
           <h3>
-            <mat-icon>info</mat-icon>
-            今後の予定
+            <mat-icon>insights</mat-icon>
+            グラフとランキングで可視化
           </h3>
           <p>
-            今後はグラフやチャートによる可視化機能、従業員別ランキングなどを追加予定です。
-            賞与保険料を含めたトータル負担の可視化も検討中です。
-        </p>
-      </mat-card>
+            過去12ヶ月の推移・賞与を含めた当月比較・年度別合計をグラフ表示し、従業員別負担ランキングを併せて確認できます。
+          </p>
+        </mat-card>
+      </div>
+
+      <div class="charts-grid">
+        <mat-card class="chart-card">
+          <div class="chart-header">
+            <h3>
+              <mat-icon>show_chart</mat-icon>
+              過去12ヶ月の月次保険料推移（会社負担額）
+            </h3>
+          </div>
+          <div class="chart-container">
+            <canvas baseChart [data]="monthlyTrendData()" [options]="lineChartOptions" type="line"></canvas>
+          </div>
+        </mat-card>
+
+        <mat-card class="chart-card">
+          <div class="chart-header">
+            <h3>
+              <mat-icon>bar_chart</mat-icon>
+              今月の保険料負担（会社負担額）
+            </h3>
+          </div>
+          <div class="chart-container">
+            <canvas
+              baseChart
+              [data]="currentMonthComparisonData()"
+              [options]="barChartOptions"
+              type="bar"
+            ></canvas>
+          </div>
+        </mat-card>
+
+        <mat-card class="chart-card">
+          <div class="chart-header">
+            <h3>
+              <mat-icon>assessment</mat-icon>
+              年度別保険料負担（会社負担額）
+            </h3>
+          </div>
+          <div class="chart-container">
+            <canvas
+              baseChart
+              [data]="fiscalYearComparisonData()"
+              [options]="barChartOptions"
+              type="bar"
+            ></canvas>
+          </div>
+        </mat-card>
+      </div>
+
+      <div class="ranking-section">
+        <mat-card class="ranking-card">
+          <div class="chart-header">
+            <h3>
+              <mat-icon>trending_up</mat-icon>
+              会社負担額ランキング（トップ10）
+            </h3>
+          </div>
+          <table mat-table [dataSource]="employerRanking()" class="ranking-table">
+            <ng-container matColumnDef="rank">
+              <th mat-header-cell *matHeaderCellDef>順位</th>
+              <td mat-cell *matCellDef="let item">{{ item.rank }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="employeeName">
+              <th mat-header-cell *matHeaderCellDef>従業員名</th>
+              <td mat-cell *matCellDef="let item">{{ item.employeeName }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="amount">
+              <th mat-header-cell *matHeaderCellDef>金額</th>
+              <td mat-cell *matCellDef="let item">¥{{ item.amount | number }}</td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="['rank', 'employeeName', 'amount']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['rank', 'employeeName', 'amount']"></tr>
+
+            <tr class="mat-row" *ngIf="employerRanking().length === 0">
+              <td class="mat-cell" colspan="3">データなし</td>
+            </tr>
+          </table>
+        </mat-card>
+
+        <mat-card class="ranking-card">
+          <div class="chart-header">
+            <h3>
+              <mat-icon>person</mat-icon>
+              本人負担額ランキング（トップ10）
+            </h3>
+          </div>
+          <table mat-table [dataSource]="employeeRanking()" class="ranking-table">
+            <ng-container matColumnDef="rank">
+              <th mat-header-cell *matHeaderCellDef>順位</th>
+              <td mat-cell *matCellDef="let item">{{ item.rank }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="employeeName">
+              <th mat-header-cell *matHeaderCellDef>従業員名</th>
+              <td mat-cell *matCellDef="let item">{{ item.employeeName }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="amount">
+              <th mat-header-cell *matHeaderCellDef>金額</th>
+              <td mat-cell *matCellDef="let item">¥{{ item.amount | number }}</td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="['rank', 'employeeName', 'amount']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['rank', 'employeeName', 'amount']"></tr>
+
+            <tr class="mat-row" *ngIf="employeeRanking().length === 0">
+              <td class="mat-cell" colspan="3">データなし</td>
+            </tr>
+          </table>
+        </mat-card>
       </div>
     </section>
   `,
@@ -226,6 +345,66 @@ import { Employee, MonthlyPremium } from '../../types';
         line-height: 1.6;
       }
 
+      .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+      }
+
+      .chart-card {
+        padding: 1.5rem;
+      }
+
+      .chart-header {
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0e0e0;
+      }
+
+      .chart-header h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .chart-header h3 mat-icon {
+        color: #667eea;
+      }
+
+      .chart-container {
+        height: 300px;
+        position: relative;
+      }
+
+      .ranking-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin: 1.5rem 0;
+      }
+
+      .ranking-card {
+        padding: 1.5rem;
+      }
+
+      .ranking-table {
+        width: 100%;
+      }
+
+      .ranking-table th {
+        font-weight: 600;
+        color: #666;
+      }
+
+      .ranking-table td {
+        color: #333;
+      }
+
       @media (max-width: 768px) {
         .header-content {
           flex-direction: column;
@@ -233,6 +412,14 @@ import { Employee, MonthlyPremium } from '../../types';
         }
 
         .dashboard-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .chart-container {
+          height: 250px;
+        }
+
+        .ranking-section {
           grid-template-columns: 1fr;
         }
       }
@@ -243,6 +430,7 @@ export class DashboardPage implements OnInit {
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly employeesService = inject(EmployeesService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
+  private readonly bonusPremiumsService = inject(BonusPremiumsService);
 
   readonly officeId$ = this.currentOffice.officeId$;
 
@@ -250,6 +438,12 @@ export class DashboardPage implements OnInit {
   readonly insuredEmployeeCount = signal<number | null>(null);
   readonly currentMonthTotalEmployer = signal<number | null>(null);
   readonly previousMonthTotalEmployer = signal<number | null>(null);
+
+  readonly monthlyTrendData = signal<ChartData<'line'>>({ labels: [], datasets: [] });
+  readonly currentMonthComparisonData = signal<ChartData<'bar'>>({ labels: [], datasets: [] });
+  readonly fiscalYearComparisonData = signal<ChartData<'bar'>>({ labels: [], datasets: [] });
+  readonly employerRanking = signal<Array<{ employeeName: string; amount: number; rank: number }>>([]);
+  readonly employeeRanking = signal<Array<{ employeeName: string; amount: number; rank: number }>>([]);
 
   readonly trendPercentage = computed(() => {
     const current = this.currentMonthTotalEmployer();
@@ -280,6 +474,54 @@ export class DashboardPage implements OnInit {
     return trend >= 0 ? '#2e7d32' : '#d32f2f';
   });
 
+  readonly lineChartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom'
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => `¥${context.parsed.y.toLocaleString()}`
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: (value) => `¥${Number(value).toLocaleString()}`
+        }
+      }
+    }
+  };
+
+  readonly barChartOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom'
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => `¥${context.parsed.y.toLocaleString()}`
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: (value) => `¥${Number(value).toLocaleString()}`
+        }
+      }
+    }
+  };
+
   ngOnInit(): void {
     this.loadDashboardData();
   }
@@ -293,6 +535,10 @@ export class DashboardPage implements OnInit {
     try {
       await this.loadEmployeeCount(officeId);
       await this.loadMonthlyPremiumsTotals(officeId);
+      await this.loadMonthlyTrendData(officeId);
+      await this.loadCurrentMonthComparisonData(officeId);
+      await this.loadFiscalYearComparisonData(officeId);
+      await this.loadRankingData(officeId);
     } catch (error) {
       console.error('ダッシュボードデータの取得に失敗しました', error);
     }
@@ -336,6 +582,189 @@ export class DashboardPage implements OnInit {
       console.error('月次保険料の集計に失敗しました', error);
       this.currentMonthTotalEmployer.set(null);
       this.previousMonthTotalEmployer.set(null);
+    }
+  }
+
+  private async loadMonthlyTrendData(officeId: string): Promise<void> {
+    try {
+      const now = new Date();
+      const yearMonths: string[] = [];
+      const totals: number[] = [];
+
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const yearMonth = date.toISOString().substring(0, 7);
+        yearMonths.push(yearMonth);
+
+        const premiums = await firstValueFrom(
+          this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
+        );
+        const total = premiums.reduce((sum, p) => sum + p.totalEmployer, 0);
+        totals.push(total);
+      }
+
+      this.monthlyTrendData.set({
+        labels: yearMonths,
+        datasets: [
+          {
+            label: '月次保険料（会社負担額）',
+            data: totals,
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+          }
+        ]
+      });
+    } catch (error) {
+      console.error('過去12ヶ月の推移データの取得に失敗しました', error);
+      this.monthlyTrendData.set({ labels: [], datasets: [] });
+    }
+  }
+
+  private async loadCurrentMonthComparisonData(officeId: string): Promise<void> {
+    try {
+      const now = new Date();
+      const currentYearMonth = now.toISOString().substring(0, 7);
+
+      const monthlyPremiums = await firstValueFrom(
+        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, currentYearMonth)
+      );
+      const monthlyTotal = monthlyPremiums.reduce((sum, p) => sum + p.totalEmployer, 0);
+
+      const bonusPremiums: BonusPremium[] = await firstValueFrom(
+        this.bonusPremiumsService.listByOfficeAndEmployee(officeId)
+      );
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const currentMonthBonuses = bonusPremiums.filter((b) => {
+        const payDate = new Date(b.payDate);
+        return payDate >= currentMonthStart && payDate < nextMonthStart;
+      });
+      const bonusTotal = currentMonthBonuses.reduce((sum, b) => sum + b.totalEmployer, 0);
+
+      this.currentMonthComparisonData.set({
+        labels: ['今月の保険料負担'],
+        datasets: [
+          {
+            label: '月次保険料',
+            data: [monthlyTotal],
+            backgroundColor: 'rgba(54, 162, 235, 0.5)'
+          },
+          {
+            label: '賞与保険料',
+            data: [bonusTotal],
+            backgroundColor: 'rgba(255, 99, 132, 0.5)'
+          }
+        ]
+      });
+    } catch (error) {
+      console.error('当月の比較データの取得に失敗しました', error);
+      this.currentMonthComparisonData.set({ labels: [], datasets: [] });
+    }
+  }
+
+  private async loadFiscalYearComparisonData(officeId: string): Promise<void> {
+    try {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const currentFiscalYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+      const previousFiscalYear = currentFiscalYear - 1;
+
+      const fiscalYears = [`${previousFiscalYear}年度`, `${currentFiscalYear}年度`];
+      const monthlyTotals: number[] = [];
+      const bonusTotals: number[] = [];
+
+      const allBonusPremiums: BonusPremium[] = await firstValueFrom(
+        this.bonusPremiumsService.listByOfficeAndEmployee(officeId)
+      );
+
+      for (const fiscalYear of [previousFiscalYear, currentFiscalYear]) {
+        let monthlyTotal = 0;
+        for (let i = 0; i < 12; i++) {
+          const date = new Date(fiscalYear, 3 + i, 1);
+          const yearMonth = date.toISOString().substring(0, 7);
+          const premiums = await firstValueFrom(
+            this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
+          );
+          monthlyTotal += premiums.reduce((sum, p) => sum + p.totalEmployer, 0);
+        }
+        monthlyTotals.push(monthlyTotal);
+
+        const fiscalYearStart = new Date(fiscalYear, 3, 1);
+        const fiscalYearEnd = new Date(fiscalYear + 1, 3, 1);
+        const fiscalYearBonuses = allBonusPremiums.filter((b) => {
+          const payDate = new Date(b.payDate);
+          return payDate >= fiscalYearStart && payDate < fiscalYearEnd;
+        });
+        const bonusTotal = fiscalYearBonuses.reduce((sum, b) => sum + b.totalEmployer, 0);
+        bonusTotals.push(bonusTotal);
+      }
+
+      this.fiscalYearComparisonData.set({
+        labels: fiscalYears,
+        datasets: [
+          {
+            label: '月次保険料',
+            data: monthlyTotals,
+            backgroundColor: 'rgba(54, 162, 235, 0.5)'
+          },
+          {
+            label: '賞与保険料',
+            data: bonusTotals,
+            backgroundColor: 'rgba(255, 99, 132, 0.5)'
+          }
+        ]
+      });
+    } catch (error) {
+      console.error('年度別比較データの取得に失敗しました', error);
+      this.fiscalYearComparisonData.set({ labels: [], datasets: [] });
+    }
+  }
+
+  private async loadRankingData(officeId: string): Promise<void> {
+    try {
+      const now = new Date();
+      const currentYearMonth = now.toISOString().substring(0, 7);
+
+      const premiums = await firstValueFrom(
+        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, currentYearMonth)
+      );
+
+      const employees = await firstValueFrom(this.employeesService.list(officeId));
+      const employeeMap = new Map(employees.map((e) => [e.id, e.name]));
+
+      const employerRanking = premiums
+        .map((p) => ({
+          employeeId: p.employeeId,
+          employeeName: employeeMap.get(p.employeeId) ?? '不明',
+          amount: p.totalEmployer
+        }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 10)
+        .map((item, index) => ({
+          ...item,
+          rank: index + 1
+        }));
+      this.employerRanking.set(employerRanking);
+
+      const employeeRanking = premiums
+        .map((p) => ({
+          employeeId: p.employeeId,
+          employeeName: employeeMap.get(p.employeeId) ?? '不明',
+          amount: p.totalEmployee
+        }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 10)
+        .map((item, index) => ({
+          ...item,
+          rank: index + 1
+        }));
+      this.employeeRanking.set(employeeRanking);
+    } catch (error) {
+      console.error('ランキングデータの取得に失敗しました', error);
+      this.employerRanking.set([]);
+      this.employeeRanking.set([]);
     }
   }
 }
