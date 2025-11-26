@@ -3,6 +3,7 @@ import {
   InsuranceLossReasonKind,
   InsuranceQualificationKind,
   PremiumTreatment,
+  StandardRewardDecisionKind,
   WorkingStatus
 } from '../types';
 
@@ -78,6 +79,27 @@ export function getDependentRelationshipLabel(
       return '祖父母';
     case 'sibling':
       return '兄弟姉妹';
+    case 'other':
+      return 'その他';
+    default:
+      return '-';
+  }
+}
+
+export function getStandardRewardDecisionKindLabel(
+  decisionKind?: StandardRewardDecisionKind
+): string {
+  switch (decisionKind) {
+    case 'regular':
+      return '定時決定';
+    case 'interim':
+      return '随時改定';
+    case 'bonus':
+      return '賞与支払時';
+    case 'qualification':
+      return '資格取得時';
+    case 'loss':
+      return '資格喪失時';
     case 'other':
       return 'その他';
     default:
