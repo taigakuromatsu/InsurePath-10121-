@@ -62,6 +62,15 @@ export type WorkingStatus =
 // 就業状態における保険料の扱い（簡易）
 export type PremiumTreatment = 'normal' | 'exempt';
 
+// 標準報酬決定区分
+export type StandardRewardDecisionKind =
+  | 'regular'
+  | 'interim'
+  | 'bonus'
+  | 'qualification'
+  | 'loss'
+  | 'other';
+
 // 扶養家族（被扶養者）
 export type DependentRelationship =
   | 'spouse'
@@ -80,6 +89,21 @@ export interface Dependent {
   qualificationLossDate?: IsoDateString;
   createdAt?: IsoDateString;
   updatedAt?: IsoDateString;
+}
+
+// 標準報酬決定・改定履歴（Phase2-5: MVP）
+export interface StandardRewardHistory {
+  id: string;
+  employeeId: string;
+  decisionYearMonth: YearMonthString;
+  appliedFromYearMonth: YearMonthString;
+  standardMonthlyReward: number;
+  decisionKind: StandardRewardDecisionKind;
+  note?: string;
+  createdAt?: IsoDateString;
+  updatedAt?: IsoDateString;
+  createdByUserId?: string;
+  updatedByUserId?: string;
 }
 
 export interface Employee {
