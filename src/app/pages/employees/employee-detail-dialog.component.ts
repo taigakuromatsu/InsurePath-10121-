@@ -1,5 +1,14 @@
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
-import { Component, Inject, inject } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  Inject,
+  QueryList,
+  ViewChild,
+  ViewChildren,
+  inject
+} from '@angular/core';
 import {
   MAT_DIALOG_DATA,
   MatDialog,
@@ -23,8 +32,19 @@ import { DependentsService } from '../../services/dependents.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { DependentFormDialogComponent } from './dependent-form-dialog.component';
 
+export type DialogFocusSection =
+  | 'basic'
+  | 'work'
+  | 'insurance'
+  | 'health-qualification'
+  | 'pension-qualification'
+  | 'working-status'
+  | 'dependents'
+  | 'system';
+
 export interface EmployeeDetailDialogData {
   employee: Employee;
+  focusSection?: DialogFocusSection;
 }
 
 @Component({
@@ -47,9 +67,23 @@ export interface EmployeeDetailDialogData {
       <span class="subtitle">{{ data.employee.name }}</span>
     </h1>
 
-    <div mat-dialog-content class="content">
+    <div mat-dialog-content class="content" #contentRef>
+      <div class="section-nav" role="tablist">
+        <button
+          mat-stroked-button
+          *ngFor="let section of sections"
+          type="button"
+          (click)="scrollToSection(section.id)"
+          [color]="activeSection === section.id ? 'primary' : undefined"
+          [attr.aria-label]="section.label"
+        >
+          <mat-icon aria-hidden="true">{{ section.icon }}</mat-icon>
+          <span>{{ section.label }}</span>
+        </button>
+      </div>
+
       <!-- 基本情報 -->
-      <div class="form-section">
+      <div class="form-section" id="basic" #sectionBlock>
       <h2 class="section-title">
           <mat-icon>person</mat-icon>
         基本情報
@@ -88,7 +122,7 @@ export interface EmployeeDetailDialogData {
       </div>
 
       <!-- 就労条件 -->
-      <div class="form-section">
+      <div class="form-section" id="work" #sectionBlock>
       <h2 class="section-title">
           <mat-icon>work</mat-icon>
         就労条件
@@ -109,7 +143,7 @@ export interface EmployeeDetailDialogData {
       </div>
 
       <!-- 社会保険情報 -->
-      <div class="form-section">
+      <div class="form-section" id="insurance" #sectionBlock>
       <h2 class="section-title">
           <mat-icon>account_balance</mat-icon>
         社会保険情報
@@ -143,11 +177,11 @@ export interface EmployeeDetailDialogData {
         <div class="value">{{ data.employee.pensionGrade ?? '-' }}</div>
 
         <!-- ★ pensionStandardMonthly もフォームに無いので削除 -->
-        </div>
+      </div>
       </div>
 
       <!-- 資格情報（健康保険） -->
-      <div class="form-section">
+      <div class="form-section" id="health-qualification" #sectionBlock>
       <h2 class="section-title">
           <mat-icon>local_hospital</mat-icon>
         資格情報（健康保険）
@@ -176,11 +210,11 @@ export interface EmployeeDetailDialogData {
             )
           }}
         </div>
-        </div>
+      </div>
       </div>
 
       <!-- 資格情報（厚生年金） -->
-      <div class="form-section">
+      <div class="form-section" id="pension-qualification" #sectionBlock>
       <h2 class="section-title">
           <mat-icon>account_balance</mat-icon>
         資格情報（厚生年金）
@@ -209,11 +243,11 @@ export interface EmployeeDetailDialogData {
             )
           }}
         </div>
-        </div>
+      </div>
       </div>
 
       <!-- 就業状態 -->
-      <div class="form-section">
+      <div class="form-section" id="working-status" #sectionBlock>
       <h2 class="section-title">
           <mat-icon>event</mat-icon>
         就業状態
@@ -237,7 +271,7 @@ export interface EmployeeDetailDialogData {
       </div>
 
       <!-- 扶養家族 -->
-      <div class="form-section" id="dependents">
+      <div class="form-section" id="dependents" #sectionBlock>
         <div class="section-title dependents-title">
           <div class="section-title-left">
             <mat-icon>family_restroom</mat-icon>
@@ -295,7 +329,7 @@ export interface EmployeeDetailDialogData {
       </div>
 
       <!-- システム情報（フォームに無いが、メタ情報として残す） -->
-      <div class="form-section">
+      <div class="form-section" id="system" #sectionBlock>
       <h2 class="section-title">
           <mat-icon>info</mat-icon>
         システム情報
@@ -352,6 +386,27 @@ export interface EmployeeDetailDialogData {
         max-height: 70vh;
         overflow-y: auto;
         padding: 1.5rem;
+      }
+
+      .section-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        position: sticky;
+        top: 0;
+        background: #fff;
+        padding-bottom: 0.5rem;
+        z-index: 1;
+      }
+
+      .section-nav button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        text-align: center;
+        white-space: nowrap;
       }
 
       .form-section {
@@ -503,13 +558,31 @@ export interface EmployeeDetailDialogData {
     `
   ]
 })
-export class EmployeeDetailDialogComponent {
+export class EmployeeDetailDialogComponent implements AfterViewInit {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dependentsService = inject(DependentsService);
   private readonly currentUser = inject(CurrentUserService);
 
   readonly dependents$!: Observable<Dependent[]>;
+
+  readonly sections: Array<{ id: DialogFocusSection; label: string; icon: string }> = [
+    { id: 'basic', label: '基本情報', icon: 'person' },
+    { id: 'work', label: '就労条件', icon: 'work' },
+    { id: 'insurance', label: '社会保険', icon: 'account_balance' },
+    { id: 'health-qualification', label: '健保資格', icon: 'local_hospital' },
+    { id: 'pension-qualification', label: '厚年資格', icon: 'account_balance' },
+    { id: 'working-status', label: '就業状態', icon: 'event' },
+    { id: 'dependents', label: '扶養家族', icon: 'family_restroom' },
+    { id: 'system', label: 'システム', icon: 'info' }
+  ];
+
+  activeSection: DialogFocusSection = 'basic';
+
+  @ViewChild('contentRef') private readonly contentRef?: ElementRef<HTMLDivElement>;
+  @ViewChildren('sectionBlock') private readonly sectionBlocks?: QueryList<
+    ElementRef<HTMLElement>
+  >;
 
   readonly canManageDependents$: Observable<boolean> = this.currentUser.profile$.pipe(
     map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
@@ -522,6 +595,12 @@ export class EmployeeDetailDialogComponent {
     );
   }
 
+  ngAfterViewInit(): void {
+    if (this.data.focusSection) {
+      setTimeout(() => this.scrollToSection(this.data.focusSection!), 0);
+    }
+  }
+
   protected readonly getInsuranceQualificationKindLabel =
     getInsuranceQualificationKindLabel;
   protected readonly getInsuranceLossReasonKindLabel =
@@ -529,6 +608,26 @@ export class EmployeeDetailDialogComponent {
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
   protected readonly getPremiumTreatmentLabel = getPremiumTreatmentLabel;
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
+
+  scrollToSection(sectionId: DialogFocusSection): void {
+    const target = this.sectionBlocks
+      ?.map((ref) => ref.nativeElement)
+      .find((element) => element.id === sectionId);
+
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      this.activeSection = sectionId;
+      return;
+    }
+
+    if (this.contentRef) {
+      const fallback = this.contentRef.nativeElement.querySelector(`#${sectionId}`);
+      fallback?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (fallback) {
+        this.activeSection = sectionId;
+      }
+    }
+  }
 
   openAddDependent(): void {
     this.dialog
