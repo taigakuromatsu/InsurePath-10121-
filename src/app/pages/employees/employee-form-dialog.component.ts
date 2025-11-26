@@ -7,6 +7,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { NgIf } from '@angular/common';
 
 import { EmployeesService } from '../../services/employees.service';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
@@ -28,7 +29,8 @@ export interface EmployeeDialogData {
     MatSelectModule,
     MatSlideToggleModule,
     MatButtonModule,
-    MatIconModule
+    MatIconModule,
+    NgIf
   ],
   template: `
     <h1 mat-dialog-title>
@@ -466,10 +468,10 @@ export class EmployeeFormDialogComponent {
       return;
     }
 
-    const formValue = this.form.value;
+    const formValue = this.form.getRawValue();
     const payload: Partial<Employee> & { id?: string } = this.data.employee
-      ? { ...this.data.employee, ...formValue }
-      : formValue;
+      ? ({ ...this.data.employee, ...formValue } as unknown as Partial<Employee> & { id?: string })
+      : (formValue as unknown as Partial<Employee> & { id?: string });
 
     try {
       await this.employeesService.save(this.data.officeId, payload);
