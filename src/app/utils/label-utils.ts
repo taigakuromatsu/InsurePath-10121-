@@ -1,4 +1,5 @@
 import {
+  DependentRelationship,
   InsuranceLossReasonKind,
   InsuranceQualificationKind,
   PremiumTreatment,
@@ -58,6 +59,27 @@ export function getPremiumTreatmentLabel(treatment?: PremiumTreatment): string {
       return '通常徴収';
     case 'exempt':
       return '保険料免除';
+    default:
+      return '-';
+  }
+}
+
+export function getDependentRelationshipLabel(
+  relationship?: DependentRelationship
+): string {
+  switch (relationship) {
+    case 'spouse':
+      return '配偶者';
+    case 'child':
+      return '子';
+    case 'parent':
+      return '父母';
+    case 'grandparent':
+      return '祖父母';
+    case 'sibling':
+      return '兄弟姉妹';
+    case 'other':
+      return 'その他';
     default:
       return '-';
   }

@@ -1,20 +1,27 @@
-import { Component, Inject } from '@angular/core';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { Component, Inject, inject } from '@angular/core';
 import {
   MAT_DIALOG_DATA,
-  MatDialogModule,
-  MatDialogRef
+  MatDialog,
+  MatDialogModule
 } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DecimalPipe } from '@angular/common'; // ★ number パイプ用
+import { map, Observable } from 'rxjs';
 
-import { Employee } from '../../types';
+import { Dependent, Employee } from '../../types';
 import {
+  getDependentRelationshipLabel,
   getInsuranceLossReasonKindLabel,
   getInsuranceQualificationKindLabel,
   getPremiumTreatmentLabel,
   getWorkingStatusLabel
 } from '../../utils/label-utils';
+import { DependentsService } from '../../services/dependents.service';
+import { CurrentUserService } from '../../services/current-user.service';
+import { DependentFormDialogComponent } from './dependent-form-dialog.component';
 
 export interface EmployeeDetailDialogData {
   employee: Employee;
@@ -24,9 +31,13 @@ export interface EmployeeDetailDialogData {
   selector: 'ip-employee-detail-dialog',
   standalone: true,
   imports: [
+    AsyncPipe,
+    NgFor,
+    NgIf,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
+    MatSnackBarModule,
     DecimalPipe // ★ 追加済み
   ],
   template: `
@@ -225,6 +236,64 @@ export interface EmployeeDetailDialogData {
       </div>
       </div>
 
+      <!-- 扶養家族 -->
+      <div class="form-section" id="dependents">
+        <div class="section-title dependents-title">
+          <div class="section-title-left">
+            <mat-icon>family_restroom</mat-icon>
+            扶養家族
+          </div>
+          <ng-container *ngIf="canManageDependents$ | async">
+            <button mat-stroked-button color="primary" (click)="openAddDependent()">
+              <mat-icon>person_add</mat-icon>
+              扶養家族を追加
+            </button>
+          </ng-container>
+        </div>
+
+        <ng-container *ngIf="dependents$ | async as dependents">
+          <div class="dependents-empty" *ngIf="dependents.length === 0">
+            <mat-icon>group_off</mat-icon>
+            <p>扶養家族が登録されていません</p>
+          </div>
+
+          <div class="dependents-grid" *ngIf="dependents.length > 0">
+            <div class="dependent-card" *ngFor="let dependent of dependents">
+              <div class="dependent-header">
+                <div>
+                  <div class="dependent-name">{{ dependent.name }}</div>
+                  <div class="dependent-relationship">
+                    {{ getDependentRelationshipLabel(dependent.relationship) }}
+                  </div>
+                </div>
+
+                <div class="dependent-actions" *ngIf="canManageDependents$ | async">
+                  <button mat-icon-button color="primary" (click)="openEditDependent(dependent)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" (click)="deleteDependent(dependent)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+
+              <div class="dependent-row">
+                <span class="label">生年月日</span>
+                <span class="value">{{ dependent.dateOfBirth || '-' }}</span>
+              </div>
+              <div class="dependent-row">
+                <span class="label">資格取得日</span>
+                <span class="value">{{ dependent.qualificationAcquiredDate || '-' }}</span>
+              </div>
+              <div class="dependent-row">
+                <span class="label">資格喪失日</span>
+                <span class="value">{{ dependent.qualificationLossDate || '-' }}</span>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
       <!-- システム情報（フォームに無いが、メタ情報として残す） -->
       <div class="form-section">
       <h2 class="section-title">
@@ -253,7 +322,7 @@ export interface EmployeeDetailDialogData {
         閉じる
       </button>
     </div>
-  `,
+    `,
   styles: [
     `
       h1[mat-dialog-title] {
@@ -352,14 +421,104 @@ export interface EmployeeDetailDialogData {
       button[mat-button]:hover {
         background: rgba(0, 0, 0, 0.04);
       }
+
+      .dependents-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .dependents-title button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .dependents-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
+        color: #666;
+        padding: 1rem 0;
+      }
+
+      .dependents-empty mat-icon {
+        color: #9ca3af;
+      }
+
+      .dependents-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1rem;
+      }
+
+      .dependent-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+
+      .dependent-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .dependent-name {
+        font-weight: 700;
+        font-size: 1.05rem;
+      }
+
+      .dependent-relationship {
+        color: #6b7280;
+        font-size: 0.9rem;
+      }
+
+      .dependent-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+
+      .dependent-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.95rem;
+        padding: 0.25rem 0;
+      }
+
+      .dependent-row .label {
+        color: #6b7280;
+      }
+
+      .dependent-row .value {
+        color: #111827;
+        font-weight: 500;
+      }
     `
   ]
 })
 export class EmployeeDetailDialogComponent {
-  constructor(
-    private readonly dialogRef: MatDialogRef<EmployeeDetailDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: EmployeeDetailDialogData
-  ) {}
+  private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly dependentsService = inject(DependentsService);
+  private readonly currentUser = inject(CurrentUserService);
+
+  readonly dependents$: Observable<Dependent[]> = this.dependentsService.list(
+    this.data.employee.officeId,
+    this.data.employee.id
+  );
+
+  readonly canManageDependents$: Observable<boolean> = this.currentUser.profile$.pipe(
+    map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
+  );
+
+  constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDetailDialogData) {}
 
   protected readonly getInsuranceQualificationKindLabel =
     getInsuranceQualificationKindLabel;
@@ -367,4 +526,67 @@ export class EmployeeDetailDialogComponent {
     getInsuranceLossReasonKindLabel;
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
   protected readonly getPremiumTreatmentLabel = getPremiumTreatmentLabel;
+  protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
+
+  openAddDependent(): void {
+    this.dialog
+      .open(DependentFormDialogComponent, {
+        width: '480px',
+        data: {
+          officeId: this.data.employee.officeId,
+          employeeId: this.data.employee.id
+        }
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result) {
+          this.saveDependent(result);
+        }
+      });
+  }
+
+  openEditDependent(dependent: Dependent): void {
+    this.dialog
+      .open(DependentFormDialogComponent, {
+        width: '480px',
+        data: {
+          officeId: this.data.employee.officeId,
+          employeeId: this.data.employee.id,
+          dependent
+        }
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result) {
+          this.saveDependent({ ...result, id: dependent.id, createdAt: dependent.createdAt });
+        }
+      });
+  }
+
+  deleteDependent(dependent: Dependent): void {
+    const confirmed = window.confirm(`${dependent.name} を削除しますか？`);
+    if (!confirmed) return;
+
+    this.dependentsService
+      .delete(this.data.employee.officeId, this.data.employee.id, dependent.id)
+      .then(() => {
+        this.snackBar.open('扶養家族を削除しました', undefined, { duration: 2500 });
+      })
+      .catch(() => {
+        this.snackBar.open('削除に失敗しました。時間をおいて再度お試しください。', undefined, {
+          duration: 3000
+        });
+      });
+  }
+
+  private saveDependent(dependent: Partial<Dependent> & { id?: string }): void {
+    this.dependentsService
+      .save(this.data.employee.officeId, this.data.employee.id, dependent)
+      .then(() => this.snackBar.open('扶養家族を保存しました', undefined, { duration: 2500 }))
+      .catch(() =>
+        this.snackBar.open('保存に失敗しました。入力内容をご確認ください。', undefined, {
+          duration: 3000
+        })
+      );
+  }
 }

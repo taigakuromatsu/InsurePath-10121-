@@ -521,6 +521,12 @@ service cloud.firestore {
       match /employees/{employeeId} {
         allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId));
         allow create, update, delete: if isAdminOrHr(officeId);
+
+        // 扶養家族情報
+        match /dependents/{dependentId} {
+          allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId));
+          allow create, update, delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+        }
       }
 
       // 月次保険料
