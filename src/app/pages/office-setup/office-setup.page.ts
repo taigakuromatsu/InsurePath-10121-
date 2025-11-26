@@ -289,7 +289,8 @@ export class OfficeSetupPage {
         healthPlanType: (formValue.healthPlanType ?? 'kyokai') as HealthPlanType
       });
       await this.currentUser.assignOffice(office.id);
-      await this.router.navigateByUrl('/offices');
+      await this.currentUser.updateProfile({ role: 'admin' });
+      await this.router.navigateByUrl('/dashboard');
       this.snackBar.open('新しい事業所を作成しました', '閉じる', { duration: 3000 });
     } catch (error) {
       console.error(error);

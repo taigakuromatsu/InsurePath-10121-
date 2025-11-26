@@ -39,7 +39,7 @@ export class AuthService {
       officeId: snapshot.exists()
         ? (snapshot.data()['officeId'] as string | undefined)
         : undefined,
-      role: (snapshot.exists() ? snapshot.data()['role'] : 'admin') as UserProfile['role'],
+      role: (snapshot.exists() ? snapshot.data()['role'] : 'employee') as UserProfile['role'],
       displayName: user.displayName ?? user.email ?? 'User',
       email: user.email ?? 'unknown@example.com',
       createdAt: snapshot.exists()
@@ -62,6 +62,9 @@ export class AuthService {
     const dataToSave: any = { ...baseProfile };
     if (dataToSave.officeId === undefined) {
       delete dataToSave.officeId;
+    }
+    if (dataToSave.employeeId === undefined) {
+      delete dataToSave.employeeId;
     }
 
     await setDoc(userDoc, dataToSave);
