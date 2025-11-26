@@ -62,6 +62,26 @@ export type WorkingStatus =
 // 就業状態における保険料の扱い（簡易）
 export type PremiumTreatment = 'normal' | 'exempt';
 
+// 扶養家族（被扶養者）
+export type DependentRelationship =
+  | 'spouse'
+  | 'child'
+  | 'parent'
+  | 'grandparent'
+  | 'sibling'
+  | 'other';
+
+export interface Dependent {
+  id: string;
+  name: string;
+  relationship: DependentRelationship;
+  dateOfBirth: IsoDateString;
+  qualificationAcquiredDate?: IsoDateString;
+  qualificationLossDate?: IsoDateString;
+  createdAt?: IsoDateString;
+  updatedAt?: IsoDateString;
+}
+
 export interface Employee {
   id: string;
   officeId: string;

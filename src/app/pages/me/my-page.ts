@@ -1,4 +1,4 @@
-import { AsyncPipe, DatePipe, DecimalPipe, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,12 +10,23 @@ import { CurrentOfficeService } from '../../services/current-office.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeesService } from '../../services/employees.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
-import { BonusPremium, MonthlyPremium } from '../../types';
+import { BonusPremium, Dependent, MonthlyPremium } from '../../types';
+import { DependentsService } from '../../services/dependents.service';
+import { getDependentRelationshipLabel } from '../../utils/label-utils';
 
 @Component({
   selector: 'ip-my-page',
   standalone: true,
-  imports: [MatCardModule, MatIconModule, MatTableModule, AsyncPipe, NgIf, DatePipe, DecimalPipe],
+  imports: [
+    MatCardModule,
+    MatIconModule,
+    MatTableModule,
+    AsyncPipe,
+    NgIf,
+    NgFor,
+    DatePipe,
+    DecimalPipe
+  ],
   template: `
     <section class="page my-page">
       <mat-card class="header-card">
@@ -81,6 +92,45 @@ import { BonusPremium, MonthlyPremium } from '../../types';
             <p>従業員として登録されていないため、マイページ情報は表示されません。</p>
           </div>
         </ng-template>
+      </mat-card>
+
+      <mat-card class="content-card">
+        <div class="page-header">
+          <h2>
+            <mat-icon>family_restroom</mat-icon>
+            扶養家族（閲覧のみ）
+          </h2>
+        </div>
+
+        <ng-container *ngIf="dependents$ | async as dependents">
+          <div class="dependents-empty" *ngIf="dependents.length === 0">
+            <mat-icon>group_off</mat-icon>
+            <p>扶養家族が登録されていません。</p>
+          </div>
+
+          <div class="dependents-grid" *ngIf="dependents.length > 0">
+            <div class="dependent-card" *ngFor="let dependent of dependents">
+              <div class="dependent-header">
+                <div class="dependent-name">{{ dependent.name }}</div>
+                <div class="dependent-relationship">
+                  {{ getDependentRelationshipLabel(dependent.relationship) }}
+                </div>
+              </div>
+              <div class="dependent-row">
+                <span class="label">生年月日</span>
+                <span class="value">{{ dependent.dateOfBirth }}</span>
+              </div>
+              <div class="dependent-row">
+                <span class="label">資格取得日</span>
+                <span class="value">{{ dependent.qualificationAcquiredDate || '-' }}</span>
+              </div>
+              <div class="dependent-row">
+                <span class="label">資格喪失日</span>
+                <span class="value">{{ dependent.qualificationLossDate || '-' }}</span>
+              </div>
+            </div>
+          </div>
+        </ng-container>
       </mat-card>
 
       <mat-card class="content-card">
@@ -376,6 +426,65 @@ import { BonusPremium, MonthlyPremium } from '../../types';
         background: #f3f4f6;
       }
 
+      .dependents-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+      }
+
+      .dependent-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+
+      .dependent-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 0.5rem;
+      }
+
+      .dependent-name {
+        font-weight: 700;
+        color: #111827;
+      }
+
+      .dependent-relationship {
+        color: #6b7280;
+        font-size: 0.9rem;
+      }
+
+      .dependent-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.95rem;
+        padding: 0.25rem 0;
+      }
+
+      .dependent-row .label {
+        color: #6b7280;
+      }
+
+      .dependent-row .value {
+        color: #111827;
+        font-weight: 500;
+      }
+
+      .dependents-empty {
+        text-align: center;
+        padding: 1rem 0;
+        color: #666;
+      }
+
+      .dependents-empty mat-icon {
+        color: #9ca3af;
+        display: block;
+        margin: 0 auto 0.25rem;
+      }
+
       @media (max-width: 768px) {
         .header-content {
           flex-direction: column;
@@ -389,6 +498,7 @@ export class MyPage {
   private readonly currentUser = inject(CurrentUserService);
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly employeesService = inject(EmployeesService);
+  private readonly dependentsService = inject(DependentsService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly bonusPremiumsService = inject(BonusPremiumsService);
 
@@ -447,4 +557,16 @@ export class MyPage {
       return this.bonusPremiumsService.listByOfficeAndEmployee(officeId, profile.employeeId);
     })
   );
+
+  readonly dependents$ = combineLatest([this.currentUser.profile$, this.currentOffice.officeId$]).pipe(
+    switchMap(([profile, officeId]) => {
+      if (!profile?.employeeId || !officeId) {
+        return of([] as Dependent[]);
+      }
+
+      return this.dependentsService.list(officeId, profile.employeeId);
+    })
+  );
+
+  protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
 }
