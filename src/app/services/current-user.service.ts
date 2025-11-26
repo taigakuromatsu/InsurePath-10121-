@@ -106,7 +106,7 @@ export class CurrentUserService {
 
     const userDoc = doc(this.firestore, 'users', user.uid);
     const now = new Date().toISOString();
-    const role = this.profileSubject.value?.role ?? 'admin';
+    const role = this.profileSubject.value?.role ?? 'employee';
 
     let employeeId = this.profileSubject.value?.employeeId;
     if (!employeeId && user.email) {
