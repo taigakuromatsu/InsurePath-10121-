@@ -509,16 +509,18 @@ export class EmployeeDetailDialogComponent {
   private readonly dependentsService = inject(DependentsService);
   private readonly currentUser = inject(CurrentUserService);
 
-  readonly dependents$: Observable<Dependent[]> = this.dependentsService.list(
-    this.data.employee.officeId,
-    this.data.employee.id
-  );
+  readonly dependents$!: Observable<Dependent[]>;
 
   readonly canManageDependents$: Observable<boolean> = this.currentUser.profile$.pipe(
     map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
   );
 
-  constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDetailDialogData) {}
+  constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDetailDialogData) {
+    this.dependents$ = this.dependentsService.list(
+      this.data.employee.officeId,
+      this.data.employee.id
+    );
+  }
 
   protected readonly getInsuranceQualificationKindLabel =
     getInsuranceQualificationKindLabel;
