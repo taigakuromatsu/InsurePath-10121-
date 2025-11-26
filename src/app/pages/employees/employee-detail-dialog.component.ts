@@ -610,23 +610,29 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
 
   scrollToSection(sectionId: DialogFocusSection): void {
+    const container = this.contentRef?.nativeElement;
+    if (!container) return;
+
     const target = this.sectionBlocks
       ?.map((ref) => ref.nativeElement)
-      .find((element) => element.id === sectionId);
+      .find((element) => element.id === sectionId) ||
+      (container.querySelector(`#${sectionId}`) as HTMLElement | null);
 
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      this.activeSection = sectionId;
-      return;
-    }
+    if (!target) return;
 
-    if (this.contentRef) {
-      const fallback = this.contentRef.nativeElement.querySelector(`#${sectionId}`);
-      fallback?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      if (fallback) {
-        this.activeSection = sectionId;
-      }
-    }
+    const nav = container.querySelector('.section-nav') as HTMLElement | null;
+    const navHeight = nav?.offsetHeight ?? 0;
+    const margin = 12; // 余白（8〜16px程度）
+
+    const targetTop = target.offsetTop;
+    const scrollTop = targetTop - navHeight - margin;
+
+    container.scrollTo({
+      top: Math.max(scrollTop, 0),
+      behavior: 'smooth'
+    });
+
+    this.activeSection = sectionId;
   }
 
   openAddDependent(): void {

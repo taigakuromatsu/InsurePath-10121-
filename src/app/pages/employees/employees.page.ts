@@ -140,7 +140,8 @@ import { DependentsService } from '../../services/dependents.service';
                 >
                   <mat-icon aria-hidden="true">family_restroom</mat-icon>
                   <ng-container *ngIf="getDependentsCount(row) | async as count">
-                    <span class="dependents-count">{{ count > 0 ? count + '人' : '-' }}</span>
+                    <span class="dependents-count" *ngIf="typeof count === 'number'">{{ count + '人' }}</span>
+                    <span class="dependents-count" *ngIf="typeof count !== 'number'">-</span>
                   </ng-container>
                   <span class="dependents-label">管理</span>
                 </button>
