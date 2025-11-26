@@ -10,6 +10,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import {
   Subject,
   combineLatest,
+  map,
   of,
   startWith,
   switchMap,
@@ -21,8 +22,12 @@ import { CurrentOfficeService } from '../../services/current-office.service';
 import { EmployeesService } from '../../services/employees.service';
 import { Employee } from '../../types';
 import { EmployeeFormDialogComponent } from './employee-form-dialog.component';
-import { EmployeeDetailDialogComponent } from './employee-detail-dialog.component';
+import {
+  DialogFocusSection,
+  EmployeeDetailDialogComponent
+} from './employee-detail-dialog.component';
 import { getWorkingStatusLabel } from '../../utils/label-utils';
+import { DependentsService } from '../../services/dependents.service';
 
 @Component({
   selector: 'ip-employees-page',
@@ -119,6 +124,26 @@ import { getWorkingStatusLabel } from '../../utils/label-utils';
               <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
               <td mat-cell *matCellDef="let row">
                 {{ row.monthlyWage | number }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="dependents">
+              <th mat-header-cell *matHeaderCellDef class="center">扶養家族</th>
+              <td mat-cell *matCellDef="let row" class="center">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  class="dependents-button"
+                  type="button"
+                  (click)="openDetailWithFocus(row, 'dependents')"
+                  aria-label="扶養家族を管理"
+                >
+                  <mat-icon aria-hidden="true">family_restroom</mat-icon>
+                  <ng-container *ngIf="getDependentsCount(row) | async as count">
+                    <span class="dependents-count">{{ count > 0 ? count + '人' : '-' }}</span>
+                  </ng-container>
+                  <span class="dependents-label">管理</span>
+                </button>
               </td>
             </ng-container>
 
@@ -347,6 +372,23 @@ import { getWorkingStatusLabel } from '../../utils/label-utils';
         font-weight: 500;
       }
 
+      .dependents-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-width: 140px;
+        justify-content: center;
+      }
+
+      .dependents-count {
+        font-weight: 600;
+        color: #333;
+      }
+
+      .dependents-label {
+        color: #555;
+      }
+
       .actions-header {
         text-align: center;
       }
@@ -451,7 +493,13 @@ export class EmployeesPage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly employeesService = inject(EmployeesService);
   private readonly currentOffice = inject(CurrentOfficeService);
+  private readonly dependentsService = inject(DependentsService);
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
+
+  private readonly dependentsCountMap = new Map<
+    string,
+    ReturnType<typeof this.createDependentsCountStream>
+  >();
 
   readonly displayedColumns = [
     'name',
@@ -461,6 +509,7 @@ export class EmployeesPage {
     'weeklyWorkingDays',
     'isStudent',
     'monthlyWage',
+    'dependents',
     'isInsured',
     'workingStatus',
     'actions'
@@ -492,6 +541,30 @@ export class EmployeesPage {
       width: '720px',
       data: { employee }
     });
+  }
+
+  openDetailWithFocus(employee: Employee, focusSection: DialogFocusSection): void {
+    this.dialog.open(EmployeeDetailDialogComponent, {
+      width: '720px',
+      data: { employee, focusSection }
+    });
+  }
+
+  private createDependentsCountStream(employee: Employee) {
+    return this.dependentsService
+      .list(employee.officeId, employee.id)
+      .pipe(map((dependents) => dependents.length));
+  }
+
+  getDependentsCount(employee: Employee) {
+    const cached = this.dependentsCountMap.get(employee.id);
+    if (cached) {
+      return cached;
+    }
+
+    const stream = this.createDependentsCountStream(employee);
+    this.dependentsCountMap.set(employee.id, stream);
+    return stream;
   }
 
   // 編集ダイアログを開いて保存後に reload$.next() で一覧を再取得
