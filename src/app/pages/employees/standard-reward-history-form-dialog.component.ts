@@ -99,7 +99,7 @@ export interface StandardRewardHistoryFormDialogData {
         <mat-label>メモ（任意）</mat-label>
         <textarea matInput formControlName="note" rows="3"></textarea>
         <mat-hint align="end">
-          {{ form.controls.note.value?.length || 0 }}/1000
+          {{ form.controls.note.value.length || 0 }}/1000
         </mat-hint>
       </mat-form-field>
     </form>
