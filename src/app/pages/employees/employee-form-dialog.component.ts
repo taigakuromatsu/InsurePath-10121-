@@ -8,7 +8,9 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { Employee } from '../../types';
+import { EmployeesService } from '../../services/employees.service';
+import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
+import { Employee, YearMonthString } from '../../types';
 
 export interface EmployeeDialogData {
   employee?: Employee;
@@ -107,6 +109,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>標準報酬月額</mat-label>
         <input matInput type="number" formControlName="monthlyWage" />
+        <mat-hint *ngIf="data.employee">標準報酬月額を変更すると、標準報酬履歴に自動で記録されます</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -386,6 +389,9 @@ export interface EmployeeDialogData {
 })
 export class EmployeeFormDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<EmployeeFormDialogComponent>);
+  private readonly employeesService = inject(EmployeesService);
+  private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
+  private readonly originalMonthlyWage?: number;
 
   readonly form = inject(FormBuilder).group({
     id: [''],
@@ -427,6 +433,9 @@ export class EmployeeFormDialogComponent {
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDialogData) {
     if (data.employee) {
+      this.originalMonthlyWage = data.employee.monthlyWage;
+    }
+    if (data.employee) {
       const employee = data.employee;
       this.form.patchValue({
         ...employee,
@@ -451,11 +460,54 @@ export class EmployeeFormDialogComponent {
     }
   }
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
-    this.dialogRef.close(this.form.value);
+
+    const formValue = this.form.value;
+    const payload: Partial<Employee> & { id?: string } = this.data.employee
+      ? { ...this.data.employee, ...formValue }
+      : formValue;
+
+    try {
+      await this.employeesService.save(this.data.officeId, payload);
+      await this.addAutoStandardRewardHistory(Number(formValue.monthlyWage));
+      this.dialogRef.close({ saved: true });
+    } catch (error) {
+      console.error('従業員情報の保存に失敗しました', error);
+    }
+  }
+
+  private async addAutoStandardRewardHistory(newMonthlyWage: number): Promise<void> {
+    if (
+      !this.data.employee ||
+      this.originalMonthlyWage === undefined ||
+      newMonthlyWage === this.originalMonthlyWage
+    ) {
+      return;
+    }
+
+    const currentYearMonth = this.getCurrentYearMonth();
+
+    try {
+      await this.standardRewardHistoryService.save(this.data.officeId, this.data.employee.id, {
+        decisionYearMonth: currentYearMonth,
+        appliedFromYearMonth: currentYearMonth,
+        standardMonthlyReward: newMonthlyWage,
+        decisionKind: 'other',
+        note: '従業員フォームで標準報酬月額が変更されたため自動登録'
+      });
+    } catch (error) {
+      console.error('標準報酬履歴の自動追加に失敗しました:', error);
+    }
+  }
+
+  private getCurrentYearMonth(): YearMonthString {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
   }
 }

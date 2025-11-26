@@ -580,27 +580,16 @@ export class EmployeesPage {
       data: { employee, officeId }
     });
 
-    dialogRef.afterClosed().subscribe(async (result) => {
-      if (!result) {
+    dialogRef.afterClosed().subscribe((result) => {
+      if (!result?.saved) {
         return;
       }
 
-      const payload: Partial<Employee> & { id?: string } =
-        employee ? { ...employee, ...result } : result;
-
-      try {
-        await this.employeesService.save(officeId, payload);
-        this.snackBar.open('従業員情報を保存しました', '閉じる', {
-          duration: 3000
-        });
-        // 一覧再読み込み
-        this.reload$.next();
-      } catch (error) {
-        console.error(error);
-        this.snackBar.open('従業員情報の保存に失敗しました', '閉じる', {
-          duration: 4000
-        });
-      }
+      this.snackBar.open('従業員情報を保存しました', '閉じる', {
+        duration: 3000
+      });
+      // 一覧再読み込み
+      this.reload$.next();
     });
   }
 
