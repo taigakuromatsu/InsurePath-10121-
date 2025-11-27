@@ -19,6 +19,7 @@ import {
 } from 'rxjs';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
+import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeesService } from '../../services/employees.service';
 import { Employee } from '../../types';
 import { EmployeeFormDialogComponent } from './employee-form-dialog.component';
@@ -28,6 +29,7 @@ import {
 } from './employee-detail-dialog.component';
 import { getWorkingStatusLabel } from '../../utils/label-utils';
 import { DependentsService } from '../../services/dependents.service';
+import { CsvExportService } from '../../utils/csv-export.service';
 
 @Component({
   selector: 'ip-employees-page',
@@ -66,15 +68,27 @@ import { DependentsService } from '../../services/dependents.service';
             </h2>
             <p>登録されている従業員の一覧を表示します。</p>
           </div>
-          <button
-            mat-raised-button
-            color="primary"
-            (click)="openDialog()"
-            [disabled]="!(officeId$ | async)"
-          >
-            <mat-icon>person_add</mat-icon>
-            従業員を追加
-          </button>
+          <div class="header-actions">
+            <button
+              mat-stroked-button
+              color="primary"
+              (click)="exportToCsv()"
+              [disabled]="!(employees$ | async)?.length"
+              *ngIf="canExport$ | async"
+            >
+              <mat-icon>download</mat-icon>
+              CSVエクスポート
+            </button>
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="openDialog()"
+              [disabled]="!(officeId$ | async)"
+            >
+              <mat-icon>person_add</mat-icon>
+              従業員を追加
+            </button>
+          </div>
         </div>
 
         <ng-container *ngIf="officeId$ | async as officeId; else emptyOffice">
@@ -304,6 +318,12 @@ import { DependentsService } from '../../services/dependents.service';
         font-size: 0.95rem;
       }
 
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
       .table-container {
         position: relative;
         overflow-x: auto;
@@ -495,6 +515,8 @@ export class EmployeesPage {
   private readonly employeesService = inject(EmployeesService);
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly dependentsService = inject(DependentsService);
+  private readonly currentUser = inject(CurrentUserService);
+  private readonly csvExportService = inject(CsvExportService);
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
 
   private readonly dependentsCountMap = new Map<
@@ -518,6 +540,10 @@ export class EmployeesPage {
 
   // CurrentOfficeService からそのまま officeId$ を公開
   readonly officeId$ = this.currentOffice.officeId$;
+
+  readonly canExport$ = this.currentUser.profile$.pipe(
+    map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
+  );
 
   // 保存・削除後に一覧を取り直すためのトリガー
   private readonly reload$ = new Subject<void>();
@@ -555,6 +581,17 @@ export class EmployeesPage {
     return this.dependentsService
       .list(employee.officeId, employee.id)
       .pipe(map((dependents) => dependents.length));
+  }
+
+  async exportToCsv(): Promise<void> {
+    const employees = await firstValueFrom(this.employees$);
+    if (!employees || employees.length === 0) {
+      this.snackBar.open('エクスポートするデータがありません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    this.csvExportService.exportEmployees(employees);
+    this.snackBar.open('CSVエクスポートが完了しました', '閉じる', { duration: 3000 });
   }
 
   getDependentsCount(employee: Employee) {

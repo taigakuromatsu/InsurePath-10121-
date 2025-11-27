@@ -9,10 +9,12 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Subject, combineLatest, of, startWith, switchMap, map, firstValueFrom } from 'rxjs';
 
 import { CurrentOfficeService } from '../../../services/current-office.service';
+import { CurrentUserService } from '../../../services/current-user.service';
 import { EmployeesService } from '../../../services/employees.service';
 import { BonusPremiumsService } from '../../../services/bonus-premiums.service';
 import { BonusPremium, Employee } from '../../../types';
 import { BonusFormDialogComponent } from './bonus-form-dialog.component';
+import { CsvExportService } from '../../../utils/csv-export.service';
 
 interface BonusPremiumWithEmployee extends BonusPremium {
   employeeName: string;
@@ -58,15 +60,27 @@ interface BonusPremiumWithEmployee extends BonusPremium {
             </h2>
             <p>登録済みの賞与と保険料の一覧です。</p>
           </div>
-          <button
-            mat-raised-button
-            color="primary"
-            (click)="openDialog()"
-            [disabled]="!(officeId$ | async)"
-          >
-            <mat-icon>note_add</mat-icon>
-            賞与を登録
-          </button>
+          <div class="header-actions">
+            <button
+              mat-stroked-button
+              color="primary"
+              (click)="exportToCsv()"
+              [disabled]="!(viewModel$ | async)?.rows.length"
+              *ngIf="canExport$ | async"
+            >
+              <mat-icon>download</mat-icon>
+              CSVエクスポート
+            </button>
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="openDialog()"
+              [disabled]="!(officeId$ | async)"
+            >
+              <mat-icon>note_add</mat-icon>
+              賞与を登録
+            </button>
+          </div>
         </div>
 
         <ng-container *ngIf="viewModel$ | async as vm; else noOffice">
@@ -246,6 +260,12 @@ interface BonusPremiumWithEmployee extends BonusPremium {
         font-size: 0.95rem;
       }
 
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
       .table-container {
         border: 1px solid #e0e0e0;
         border-radius: 8px;
@@ -334,12 +354,18 @@ interface BonusPremiumWithEmployee extends BonusPremium {
 })
 export class BonusPremiumsPage {
   private readonly currentOffice = inject(CurrentOfficeService);
+  private readonly currentUser = inject(CurrentUserService);
   private readonly employeesService = inject(EmployeesService);
   private readonly bonusPremiumsService = inject(BonusPremiumsService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly csvExportService = inject(CsvExportService);
 
   readonly officeId$ = this.currentOffice.officeId$;
+
+  readonly canExport$ = this.currentUser.profile$.pipe(
+    map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
+  );
 
   readonly displayedColumns = [
     'payDate',
@@ -380,6 +406,17 @@ export class BonusPremiumsPage {
       return { rows, totalEmployee, totalEmployer };
     })
   );
+
+  async exportToCsv(): Promise<void> {
+    const vm = await firstValueFrom(this.viewModel$);
+    if (!vm || vm.rows.length === 0) {
+      this.snackBar.open('エクスポートするデータがありません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    this.csvExportService.exportBonusPremiums(vm.rows);
+    this.snackBar.open('CSVエクスポートが完了しました', '閉じる', { duration: 3000 });
+  }
 
   async openDialog(bonus?: BonusPremiumWithEmployee): Promise<void> {
     const office = await firstValueFrom(this.currentOffice.office$);
