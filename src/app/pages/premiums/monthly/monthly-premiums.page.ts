@@ -11,13 +11,15 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { Auth } from '@angular/fire/auth';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, map } from 'rxjs';
 
 import { CurrentOfficeService } from '../../../services/current-office.service';
+import { CurrentUserService } from '../../../services/current-user.service';
 import { EmployeesService } from '../../../services/employees.service';
 import { MastersService } from '../../../services/masters.service';
 import { MonthlyPremiumsService } from '../../../services/monthly-premiums.service';
 import { Employee, MonthlyPremium, Office } from '../../../types';
+import { CsvExportService } from '../../../utils/csv-export.service';
 
 @Component({
   selector: 'ip-monthly-premiums-page',
@@ -149,6 +151,16 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
             <mat-icon>list</mat-icon>
             計算結果一覧（{{ selectedYearMonth() }}）
           </h2>
+          <button
+            mat-stroked-button
+            color="primary"
+            (click)="exportToCsv()"
+            [disabled]="filteredRows().length === 0"
+            *ngIf="canExport$ | async"
+          >
+            <mat-icon>download</mat-icon>
+            CSVエクスポート
+          </button>
         </div>
 
         <div class="filter-section">
@@ -434,6 +446,9 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
       }
 
       .result-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
         border-bottom: 2px solid #e0e0e0;
@@ -580,11 +595,13 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
 export class MonthlyPremiumsPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly currentOffice = inject(CurrentOfficeService);
+  private readonly currentUser = inject(CurrentUserService);
   private readonly employeesService = inject(EmployeesService);
   private readonly mastersService = inject(MastersService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly auth = inject(Auth);
+  private readonly csvExportService = inject(CsvExportService);
 
   readonly officeId$ = this.currentOffice.officeId$;
   readonly loading = signal(false);
@@ -592,6 +609,10 @@ export class MonthlyPremiumsPage implements OnInit {
   readonly selectedYearMonth = signal<string>(new Date().toISOString().substring(0, 7));
   readonly filterText = signal<string>('');
   readonly rateSummary = signal<{ healthRate?: number; careRate?: number; pensionRate?: number } | null>(null);
+
+  readonly canExport$ = this.currentUser.profile$.pipe(
+    map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
+  );
 
   readonly yearMonthOptions = computed(() => {
     const options: string[] = [];
@@ -654,6 +675,17 @@ export class MonthlyPremiumsPage implements OnInit {
     this.selectedYearMonth.set(yearMonth);
     this.filterText.set('');
     this.loadPremiumsForYearMonth(yearMonth);
+  }
+
+  exportToCsv(): void {
+    const rows = this.filteredRows();
+    if (rows.length === 0) {
+      this.snackBar.open('エクスポートするデータがありません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    this.csvExportService.exportMonthlyPremiums(rows, this.selectedYearMonth());
+    this.snackBar.open('CSVエクスポートが完了しました', '閉じる', { duration: 3000 });
   }
 
   private async loadPremiumsForYearMonth(yearMonth: string): Promise<void> {
