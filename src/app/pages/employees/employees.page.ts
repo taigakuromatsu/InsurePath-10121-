@@ -1,5 +1,5 @@
 // src/app/pages/employees/employees.page.ts
-import { AsyncPipe, DecimalPipe, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, DecimalPipe, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -22,6 +22,7 @@ import { CurrentOfficeService } from '../../services/current-office.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeesService } from '../../services/employees.service';
 import { Employee } from '../../types';
+import { UsersService } from '../../services/users.service';
 import { EmployeeFormDialogComponent } from './employee-form-dialog.component';
 import {
   DialogFocusSection,
@@ -35,6 +36,10 @@ import {
   ImportResult
 } from './employee-import-dialog.component';
 
+interface EmployeeWithUpdatedBy extends Employee {
+  updatedByDisplayName: string | null;
+}
+
 @Component({
   selector: 'ip-employees-page',
   standalone: true,
@@ -47,7 +52,8 @@ import {
     MatDialogModule,
     AsyncPipe,
     NgIf,
-    DecimalPipe
+    DecimalPipe,
+    DatePipe
   ],
   template: `
     <section class="page employees">
@@ -118,7 +124,7 @@ import {
           <div class="table-container">
           <table
             mat-table
-            [dataSource]="(employees$ | async) || []"
+            [dataSource]="(employeesWithUpdatedBy$ | async) || []"
             class="employee-table"
           >
             <ng-container matColumnDef="name">
@@ -202,6 +208,20 @@ import {
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="updatedBy">
+              <th mat-header-cell *matHeaderCellDef>最終更新者</th>
+              <td mat-cell *matCellDef="let row">
+                {{ row.updatedByDisplayName || '-' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="updatedAt">
+              <th mat-header-cell *matHeaderCellDef>最終更新日時</th>
+              <td mat-cell *matCellDef="let row">
+                {{ row.updatedAt ? (row.updatedAt | date: 'yyyy-MM-dd HH:mm') : '-' }}
+              </td>
+            </ng-container>
+
             <!-- 操作列 -->
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
@@ -238,7 +258,7 @@ import {
             <tr mat-header-row *matHeaderRowDef="displayedColumns" class="table-header-row"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns" class="table-row"></tr>
           </table>
-          <div class="empty-state" *ngIf="(employees$ | async)?.length === 0">
+          <div class="empty-state" *ngIf="(employeesWithUpdatedBy$ | async)?.length === 0">
             <mat-icon>people_outline</mat-icon>
             <p>従業員が登録されていません</p>
             <button mat-stroked-button color="primary" (click)="openDialog()" [disabled]="!(officeId$ | async)">
@@ -540,6 +560,7 @@ export class EmployeesPage {
   private readonly dependentsService = inject(DependentsService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly csvExportService = inject(CsvExportService);
+  private readonly usersService = inject(UsersService);
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
 
   private readonly dependentsCountMap = new Map<
@@ -558,6 +579,8 @@ export class EmployeesPage {
     'dependents',
     'isInsured',
     'workingStatus',
+    'updatedBy',
+    'updatedAt',
     'actions'
   ];
 
@@ -582,6 +605,34 @@ export class EmployeesPage {
         return of([] as Employee[]);
       }
       return this.employeesService.list(officeId);
+    })
+  );
+
+  readonly employeesWithUpdatedBy$ = this.employees$.pipe(
+    switchMap((employees) => {
+      const userIds = employees
+        .map((emp) => emp.updatedByUserId)
+        .filter((id): id is string => Boolean(id));
+
+      if (userIds.length === 0) {
+        return of(
+          employees.map((employee) => ({
+            ...employee,
+            updatedByDisplayName: null
+          })) as EmployeeWithUpdatedBy[]
+        );
+      }
+
+      return this.usersService.getUserDisplayNames(userIds).pipe(
+        map((nameMap) =>
+          employees.map((employee) => ({
+            ...employee,
+            updatedByDisplayName: employee.updatedByUserId
+              ? nameMap.get(employee.updatedByUserId) ?? null
+              : null
+          })) as EmployeeWithUpdatedBy[]
+        )
+      );
     })
   );
 
