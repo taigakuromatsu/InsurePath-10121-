@@ -1,4 +1,4 @@
-import { AsyncPipe, DatePipe, DecimalPipe, NgForOf, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, DecimalPipe, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -225,11 +225,11 @@ interface BonusPremiumWithEmployee extends BonusPremium {
         color: white;
       }
 
-        .header-text h1 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.75rem;
-          font-weight: 600;
-        }
+      .header-text h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.75rem;
+        font-weight: 600;
+      }
 
         .help-button {
           width: 36px;
@@ -413,10 +413,10 @@ export class BonusPremiumsPage {
     )
   );
 
-    readonly viewModel$ = combineLatest([this.bonuses$, this.employees$]).pipe(
-      map(([bonuses, employees]) => {
-        const nameMap = new Map<string, string>();
-        employees.forEach((emp) => nameMap.set(emp.id, emp.name));
+  readonly viewModel$ = combineLatest([this.bonuses$, this.employees$]).pipe(
+    map(([bonuses, employees]) => {
+      const nameMap = new Map<string, string>();
+      employees.forEach((emp) => nameMap.set(emp.id, emp.name));
 
       const rows: BonusPremiumWithEmployee[] = bonuses.map((b) => ({
         ...b,
@@ -426,9 +426,9 @@ export class BonusPremiumsPage {
       const totalEmployee = rows.reduce((sum, r) => sum + r.totalEmployee, 0);
       const totalEmployer = rows.reduce((sum, r) => sum + r.totalEmployer, 0);
 
-        return { rows, totalEmployee, totalEmployer };
-      })
-    );
+      return { rows, totalEmployee, totalEmployer };
+    })
+  );
 
     openHelp(): void {
       this.dialog.open(HelpDialogComponent, {
@@ -440,11 +440,11 @@ export class BonusPremiumsPage {
       });
     }
 
-    async exportToCsv(): Promise<void> {
-      const vm = await firstValueFrom(this.viewModel$);
-      if (!vm || vm.rows.length === 0) {
-        this.snackBar.open('エクスポートするデータがありません', '閉じる', { duration: 3000 });
-        return;
+  async exportToCsv(): Promise<void> {
+    const vm = await firstValueFrom(this.viewModel$);
+    if (!vm || vm.rows.length === 0) {
+      this.snackBar.open('エクスポートするデータがありません', '閉じる', { duration: 3000 });
+      return;
     }
 
     this.csvExportService.exportBonusPremiums(vm.rows);

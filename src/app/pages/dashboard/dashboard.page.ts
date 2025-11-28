@@ -92,8 +92,8 @@ Chart.register(...registerables);
           </h3>
           <p>
             過去12ヶ月の推移・賞与を含めた当月比較・年度別合計をグラフ表示し、従業員別負担ランキングを併せて確認できます。
-          </p>
-        </mat-card>
+        </p>
+      </mat-card>
       </div>
 
       <div class="charts-grid">
