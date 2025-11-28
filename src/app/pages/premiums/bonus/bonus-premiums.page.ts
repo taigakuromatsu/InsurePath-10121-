@@ -15,6 +15,7 @@ import { BonusPremiumsService } from '../../../services/bonus-premiums.service';
 import { BonusPremium, Employee } from '../../../types';
 import { BonusFormDialogComponent } from './bonus-form-dialog.component';
 import { CsvExportService } from '../../../utils/csv-export.service';
+import { HelpDialogComponent, HelpDialogData } from '../../../components/help-dialog.component';
 
 interface BonusPremiumWithEmployee extends BonusPremium {
   employeeName: string;
@@ -43,7 +44,18 @@ interface BonusPremiumWithEmployee extends BonusPremium {
             <mat-icon>workspace_premium</mat-icon>
           </div>
           <div class="header-text">
-            <h1>賞与保険料管理</h1>
+            <h1>
+              賞与保険料管理
+              <button
+                mat-icon-button
+                class="help-button"
+                type="button"
+                (click)="openHelp()"
+                aria-label="賞与保険料のヘルプを表示"
+              >
+                <mat-icon>help_outline</mat-icon>
+              </button>
+            </h1>
             <p>
               賞与支給額から標準賞与額を算出し、健康保険・厚生年金の賞与保険料を自動計算して保存します。
             </p>
@@ -213,11 +225,22 @@ interface BonusPremiumWithEmployee extends BonusPremium {
         color: white;
       }
 
-      .header-text h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-      }
+        .header-text h1 {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.75rem;
+          font-weight: 600;
+        }
+
+        .help-button {
+          width: 36px;
+          height: 36px;
+          margin-left: 0.25rem;
+          color: white;
+        }
+
+        .help-button mat-icon {
+          font-size: 22px;
+        }
 
       .header-text p {
         margin: 0;
@@ -390,10 +413,10 @@ export class BonusPremiumsPage {
     )
   );
 
-  readonly viewModel$ = combineLatest([this.bonuses$, this.employees$]).pipe(
-    map(([bonuses, employees]) => {
-      const nameMap = new Map<string, string>();
-      employees.forEach((emp) => nameMap.set(emp.id, emp.name));
+    readonly viewModel$ = combineLatest([this.bonuses$, this.employees$]).pipe(
+      map(([bonuses, employees]) => {
+        const nameMap = new Map<string, string>();
+        employees.forEach((emp) => nameMap.set(emp.id, emp.name));
 
       const rows: BonusPremiumWithEmployee[] = bonuses.map((b) => ({
         ...b,
@@ -403,15 +426,25 @@ export class BonusPremiumsPage {
       const totalEmployee = rows.reduce((sum, r) => sum + r.totalEmployee, 0);
       const totalEmployer = rows.reduce((sum, r) => sum + r.totalEmployer, 0);
 
-      return { rows, totalEmployee, totalEmployer };
-    })
-  );
+        return { rows, totalEmployee, totalEmployer };
+      })
+    );
 
-  async exportToCsv(): Promise<void> {
-    const vm = await firstValueFrom(this.viewModel$);
-    if (!vm || vm.rows.length === 0) {
-      this.snackBar.open('エクスポートするデータがありません', '閉じる', { duration: 3000 });
-      return;
+    openHelp(): void {
+      this.dialog.open(HelpDialogComponent, {
+        width: '720px',
+        data: {
+          topicIds: ['bonusRange'],
+          title: '賞与保険料に関するヘルプ'
+        } satisfies HelpDialogData
+      });
+    }
+
+    async exportToCsv(): Promise<void> {
+      const vm = await firstValueFrom(this.viewModel$);
+      if (!vm || vm.rows.length === 0) {
+        this.snackBar.open('エクスポートするデータがありません', '閉じる', { duration: 3000 });
+        return;
     }
 
     this.csvExportService.exportBonusPremiums(vm.rows);
