@@ -65,7 +65,7 @@ interface BonusPremiumWithEmployee extends BonusPremium {
               mat-stroked-button
               color="primary"
               (click)="exportToCsv()"
-              [disabled]="!(viewModel$ | async)?.rows.length"
+              [disabled]="!((viewModel$ | async)?.rows?.length ?? 0)"
               *ngIf="canExport$ | async"
             >
               <mat-icon>download</mat-icon>
