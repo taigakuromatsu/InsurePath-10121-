@@ -92,7 +92,7 @@ interface PreviewColumn {
         </div>
         <div class="preview-table-container">
           <table mat-table [dataSource]="previewRows" class="preview-table">
-            <ng-container *ngFor="let column of previewColumns" [matColumnDef]="column.key as string">
+            <ng-container *ngFor="let column of previewColumns" [matColumnDef]="getColumnKey(column)">
               <th mat-header-cell *matHeaderCellDef>{{ column.label }}</th>
               <td
                 mat-cell
@@ -420,6 +420,10 @@ export class EmployeeImportDialogComponent {
 
   hasErrorForRow(rowIndex: number): boolean {
     return this.combinedErrors.some((error) => error.rowIndex === rowIndex);
+  }
+
+  protected getColumnKey(column: PreviewColumn): string {
+    return column.key as string;
   }
 
   getCellValue(row: Partial<Employee>, key: keyof Partial<Employee>): string {
