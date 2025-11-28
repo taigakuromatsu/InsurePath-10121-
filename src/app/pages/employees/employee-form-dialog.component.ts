@@ -12,6 +12,8 @@ import { NgIf } from '@angular/common';
 import { EmployeesService } from '../../services/employees.service';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
 import { Employee, YearMonthString } from '../../types';
+import { CurrentUserService } from '../../services/current-user.service';
+import { firstValueFrom, map } from 'rxjs';
 
 export interface EmployeeDialogData {
   employee?: Employee;
@@ -393,6 +395,7 @@ export class EmployeeFormDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<EmployeeFormDialogComponent>);
   private readonly employeesService = inject(EmployeesService);
   private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
+  private readonly currentUser = inject(CurrentUserService);
   private readonly originalMonthlyWage?: number;
 
   readonly form = inject(FormBuilder).group({
@@ -469,9 +472,19 @@ export class EmployeeFormDialogComponent {
     }
 
     const formValue = this.form.getRawValue();
+    const currentUserId = await firstValueFrom(
+      this.currentUser.profile$.pipe(map((profile) => profile?.id ?? null))
+    );
     const payload: Partial<Employee> & { id?: string } = this.data.employee
-      ? ({ ...this.data.employee, ...formValue } as unknown as Partial<Employee> & { id?: string })
-      : (formValue as unknown as Partial<Employee> & { id?: string });
+      ? ({
+          ...this.data.employee,
+          ...formValue,
+          updatedByUserId: currentUserId ?? undefined
+        } as unknown as Partial<Employee> & { id?: string })
+      : ({
+          ...formValue,
+          updatedByUserId: currentUserId ?? undefined
+        } as unknown as Partial<Employee> & { id?: string });
 
     try {
       await this.employeesService.save(this.data.officeId, payload);
