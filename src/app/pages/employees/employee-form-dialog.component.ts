@@ -1,6 +1,6 @@
 import { Component, Inject, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -8,6 +8,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { NgIf } from '@angular/common';
+import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialog.component';
 
 import { EmployeesService } from '../../services/employees.service';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
@@ -111,7 +112,18 @@ export interface EmployeeDialogData {
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>標準報酬月額</mat-label>
+        <mat-label>
+          標準報酬月額
+          <button
+            mat-icon-button
+            type="button"
+            class="field-help-button"
+            (click)="openHelp($event)"
+            aria-label="標準報酬月額のヘルプを表示"
+          >
+            <mat-icon>help_outline</mat-icon>
+          </button>
+        </mat-label>
         <input matInput type="number" formControlName="monthlyWage" />
         <mat-hint *ngIf="data.employee">標準報酬月額を変更すると、標準報酬履歴に自動で記録されます</mat-hint>
       </mat-form-field>
@@ -357,6 +369,16 @@ export interface EmployeeDialogData {
         gap: 1rem;
       }
 
+      .field-help-button {
+        width: 24px;
+        height: 24px;
+        margin-left: 0.25rem;
+      }
+
+      .field-help-button mat-icon {
+        font-size: 18px;
+      }
+
       .toggle-field {
         display: flex;
         align-items: center;
@@ -392,6 +414,7 @@ export interface EmployeeDialogData {
   ]
 })
 export class EmployeeFormDialogComponent {
+  private readonly dialog = inject(MatDialog);
   private readonly dialogRef = inject(MatDialogRef<EmployeeFormDialogComponent>);
   private readonly employeesService = inject(EmployeesService);
   private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
@@ -463,6 +486,18 @@ export class EmployeeFormDialogComponent {
         workingStatusNote: employee.workingStatusNote ?? ''
       } as any);
     }
+  }
+
+  openHelp(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.dialog.open(HelpDialogComponent, {
+      width: '720px',
+      data: {
+        topicIds: ['standardMonthlyReward', 'shortTimeWorker'],
+        title: '標準報酬月額に関するヘルプ'
+      } satisfies HelpDialogData
+    });
   }
 
   async submit(): Promise<void> {

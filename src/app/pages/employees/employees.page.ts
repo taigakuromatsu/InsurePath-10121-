@@ -35,6 +35,7 @@ import {
   EmployeeImportDialogComponent,
   ImportResult
 } from './employee-import-dialog.component';
+import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialog.component';
 
 interface EmployeeWithUpdatedBy extends Employee {
   updatedByDisplayName: string | null;
@@ -63,7 +64,17 @@ interface EmployeeWithUpdatedBy extends Employee {
             <mat-icon>people</mat-icon>
           </div>
           <div class="header-text">
-            <h1>従業員台帳</h1>
+            <h1>
+              従業員台帳
+              <button
+                mat-icon-button
+                class="help-button"
+                (click)="openHelp()"
+                aria-label="従業員管理のヘルプを表示"
+              >
+                <mat-icon>help_outline</mat-icon>
+              </button>
+            </h1>
             <p>現在の事業所に紐づく従業員を登録・更新できます。</p>
           </div>
         </div>
@@ -534,6 +545,17 @@ interface EmployeeWithUpdatedBy extends Employee {
         transform: scale(1.1);
       }
 
+      .help-button {
+        width: 36px;
+        height: 36px;
+        margin-left: 0.25rem;
+        color: white;
+      }
+
+      .help-button mat-icon {
+        font-size: 22px;
+      }
+
       @media (max-width: 768px) {
         .page-header {
           flex-direction: column;
@@ -633,8 +655,18 @@ export class EmployeesPage {
           })) as EmployeeWithUpdatedBy[]
         )
       );
-    })
-  );
+      })
+    );
+
+  openHelp(): void {
+    this.dialog.open(HelpDialogComponent, {
+      width: '720px',
+      data: {
+        topicIds: ['standardMonthlyReward', 'shortTimeWorker'],
+        title: '従業員管理に関するヘルプ'
+      } satisfies HelpDialogData
+    });
+  }
 
   // 🔍 詳細ダイアログを開く
   openDetail(employee: Employee): void {

@@ -10,6 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Auth } from '@angular/fire/auth';
 import { firstValueFrom, map } from 'rxjs';
 
@@ -20,6 +21,7 @@ import { MastersService } from '../../../services/masters.service';
 import { MonthlyPremiumsService } from '../../../services/monthly-premiums.service';
 import { Employee, MonthlyPremium, Office } from '../../../types';
 import { CsvExportService } from '../../../utils/csv-export.service';
+import { HelpDialogComponent, HelpDialogData } from '../../../components/help-dialog.component';
 
 @Component({
   selector: 'ip-monthly-premiums-page',
@@ -33,6 +35,7 @@ import { CsvExportService } from '../../../utils/csv-export.service';
     MatIconModule,
     MatSelectModule,
     MatTableModule,
+    MatDialogModule,
     MatSnackBarModule,
     MatProgressSpinnerModule,
     AsyncPipe,
@@ -73,7 +76,18 @@ import { CsvExportService } from '../../../utils/csv-export.service';
             <mat-icon>account_balance_wallet</mat-icon>
           </div>
           <div class="header-text">
-        <h1>月次保険料 一覧・再計算</h1>
+        <h1>
+          月次保険料 一覧・再計算
+          <button
+            mat-icon-button
+            class="help-button"
+            type="button"
+            (click)="openHelp()"
+            aria-label="月次保険料のヘルプを表示"
+          >
+            <mat-icon>help_outline</mat-icon>
+          </button>
+        </h1>
         <p>
           対象年月を指定し、マスタで定義された保険料率を用いて
           現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
@@ -297,11 +311,22 @@ import { CsvExportService } from '../../../utils/csv-export.service';
         color: white;
       }
 
-      .header-text h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-      }
+        .header-text h1 {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.75rem;
+          font-weight: 600;
+        }
+
+        .help-button {
+          width: 36px;
+          height: 36px;
+          margin-left: 0.25rem;
+          color: white;
+        }
+
+        .help-button mat-icon {
+          font-size: 22px;
+        }
 
       .header-text p {
         margin: 0;
@@ -592,16 +617,17 @@ import { CsvExportService } from '../../../utils/csv-export.service';
     `
   ]
 })
-export class MonthlyPremiumsPage implements OnInit {
-  private readonly fb = inject(FormBuilder);
-  private readonly currentOffice = inject(CurrentOfficeService);
-  private readonly currentUser = inject(CurrentUserService);
-  private readonly employeesService = inject(EmployeesService);
-  private readonly mastersService = inject(MastersService);
-  private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
-  private readonly snackBar = inject(MatSnackBar);
-  private readonly auth = inject(Auth);
-  private readonly csvExportService = inject(CsvExportService);
+  export class MonthlyPremiumsPage implements OnInit {
+    private readonly fb = inject(FormBuilder);
+    private readonly currentOffice = inject(CurrentOfficeService);
+    private readonly currentUser = inject(CurrentUserService);
+    private readonly employeesService = inject(EmployeesService);
+    private readonly mastersService = inject(MastersService);
+    private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
+    private readonly snackBar = inject(MatSnackBar);
+    private readonly auth = inject(Auth);
+    private readonly csvExportService = inject(CsvExportService);
+    private readonly dialog = inject(MatDialog);
 
   readonly officeId$ = this.currentOffice.officeId$;
   readonly loading = signal(false);
@@ -669,6 +695,16 @@ export class MonthlyPremiumsPage implements OnInit {
 
   ngOnInit(): void {
     this.loadPremiumsForYearMonth(this.selectedYearMonth());
+  }
+
+  openHelp(): void {
+    this.dialog.open(HelpDialogComponent, {
+      width: '720px',
+      data: {
+        topicIds: ['standardMonthlyReward'],
+        title: '月次保険料に関するヘルプ'
+      } satisfies HelpDialogData
+    });
   }
 
   onYearMonthSelectionChange(yearMonth: string): void {
