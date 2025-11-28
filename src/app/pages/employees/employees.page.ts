@@ -30,6 +30,10 @@ import {
 import { getWorkingStatusLabel } from '../../utils/label-utils';
 import { DependentsService } from '../../services/dependents.service';
 import { CsvExportService } from '../../utils/csv-export.service';
+import {
+  EmployeeImportDialogComponent,
+  ImportResult
+} from './employee-import-dialog.component';
 
 @Component({
   selector: 'ip-employees-page',
@@ -69,6 +73,16 @@ import { CsvExportService } from '../../utils/csv-export.service';
             <p>登録されている従業員の一覧を表示します。</p>
           </div>
           <div class="header-actions">
+            <button
+              mat-stroked-button
+              color="primary"
+              (click)="openImportDialog()"
+              [disabled]="!(officeId$ | async)"
+              *ngIf="canExport$ | async"
+            >
+              <mat-icon>upload</mat-icon>
+              CSVインポート
+            </button>
             <button
               mat-stroked-button
               color="primary"
@@ -581,6 +595,34 @@ export class EmployeesPage {
     return this.dependentsService
       .list(employee.officeId, employee.id)
       .pipe(map((dependents) => dependents.length));
+  }
+
+  async openImportDialog(): Promise<void> {
+    const officeId = await firstValueFrom(this.officeId$);
+    if (!officeId) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open(EmployeeImportDialogComponent, {
+      width: '720px',
+      data: { officeId }
+    });
+
+    dialogRef.afterClosed().subscribe((result?: ImportResult) => {
+      if (!result) {
+        return;
+      }
+
+      this.snackBar.open(
+        `インポート完了: 成功 ${result.successCount} 件 / エラー ${result.errorCount} 件`,
+        '閉じる',
+        { duration: 4000 }
+      );
+
+      if (result.successCount > 0) {
+        this.reload$.next();
+      }
+    });
   }
 
   async exportToCsv(): Promise<void> {

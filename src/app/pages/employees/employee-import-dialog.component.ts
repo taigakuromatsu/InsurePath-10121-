@@ -1,0 +1,519 @@
+import { CommonModule, NgClass } from '@angular/common';
+import { Component, Inject, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTableModule } from '@angular/material/table';
+import { MatListModule } from '@angular/material/list';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+
+import { EmployeesService } from '../../services/employees.service';
+import {
+  CsvImportService,
+  CsvParseError,
+  ValidationError
+} from '../../utils/csv-import.service';
+import { Employee } from '../../types';
+
+export interface EmployeeImportDialogData {
+  officeId: string;
+}
+
+export interface ImportError {
+  rowIndex: number;
+  message: string;
+}
+
+export interface ImportResult {
+  successCount: number;
+  createdCount: number;
+  updatedCount: number;
+  errorCount: number;
+  errors: ImportError[];
+}
+
+interface PreviewRow {
+  rowIndex: number;
+  employee: Partial<Employee>;
+}
+
+interface PreviewColumn {
+  key: keyof Partial<Employee>;
+  label: string;
+}
+
+@Component({
+  selector: 'ip-employee-import-dialog',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTableModule,
+    MatListModule,
+    MatProgressSpinnerModule,
+    NgClass
+  ],
+  template: `
+    <h1 mat-dialog-title>
+      <mat-icon>upload</mat-icon>
+      従業員CSVインポート
+    </h1>
+
+    <div mat-dialog-content class="dialog-content">
+      <section class="file-section">
+        <h3>
+          <mat-icon>description</mat-icon>
+          CSVファイルを選択
+        </h3>
+        <label class="file-input-label">
+          <input type="file" accept=".csv" (change)="onFileSelected($event)" />
+          <span class="file-input-button">
+            <mat-icon>upload_file</mat-icon>
+            ファイルを選択
+          </span>
+          <span class="file-name" *ngIf="selectedFileName">{{ selectedFileName }}</span>
+        </label>
+        <p class="helper-text">Phase2-7でエクスポートした形式のCSVを指定してください。</p>
+      </section>
+
+      <section *ngIf="previewRows.length" class="preview-section">
+        <div class="section-header">
+          <h3>
+            <mat-icon>preview</mat-icon>
+            プレビュー (最大10件)
+          </h3>
+          <span class="summary-chip" [ngClass]="{ error: hasAnyErrors }">
+            {{ validRowCount }} 件をインポート予定 / エラー {{ totalErrorCount }} 件
+          </span>
+        </div>
+        <div class="preview-table-container">
+          <table mat-table [dataSource]="previewRows" class="preview-table">
+            <ng-container *ngFor="let column of previewColumns" [matColumnDef]="column.key as string">
+              <th mat-header-cell *matHeaderCellDef>{{ column.label }}</th>
+              <td
+                mat-cell
+                *matCellDef="let row"
+                [ngClass]="{ 'error-row': hasErrorForRow(row.rowIndex) }"
+              >
+                {{ getCellValue(row.employee, column.key) }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="previewColumnsKeys"></tr>
+            <tr
+              mat-row
+              *matRowDef="let row; columns: previewColumnsKeys"
+              [ngClass]="{ 'error-row': hasErrorForRow(row.rowIndex) }"
+            ></tr>
+          </table>
+        </div>
+      </section>
+
+      <section *ngIf="totalErrorCount" class="error-section">
+        <h3>
+          <mat-icon color="warn">error</mat-icon>
+          エラー {{ totalErrorCount }} 件
+        </h3>
+        <mat-list>
+          <mat-list-item *ngFor="let error of combinedErrors">
+            <mat-icon matListItemIcon color="warn">error</mat-icon>
+            <div matListItemTitle>行 {{ error.rowIndex }}</div>
+            <div matListItemLine>{{ error.message }}</div>
+          </mat-list-item>
+        </mat-list>
+      </section>
+
+      <section *ngIf="importResult" class="result-section">
+        <h3>
+          <mat-icon>task_alt</mat-icon>
+          インポート結果
+        </h3>
+        <div class="result-grid">
+          <div class="result-card success">
+            <div class="label">成功件数</div>
+            <div class="value">{{ importResult.successCount }}</div>
+          </div>
+          <div class="result-card">
+            <div class="label">新規作成</div>
+            <div class="value">{{ importResult.createdCount }}</div>
+          </div>
+          <div class="result-card">
+            <div class="label">更新</div>
+            <div class="value">{{ importResult.updatedCount }}</div>
+          </div>
+          <div class="result-card error">
+            <div class="label">エラー</div>
+            <div class="value">{{ importResult.errorCount }}</div>
+          </div>
+        </div>
+
+        <div *ngIf="importResult.errors.length" class="result-errors">
+          <h4>エラー詳細</h4>
+          <ul>
+            <li *ngFor="let error of importResult.errors">
+              行 {{ error.rowIndex }}: {{ error.message }}
+            </li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <div mat-dialog-actions class="dialog-actions">
+      <button mat-stroked-button mat-dialog-close [disabled]="isImporting" *ngIf="!importResult">
+        <mat-icon>close</mat-icon>
+        キャンセル
+      </button>
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="importResult ? closeWithResult() : confirmImport()"
+        [disabled]="isImporting || !parsedData.length"
+      >
+        <mat-icon>{{ importResult ? 'check' : 'file_upload' }}</mat-icon>
+        {{ importResult ? '閉じる' : 'インポート実行' }}
+      </button>
+
+      <mat-spinner *ngIf="isImporting" diameter="28"></mat-spinner>
+    </div>
+  `,
+  styles: [
+    `
+      .dialog-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 0.75rem 0;
+        font-weight: 600;
+      }
+
+      .file-section .file-input-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        border: 1px dashed #c5cae9;
+        border-radius: 8px;
+        background: #f5f7ff;
+        cursor: pointer;
+      }
+
+      .file-section input[type='file'] {
+        display: none;
+      }
+
+      .file-input-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #3f51b5;
+        font-weight: 600;
+      }
+
+      .file-name {
+        color: #555;
+      }
+
+      .helper-text {
+        margin: 0.5rem 0 0 0;
+        color: #666;
+        font-size: 0.9rem;
+      }
+
+      .preview-section .preview-table-container {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      table.preview-table {
+        width: 100%;
+      }
+
+      table.preview-table th,
+      table.preview-table td {
+        padding: 12px;
+      }
+
+      .error-row {
+        background: #fff4f4;
+      }
+
+      .error-section mat-list-item {
+        border-bottom: 1px solid #eee;
+      }
+
+      .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .summary-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 16px;
+        background: #eef2ff;
+        color: #3f51b5;
+        font-weight: 600;
+      }
+
+      .summary-chip.error {
+        background: #fff5f5;
+        color: #c62828;
+      }
+
+      .result-section {
+        border-top: 1px solid #eee;
+        padding-top: 1rem;
+      }
+
+      .result-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 0.75rem;
+      }
+
+      .result-card {
+        padding: 0.75rem;
+        border-radius: 8px;
+        background: #f9f9f9;
+        border: 1px solid #eee;
+      }
+
+      .result-card.success {
+        background: #e8f5e9;
+        border-color: #c8e6c9;
+        color: #2e7d32;
+      }
+
+      .result-card.error {
+        background: #fff4f4;
+        border-color: #ffcdd2;
+        color: #c62828;
+      }
+
+      .result-card .label {
+        font-size: 0.9rem;
+        color: #555;
+      }
+
+      .result-card .value {
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+
+      .result-errors {
+        margin-top: 1rem;
+      }
+
+      .result-errors ul {
+        padding-left: 1.2rem;
+        margin: 0;
+      }
+
+      .dialog-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e0e0e0;
+      }
+
+      .dialog-actions button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+    `
+  ]
+})
+export class EmployeeImportDialogComponent {
+  private readonly dialogRef = inject(MatDialogRef<EmployeeImportDialogComponent>);
+  private readonly employeesService = inject(EmployeesService);
+  private readonly csvImportService = inject(CsvImportService);
+  private readonly numericFields = new Set<keyof Partial<Employee>>([
+    'monthlyWage',
+    'weeklyWorkingHours',
+    'weeklyWorkingDays',
+    'healthGrade',
+    'healthStandardMonthly',
+    'pensionGrade',
+    'pensionStandardMonthly'
+  ]);
+
+  protected readonly previewColumns: PreviewColumn[] = [
+    { key: 'name', label: '氏名' },
+    { key: 'birthDate', label: '生年月日' },
+    { key: 'department', label: '所属' },
+    { key: 'employmentType', label: '雇用形態' },
+    { key: 'monthlyWage', label: '標準報酬月額' },
+    { key: 'isInsured', label: '社会保険加入' }
+  ];
+
+  protected readonly previewColumnsKeys = this.previewColumns.map((c) => c.key as string);
+
+  protected selectedFileName = '';
+  protected parsedData: Partial<Employee>[] = [];
+  protected previewRows: PreviewRow[] = [];
+  protected parseErrors: CsvParseError[] = [];
+  protected validationErrors: ValidationError[] = [];
+  protected importResult?: ImportResult;
+  protected isImporting = false;
+
+  constructor(@Inject(MAT_DIALOG_DATA) private readonly data: EmployeeImportDialogData) {}
+
+  get combinedErrors(): ImportError[] {
+    return [
+      ...this.parseErrors.map((error) => ({ rowIndex: error.rowIndex, message: error.message })),
+      ...this.validationErrors.map((error) => ({ rowIndex: error.rowIndex, message: error.message }))
+    ];
+  }
+
+  get totalErrorCount(): number {
+    return this.combinedErrors.length;
+  }
+
+  get validRowCount(): number {
+    const invalidRows = new Set(this.combinedErrors.map((e) => e.rowIndex));
+    return this.parsedData.filter((_, index) => !invalidRows.has(index + 2)).length;
+  }
+
+  get hasAnyErrors(): boolean {
+    return this.totalErrorCount > 0;
+  }
+
+  async onFileSelected(event: Event): Promise<void> {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    this.resetState();
+
+    if (!file) {
+      return;
+    }
+
+    this.selectedFileName = file.name;
+    const parseResult = await this.csvImportService.parseEmployeesCsv(file);
+    this.parsedData = parseResult.data;
+    this.parseErrors = parseResult.errors;
+
+    this.validationErrors = this.parsedData.flatMap((employee, index) =>
+      this.csvImportService.validateEmployee(employee, index + 2)
+    );
+
+    this.previewRows = this.parsedData
+      .map((employee, index) => ({ rowIndex: index + 2, employee }))
+      .slice(0, 10);
+  }
+
+  hasErrorForRow(rowIndex: number): boolean {
+    return this.combinedErrors.some((error) => error.rowIndex === rowIndex);
+  }
+
+  getCellValue(row: Partial<Employee>, key: keyof Partial<Employee>): string {
+    const value = row[key];
+    if (value === undefined || value === null) {
+      return '';
+    }
+    if (typeof value === 'boolean') {
+      return value ? 'true' : 'false';
+    }
+    return String(value);
+  }
+
+  async confirmImport(): Promise<void> {
+    if (!this.parsedData.length || this.isImporting) {
+      return;
+    }
+
+    const invalidRows = new Set(this.combinedErrors.map((e) => e.rowIndex));
+    const targets = this.parsedData
+      .map((employee, index) => ({ employee, rowIndex: index + 2 }))
+      .filter((row) => !invalidRows.has(row.rowIndex));
+
+    const confirmed = window.confirm(
+      `インポート対象: ${targets.length}件 / エラー: ${this.totalErrorCount}件\n実行しますか？`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.isImporting = true;
+    const errors: ImportError[] = [...this.combinedErrors];
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    for (const row of targets) {
+      try {
+        const payload = this.normalizeEmployee(row.employee);
+        await this.employeesService.save(this.data.officeId, payload);
+        if (payload.id) {
+          updatedCount++;
+        } else {
+          createdCount++;
+        }
+      } catch (error) {
+        console.error(error);
+        errors.push({ rowIndex: row.rowIndex, message: '保存に失敗しました' });
+      }
+    }
+
+    this.importResult = {
+      successCount: createdCount + updatedCount,
+      createdCount,
+      updatedCount,
+      errorCount: errors.length,
+      errors
+    };
+
+    this.isImporting = false;
+  }
+
+  closeWithResult(): void {
+    this.dialogRef.close(this.importResult);
+  }
+
+  private normalizeEmployee(employee: Partial<Employee>): Partial<Employee> & { id?: string } {
+    const payload: Partial<Employee> = {};
+
+    Object.entries(employee).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') {
+        return;
+      }
+
+      const typedKey = key as keyof Partial<Employee>;
+      if (this.numericFields.has(typedKey)) {
+        const num = Number(value);
+        payload[typedKey] = Number.isNaN(num) ? (value as any) : (num as any);
+        return;
+      }
+
+      payload[typedKey] = value as any;
+    });
+
+    return payload;
+  }
+
+  private resetState(): void {
+    this.selectedFileName = '';
+    this.parsedData = [];
+    this.previewRows = [];
+    this.parseErrors = [];
+    this.validationErrors = [];
+    this.importResult = undefined;
+    this.isImporting = false;
+  }
+}
