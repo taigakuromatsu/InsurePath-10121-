@@ -672,7 +672,7 @@ Phase1完了後、以下の機能をPhase2として実装：
    - 標準報酬履歴管理
    - CSVインポート・エクスポート機能
 
-詳細は`IMPLEMENTATION_PLAN_PHASE2.md`を参照してください。
+詳細は`IMPLEMENTATION_PLAN_PHASE2.md`、`IMPLEMENTATION_PLAN_PHASE3.md`を参照してください。
 
 ---
 

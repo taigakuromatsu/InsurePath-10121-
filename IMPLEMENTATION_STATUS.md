@@ -93,6 +93,131 @@
 - `src/app/pages/employees/employee-detail-dialog.component.ts`
 - `src/app/utils/label-utils.ts`（新規追加）
 
+### (4) 被扶養者（家族）管理機能（実装済み）
+
+**実装状況**: Phase2-3完了により、被扶養者管理機能が完全実装済み
+
+- ✅ 被扶養者情報の型定義（`Dependent`型、`DependentRelationship`型）
+- ✅ 被扶養者登録・編集画面（`dependent-form-dialog.component.ts`）
+- ✅ 資格取得日・喪失日の管理
+- ✅ 従業員詳細ダイアログ内での扶養家族一覧表示（admin/hrは追加・編集・削除可能、employeeは閲覧のみ）
+- ✅ マイページでの扶養家族閲覧機能（employeeロール向け）
+- ✅ Firestoreセキュリティルールによるアクセス制御
+- ⚠️ 扶養状況確認機能（年次見直し支援機能は将来の拡張として検討）
+
+**関連ファイル**:
+- `src/app/types.ts`（`Dependent`型、`DependentRelationship`型追加）
+- `src/app/services/dependents.service.ts`（新規作成）
+- `src/app/pages/employees/dependent-form-dialog.component.ts`（新規作成）
+- `src/app/pages/employees/employee-detail-dialog.component.ts`（扶養家族セクション追加）
+- `src/app/pages/me/my-page.ts`（扶養家族閲覧セクション追加）
+- `src/app/utils/label-utils.ts`（`getDependentRelationshipLabel`関数追加）
+- `firestore.rules`（`dependents`サブコレクションのルール追加）
+
+**Phase2-4による導線改善**:
+- ✅ 従業員一覧からの「扶養家族を管理」ボタン追加
+- ✅ 従業員詳細ダイアログ内のセクションナビ追加
+- ✅ 特定セクションへの自動スクロール機能
+
+### (5) 標準報酬決定・改定履歴管理機能（実装済み）
+
+**実装状況**: Phase2-5完了により、標準報酬決定・改定履歴管理機能が完全実装済み
+
+- ✅ 履歴管理の型定義（`StandardRewardHistory`型、`StandardRewardDecisionKind`型）
+- ✅ 履歴登録・編集・削除画面（`standard-reward-history-form-dialog.component.ts`）
+- ✅ 履歴一覧表示（従業員詳細ダイアログ内のセクションとして実装、時系列順）
+- ✅ 適用開始年月の管理（決定年月と適用開始年月の両方を入力可能）
+- ✅ 決定区分の管理（定時決定、随時改定、賞与支払時、資格取得時、資格喪失時、その他）
+- ✅ Firestoreセキュリティルールによるアクセス制御（admin/hrのみ追加・編集・削除可能）
+- ✅ Phase2-6により、従業員編集フォームでの`monthlyWage`変更時に自動で履歴を追加する機能も実装済み
+
+**関連ファイル**:
+- `src/app/types.ts`（`StandardRewardHistory`型、`StandardRewardDecisionKind`型追加）
+- `src/app/services/standard-reward-history.service.ts`（新規作成）
+- `src/app/pages/employees/standard-reward-history-form-dialog.component.ts`（新規作成）
+- `src/app/pages/employees/employee-detail-dialog.component.ts`（標準報酬履歴セクション追加）
+- `src/app/pages/employees/employee-form-dialog.component.ts`（自動履歴追加ロジック追加）
+- `src/app/utils/label-utils.ts`（`getStandardRewardDecisionKindLabel`関数追加）
+- `firestore.rules`（`standardRewardHistories`サブコレクションのルール追加）
+
+### (13) セキュリティ・アクセス制御機能（実装済み）
+
+**実装状況**: Phase2-1完了により、FirestoreセキュリティルールとAngular側のアクセス制御が完全実装済み
+
+- ✅ Firebase Authenticationによる認証
+- ✅ Firestoreセキュリティルールの詳細化（事業所IDに基づくデータ分離、ロール別アクセス制御）
+- ✅ InsurePath向けのユーティリティ関数（`currentUser`, `getUserRole`, `belongsToOffice`, `isAdminOrHr`, `isInsureAdmin`, `isInsureEmployee`, `isOwnEmployee`）
+- ✅ `offices/{officeId}`配下の各コレクションに対するロール別アクセス制御
+  - 事業所情報: 所属ユーザー全員閲覧可能、adminのみ更新・削除可能
+  - 従業員情報: admin/hrは全件閲覧可能、employeeは自分のレコードのみ閲覧可能
+  - 月次保険料・賞与保険料: admin/hrは全件閲覧可能、employeeは自分のデータのみ閲覧可能
+  - マスタ情報: 所属ユーザー全員閲覧可能、adminのみ更新・削除可能
+- ✅ Angular側の`roleGuard`実装（ロール別ルート保護）
+- ✅ ルーティング設定への`roleGuard`適用（各ルートに適切なロール制限を設定）
+- ✅ サイドメニューのロール別表示制御（`app.ts`で実装）
+- ✅ 権限がない場合の適切なリダイレクト（`/me`へ遷移）
+- ⚠️ 識別情報のマスキング表示は未実装（将来の拡張として検討）
+
+**関連ファイル**:
+- `firestore.rules`（大幅拡張、InsurePath向けルール追加）
+- `src/app/guards/role.guard.ts`（新規作成）
+- `src/app/app.routes.ts`（`roleGuard`追加）
+- `src/app/app.ts`（サイドメニューのロール別表示制御）
+
+### (14) 従業員情報一括インポート機能（実装済み）
+
+**実装状況**: Phase2-8完了により、従業員情報の一括インポート機能が完全実装済み
+
+- ✅ CSVインポートサービスの実装（`CsvImportService`）
+- ✅ CSVパース機能（自前実装の簡易CSVパーサー、コメント行サポート）
+- ✅ バリデーション機能（必須項目チェック、データ型チェック、形式チェック）
+- ✅ ヘッダマッピング（日本語ヘッダ → Employeeプロパティキー）
+- ✅ 雇用形態のマッピング（日本語入力 → 内部コード変換）
+- ✅ インポートダイアログ（ファイル選択、プレビュー、エラー行表示、確認ダイアログ、結果表示）
+- ✅ エラーハンドリング（部分的な成功も許容、エラー行はスキップ）
+- ✅ エラーメッセージの改善（利用可能な値を表示）
+- ✅ CSVテンプレートダウンロード機能
+- ✅ 簡易ルール説明表示
+
+**関連ファイル**:
+- `src/app/utils/csv-import.service.ts`（新規作成）
+- `src/app/pages/employees/employee-import-dialog.component.ts`（新規作成）
+- `src/app/pages/employees/employees.page.ts`（CSVインポートボタン追加）
+- `src/app/utils/csv-export.service.ts`（テンプレート出力機能追加）
+
+### (15) 保険料データのCSVエクスポート機能（実装済み）
+
+**実装状況**: Phase2-7完了により、CSVエクスポート機能が完全実装済み
+
+- ✅ CSVエクスポートサービスの実装（`CsvExportService`）
+- ✅ 従業員台帳のエクスポート（全件エクスポート、admin/hrのみ）
+- ✅ 月次保険料一覧のエクスポート（対象年月指定、フィルタ後のデータをエクスポート）
+- ✅ 賞与一覧のエクスポート（全件エクスポート）
+- ✅ CSV形式の定義（UTF-8 + BOMエンコーディング、日本語ヘッダ、CRLF改行）
+- ✅ CSVテンプレートダウンロード機能（ヘッダ行のみ、コメント行付き）
+- ✅ エクスポートとテンプレートのフォーマット統一（`CsvImportService.getEmployeeHeaderMapping()`を使用）
+
+**関連ファイル**:
+- `src/app/utils/csv-export.service.ts`（新規作成）
+- `src/app/pages/employees/employees.page.ts`（CSVエクスポートボタン追加）
+- `src/app/pages/premiums/monthly/monthly-premiums.page.ts`（CSVエクスポートボタン追加）
+- `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（CSVエクスポートボタン追加）
+
+### (35) CSVテンプレートダウンロード機能（実装済み）
+
+**実装状況**: Phase2-7完了により、CSVテンプレートダウンロード機能が完全実装済み
+
+- ✅ CSVテンプレートダウンロード機能
+- ✅ ヘッダ行のみのテンプレートCSV出力
+- ✅ コメント行付きテンプレート（入力ルール説明）
+- ✅ 従業員台帳ページからのダウンロード
+- ✅ CSVインポートダイアログからのダウンロード
+
+**関連ファイル**:
+- `src/app/utils/csv-export.service.ts`（`exportEmployeesTemplate()`メソッド）
+- `src/app/pages/employees/employees.page.ts`（CSVテンプレートボタン追加）
+- `src/app/pages/employees/employee-import-dialog.component.ts`（テンプレートダウンロードボタン追加）
+
 ---
 
 ## 🚧 部分実装・プレースホルダー状態
@@ -247,7 +372,7 @@
 
 ## ❌ 未実装機能
 
-### (4) 被扶養者（家族）管理機能（実装済み）
+### (16) 従業員情報の最終更新者・更新日時表示機能
 
 **実装状況**: Phase2-3完了により、被扶養者管理機能が完全実装済み
 
@@ -372,13 +497,6 @@
 - `src/app/pages/employees/employees.page.ts`（CSVテンプレートボタン追加）
 - `src/app/pages/employees/employee-import-dialog.component.ts`（テンプレートダウンロードボタン追加）
 
-### (16) 従業員情報の最終更新者・更新日時表示機能
-
-**実装状況**: データ保存と詳細表示は実装済み
-
-- ✅ 更新日時・更新ユーザーIDの保存（employees.service.ts）
-- ✅ 詳細ダイアログでの表示（employee-detail-dialog.component.ts）
-- ⚠️ 一覧画面での表示は未実装（任意実装）
 
 ### (17) 社会保険用語・ルールヘルプ機能
 
@@ -490,13 +608,6 @@
 - ❌ ダッシュボードへの集計表示
 - ❌ 簡易アラート機能
 
-### (31) 外部給与システム連携（CSV）機能
-
-**実装状況**: 部分実装（CSVインポート・エクスポート機能は実装済み）
-
-- ✅ 従業員情報のCSVインポート機能（(14)で実装済み）
-- ✅ 保険料データのCSVエクスポート機能（(15)で実装済み）
-- ⚠️ 外部給与システムとの連携仕様の最適化（将来拡張）
 
 ### (32) 口座情報・給与情報管理機能
 
@@ -528,12 +639,14 @@
 | カテゴリ | 実装済み | 部分実装 | 未実装 | 合計 |
 |---------|---------|---------|--------|------|
 | 基本機能 | 3 | 0 | 0 | 3 |
-| 管理機能 | 4 | 1 | 0 | 5 |
+| 管理機能 | 6 | 0 | 0 | 6 |
 | 計算・表示機能 | 7 | 0 | 0 | 7 |
-| その他機能 | 5 | 1 | 14 | 20 |
-| **合計** | **19** | **2** | **14** | **35** |
+| その他機能 | 0 | 2 | 17 | 19 |
+| **合計** | **16** | **2** | **17** | **35** |
 
-**実装率**: 約54%（完全実装のみ） / 約60%（部分実装含む）
+**実装率**: 約46%（完全実装のみ） / 約51%（部分実装含む）
+
+**注**: Phase3で部分実装2機能の完成 + 新規17機能の実装（合計19機能）を予定しています。
 
 **注**: 完成版カタログでは機能要件が35件に拡張されました。新規追加された機能（(22)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。(35) CSVテンプレートダウンロード機能は実装済みです。
 
