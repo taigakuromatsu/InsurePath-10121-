@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { EmployeesService } from '../../services/employees.service';
 import {
@@ -14,6 +15,7 @@ import {
   CsvParseError,
   ValidationError
 } from '../../utils/csv-import.service';
+import { CsvExportService } from '../../utils/csv-export.service';
 import { Employee } from '../../types';
 
 export interface EmployeeImportDialogData {
@@ -55,6 +57,7 @@ interface PreviewColumn {
     MatTableModule,
     MatListModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
     NgClass
   ],
   template: `
@@ -77,7 +80,29 @@ interface PreviewColumn {
           </span>
           <span class="file-name" *ngIf="selectedFileName">{{ selectedFileName }}</span>
         </label>
-        <p class="helper-text">Phase2-7でエクスポートした形式のCSVを指定してください。</p>
+        <p class="helper-text">
+          エクスポートした形式、またはCSVテンプレートに従業員情報を入力したファイルを指定してください。
+        </p>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="downloadTemplate()"
+          class="template-download-button"
+        >
+          <mat-icon>download</mat-icon>
+          CSVテンプレートをダウンロード
+        </button>
+        <div class="import-rules">
+          <h4>主な入力ルール</h4>
+          <ul>
+            <li>必須項目: 氏名 / 生年月日 / 入社日 / 雇用形態 / 標準報酬月額</li>
+            <li>雇用形態: regular(正社員) / contract(契約社員) / part(パート) / アルバイト / other(その他)</li>
+            <li>学生・社会保険加入: true / false（小文字）</li>
+            <li>日付: YYYY-MM-DD 形式（例: 2024-04-01）</li>
+            <li>CSVテンプレートのヘッダ名は変更しないでください</li>
+            <li># で始まる行はコメント行として無視されます</li>
+          </ul>
+        </div>
       </section>
 
       <section *ngIf="previewRows.length" class="preview-section">
@@ -229,6 +254,39 @@ interface PreviewColumn {
         font-size: 0.9rem;
       }
 
+      .template-download-button {
+        margin-top: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .import-rules {
+        margin-top: 0.75rem;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        background: #f8f9ff;
+        border: 1px solid #e0e3ff;
+        font-size: 0.9rem;
+        color: #444;
+      }
+
+      .import-rules h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #3f51b5;
+      }
+
+      .import-rules ul {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+
+      .import-rules li {
+        margin-bottom: 0.25rem;
+      }
+
       .preview-section .preview-table-container {
         border: 1px solid #e0e0e0;
         border-radius: 8px;
@@ -344,6 +402,8 @@ export class EmployeeImportDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<EmployeeImportDialogComponent>);
   private readonly employeesService = inject(EmployeesService);
   private readonly csvImportService = inject(CsvImportService);
+  private readonly csvExportService = inject(CsvExportService);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly numericFields = new Set<keyof Partial<Employee>>([
     'monthlyWage',
     'weeklyWorkingHours',
@@ -424,6 +484,13 @@ export class EmployeeImportDialogComponent {
 
   protected getColumnKey(column: PreviewColumn): string {
     return column.key as string;
+  }
+
+  downloadTemplate(): void {
+    this.csvExportService.exportEmployeesTemplate();
+    this.snackBar.open('CSVテンプレートをダウンロードしました', '閉じる', {
+      duration: 3000
+    });
   }
 
   getCellValue(row: Partial<Employee>, key: keyof Partial<Employee>): string {

@@ -76,6 +76,15 @@ import {
             <button
               mat-stroked-button
               color="primary"
+              (click)="downloadCsvTemplate()"
+              *ngIf="canExport$ | async"
+            >
+              <mat-icon>description</mat-icon>
+              CSVテンプレート
+            </button>
+            <button
+              mat-stroked-button
+              color="primary"
               (click)="openImportDialog()"
               [disabled]="!(officeId$ | async)"
               *ngIf="canExport$ | async"
@@ -634,6 +643,13 @@ export class EmployeesPage {
 
     this.csvExportService.exportEmployees(employees);
     this.snackBar.open('CSVエクスポートが完了しました', '閉じる', { duration: 3000 });
+  }
+
+  downloadCsvTemplate(): void {
+    this.csvExportService.exportEmployeesTemplate();
+    this.snackBar.open('CSVテンプレートをダウンロードしました', '閉じる', {
+      duration: 3000
+    });
   }
 
   getDependentsCount(employee: Employee) {

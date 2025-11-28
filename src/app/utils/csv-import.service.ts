@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-import { Employee } from '../types';
+import { Employee, EmploymentType, InsuranceQualificationKind, InsuranceLossReasonKind, WorkingStatus, PremiumTreatment } from '../types';
 
 export interface CsvParseResult<T> {
   data: T[];
@@ -98,18 +98,92 @@ export class CsvImportService {
     'workingStatusEndDate'
   ]);
 
+  /**
+   * 従業員CSVのヘッダとEmployeeプロパティキーの対応を取得する
+   * headerMapping のエントリを順序通りに配列として返す
+   * エクスポート機能で使用する
+   */
+  getEmployeeHeaderMapping(): { header: string; key: keyof Partial<Employee> }[] {
+    return Object.entries(this.headerMapping).map(([header, key]) => ({
+      header,
+      key
+    }));
+  }
+
+  /**
+   * 従業員CSVのヘッダ行を取得する
+   * headerMapping のキーを順序通りに配列として返す
+   * テンプレート出力やエクスポート機能で使用する
+   */
+  getEmployeeCsvHeaders(): string[] {
+    return this.getEmployeeHeaderMapping().map((c) => c.header);
+  }
+
+  /**
+   * コメント行かどうかを判定する
+   * 最初のセルが # で始まる行をコメント行とみなす
+   */
+  private isCommentLine(values: string[]): boolean {
+    const firstCell = (values[0] ?? '').trim();
+    return firstCell.startsWith('#');
+  }
+
+  /**
+   * 雇用形態の値を正規化する
+   * 日本語入力（正社員、契約社員など）を内部コードに変換
+   */
+  private normalizeEmploymentType(raw: unknown): EmploymentType | string | undefined {
+    if (raw == null) return undefined;
+    const s = String(raw).trim();
+    if (!s) return undefined;
+
+    const normalized = s.toLowerCase().replace(/\s+/g, '');
+    
+    const employmentTypeMap: Record<string, EmploymentType> = {
+      'regular': 'regular',
+      '正社員': 'regular',
+      'contract': 'contract',
+      '契約社員': 'contract',
+      '契約': 'contract',
+      'part': 'part',
+      'パート': 'part',
+      'アルバイト': 'アルバイト',
+      'アルバイトスタッフ': 'アルバイト',
+      'other': 'other',
+      'その他': 'other'
+    };
+
+    return employmentTypeMap[normalized] ?? s;
+  }
+
   async parseEmployeesCsv(file: File): Promise<CsvParseResult<Partial<Employee>>> {
     const text = await file.text();
-    const lines = text
+    const allLines = text
       .replace(/\r\n?/g, '\n')
       .split('\n')
       .filter((line) => line.trim() !== '');
 
-    if (!lines.length) {
+    if (!allLines.length) {
       return { data: [], errors: [{ rowIndex: 1, message: 'CSVにデータがありません' }] };
     }
 
-    const headers = this.parseCsvLine(lines[0]);
+    // コメント行をスキップしてヘッダ行を探す
+    let headerLineIndex = -1;
+    let headerLineNumber = 0;
+    for (let i = 0; i < allLines.length; i++) {
+      const values = this.parseCsvLine(allLines[i]);
+      if (!this.isCommentLine(values)) {
+        headerLineIndex = i;
+        headerLineNumber = i + 1; // 1-based
+        break;
+      }
+    }
+
+    if (headerLineIndex === -1) {
+      return { data: [], errors: [{ rowIndex: 1, message: 'CSVにヘッダ行が見つかりません' }] };
+    }
+
+    const headers = this.parseCsvLine(allLines[headerLineIndex]);
     const errors: CsvParseError[] = [];
 
     const headerIndexes = new Map<number, keyof Partial<Employee>>();
@@ -118,7 +192,7 @@ export class CsvImportService {
       if (field) {
         headerIndexes.set(index, field);
       } else {
-        errors.push({ rowIndex: 1, column: header, message: `認識できないヘッダ: ${header}` });
+        errors.push({ rowIndex: headerLineNumber, column: header, message: `認識できないヘッダ: ${header}` });
       }
     });
 
@@ -126,14 +200,24 @@ export class CsvImportService {
       (field) => !Array.from(headerIndexes.values()).includes(field)
     );
     missingHeaders.forEach((field) =>
-      errors.push({ rowIndex: 1, message: `必須ヘッダが不足しています: ${field}` })
+      errors.push({ rowIndex: headerLineNumber, message: `必須ヘッダが不足しています: ${field}` })
     );
 
     const data: Partial<Employee>[] = [];
 
-    lines.slice(1).forEach((line, index) => {
-      const rowIndex = index + 2; // 1-based with header
+    // ヘッダ行以降のデータ行を処理（コメント行はスキップ）
+    let dataRowCount = 0;
+    for (let i = headerLineIndex + 1; i < allLines.length; i++) {
+      const line = allLines[i];
       const values = this.parseCsvLine(line);
+      const actualRowNumber = i + 1; // 1-based（元CSVの行番号）
+
+      // コメント行はスキップ
+      if (this.isCommentLine(values)) {
+        continue;
+      }
+
+      dataRowCount++;
       const record: Partial<Employee> = {};
 
       headerIndexes.forEach((field, colIndex) => {
@@ -160,11 +244,17 @@ export class CsvImportService {
           return;
         }
 
+        // employmentTypeの正規化
+        if (field === 'employmentType') {
+          record[field] = this.normalizeEmploymentType(trimmed) as any;
+          return;
+        }
+
         record[field] = trimmed as any;
       });
 
       data.push(record);
-    });
+    }
 
     return { data, errors };
   }
@@ -199,7 +289,12 @@ export class CsvImportService {
       'other'
     ];
     if (employmentType && !allowedEmploymentTypes.includes(employmentType as any)) {
-      errors.push({ rowIndex, field: 'employmentType', message: '雇用形態の値が不正です' });
+      errors.push({
+        rowIndex,
+        field: 'employmentType',
+        message:
+          '雇用形態の値が不正です。利用可能な値: regular(正社員) / contract(契約社員) / part(パート) / アルバイト / other(その他)'
+      });
     }
 
     if (employee.monthlyWage !== undefined && employee.monthlyWage !== null) {
