@@ -1,4 +1,4 @@
-import { AsyncPipe, DatePipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -29,7 +29,6 @@ import { RejectReasonDialogComponent } from './reject-reason-dialog.component';
     MatDialogModule,
     AsyncPipe,
     NgIf,
-    NgFor,
     DatePipe
   ],
   template: `

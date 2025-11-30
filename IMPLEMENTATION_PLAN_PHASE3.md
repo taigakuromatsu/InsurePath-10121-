@@ -108,38 +108,67 @@ Phase3では、**12月10日までの完成を目指し、残り17機能すべて
 
 ---
 
-### Phase3-3: 従業員情報の変更申請・承認（簡易ワークフロー）機能 📋 未実装（優先度：最高）
+### Phase3-3: 従業員情報の変更申請・承認（簡易ワークフロー）機能 ✅ 実装完了
 
 **優先度**: 🔴 最高（実務上重要な機能）  
 **推定工数**: 中（1.5日）  
 **推定期間**: 1.5日  
 **依存関係**: Phase2-1（セキュリティ強化後が望ましい）  
-**目標完了日**: 2025年11月30日
+**目標完了日**: 2025年11月30日  
+**完了日**: 2025年11月30日
 
 **目的**: 一般従業員が自分のプロフィール情報を申請し、管理者・担当者が承認する簡易ワークフロー機能を実装する
 
-**実装予定内容**:
-1. **変更申請の型定義**
+**実装完了内容**:
+1. ✅ **変更申請の型定義**
    - `ChangeRequest`型の定義
+   - `ChangeRequestStatus`型の定義
    - Firestoreコレクション構造の設計
 
-2. **申請登録画面**
-   - 従業員本人がアクセスできる申請フォーム
+2. ✅ **変更申請サービス**
+   - `ChangeRequestsService`の実装
+   - 申請の作成（`create()`）
+   - 申請の一覧取得（`list()`）- admin/hr用、リアルタイム購読
+   - ユーザー単位の申請一覧取得（`listForUser()`）- employee用、リアルタイム購読
+   - 申請の承認（`approve()`）
+   - 申請の却下（`reject()`）
+
+3. ✅ **申請登録画面**
+   - 従業員本人がアクセスできる申請フォーム（`change-request-form-dialog.component.ts`）
    - 申請可能な項目：住所、電話番号、メールアドレス
+   - 現在値と申請値の入力フォーム
+   - submit 2重実行バグ修正済み
 
-3. **申請一覧画面（管理者・担当者向け）**
-   - 事業所ごとの申請一覧表示
+4. ✅ **申請一覧画面（管理者・担当者向け）**
+   - 事業所ごとの申請一覧表示（`requests.page.ts`）
+   - ステータス別フィルタ
    - 承認・却下ボタン
+   - admin/hr専用（employeeロールはアクセス不可）
 
-4. **承認・却下処理**
+5. ✅ **承認・却下処理**
    - 承認時：従業員台帳への自動反映
-   - 却下時：却下理由を申請者に通知
+   - 却下時：却下理由の入力と保存（`reject-reason-dialog.component.ts`）
+   - submit 2重実行バグ修正済み
 
-**実装予定ファイル**:
-- `src/app/types.ts`（`ChangeRequest`型追加）
+6. ✅ **マイページへの申請履歴セクション追加**
+   - employeeロールが自分の申請履歴と却下理由を確認できる
+   - 「変更申請を行う」ボタンから申請登録ダイアログを開ける
+
+7. ✅ **Firestoreセキュリティルール**
+   - 従業員本人は自分の申請のみ作成・閲覧可能
+   - 管理者・担当者は全申請を閲覧・承認・却下可能
+   - 却下理由の空文字禁止
+   - 作成時の`decidedAt`、`decidedByUserId`、`rejectReason`未設定チェック
+
+**実装ファイル**:
+- `src/app/types.ts`（`ChangeRequest`型、`ChangeRequestStatus`型）
 - `src/app/services/change-requests.service.ts`（新規作成）
-- `src/app/pages/change-requests/change-request-form-dialog.component.ts`（新規作成）
-- `src/app/pages/change-requests/change-requests.page.ts`（新規作成または既存拡張）
+- `src/app/pages/requests/change-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/reject-reason-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/requests.page.ts`（実装完了）
+- `src/app/pages/me/my-page.ts`（申請履歴セクション追加）
+- `src/app/services/employees.service.ts`（単一取得メソッド`get()`追加）
+- `firestore.rules`（`changeRequests`コレクションのルール追加）
 
 ---
 
@@ -536,11 +565,11 @@ Phase3では、**12月10日までの完成を目指し、残り17機能すべて
 - ✅ **Phase3-1**: 従業員情報の最終更新者・更新日時表示機能の完成（0.5日）
 - ✅ **Phase3-2**: 社会保険用語・ルールヘルプ機能（0.5日）
 
-### 11月29日（土）- Day 2
-- **Phase3-3**: 従業員情報の変更申請・承認機能（1.5日継続）
+### 11月29日（土）- Day 2 ✅ 完了
+- ✅ **Phase3-3**: 従業員情報の変更申請・承認機能（1.5日継続）
 
-### 11月30日（日）- Day 3
-- **Phase3-3**: 従業員情報の変更申請・承認機能（完了）
+### 11月30日（日）- Day 3 ✅ 完了
+- ✅ **Phase3-3**: 従業員情報の変更申請・承認機能（完了）
 - **Phase3-4**: 社会保険手続き履歴・期限管理機能（2日開始）
 
 ### 12月1日（月）- Day 4
