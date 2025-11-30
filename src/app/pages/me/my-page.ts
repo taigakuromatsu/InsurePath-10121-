@@ -1,24 +1,30 @@
 import { AsyncPipe, DatePipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { combineLatest, map, of, switchMap } from 'rxjs';
+import { combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
 
 import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { CurrentUserService } from '../../services/current-user.service';
+import { ChangeRequestsService } from '../../services/change-requests.service';
 import { EmployeesService } from '../../services/employees.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
-import { BonusPremium, Dependent, MonthlyPremium } from '../../types';
+import { BonusPremium, ChangeRequest, ChangeRequestStatus, Dependent, MonthlyPremium } from '../../types';
 import { DependentsService } from '../../services/dependents.service';
 import { getDependentRelationshipLabel } from '../../utils/label-utils';
+import { ChangeRequestFormDialogComponent } from '../requests/change-request-form-dialog.component';
 
 @Component({
   selector: 'ip-my-page',
   standalone: true,
   imports: [
+    MatButtonModule,
     MatCardModule,
+    MatDialogModule,
     MatIconModule,
     MatTableModule,
     AsyncPipe,
@@ -280,15 +286,77 @@ import { getDependentRelationshipLabel } from '../../utils/label-utils';
       <mat-card class="content-card">
         <div class="page-header">
           <h2>
-            <mat-icon>description</mat-icon>
-            申請状況
+            <mat-icon>edit</mat-icon>
+            変更申請履歴
           </h2>
         </div>
 
-        <div class="empty-state">
-          <mat-icon>construction</mat-icon>
-          <p>申請機能は今後実装予定です。</p>
+        <div class="section-actions">
+          <button
+            mat-stroked-button
+            color="primary"
+            (click)="openChangeRequestDialog()"
+            [disabled]="!(employee$ | async)"
+          >
+            <mat-icon>add</mat-icon>
+            変更申請を行う
+          </button>
         </div>
+
+        <ng-container *ngIf="myRequests$ | async as requests">
+          <div class="table-container" *ngIf="requests.length > 0; else noChangeRequests">
+            <table mat-table [dataSource]="requests" class="request-history-table">
+              <ng-container matColumnDef="requestedAt">
+                <th mat-header-cell *matHeaderCellDef>申請日時</th>
+                <td mat-cell *matCellDef="let row">{{ row.requestedAt | date: 'yyyy-MM-dd HH:mm' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="field">
+                <th mat-header-cell *matHeaderCellDef>変更項目</th>
+                <td mat-cell *matCellDef="let row">{{ getFieldLabel(row.field) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="currentValue">
+                <th mat-header-cell *matHeaderCellDef>現在の値</th>
+                <td mat-cell *matCellDef="let row">{{ row.currentValue || '-' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="requestedValue">
+                <th mat-header-cell *matHeaderCellDef>申請する値</th>
+                <td mat-cell *matCellDef="let row">{{ row.requestedValue }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef>ステータス</th>
+                <td mat-cell *matCellDef="let row">
+                  <span [class]="'status-chip status-' + row.status">
+                    {{ getStatusLabel(row.status) }}
+                  </span>
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="rejectReason">
+                <th mat-header-cell *matHeaderCellDef>却下理由</th>
+                <td mat-cell *matCellDef="let row">
+                  <span *ngIf="row.rejectReason; else noReason" class="reject-reason">
+                    {{ row.rejectReason }}
+                  </span>
+                  <ng-template #noReason>-</ng-template>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="requestHistoryColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: requestHistoryColumns"></tr>
+            </table>
+          </div>
+        </ng-container>
+
+        <ng-template #noChangeRequests>
+          <div class="empty-state">
+            <mat-icon>pending_actions</mat-icon>
+            <p>申請履歴がありません。</p>
+          </div>
+        </ng-template>
       </mat-card>
     </section>
   `,
@@ -485,6 +553,40 @@ import { getDependentRelationshipLabel } from '../../utils/label-utils';
         margin: 0 auto 0.25rem;
       }
 
+      .section-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 1rem;
+      }
+
+      .request-history-table .status-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.85rem;
+      }
+
+      .status-pending {
+        background: #fffbeb;
+        color: #92400e;
+      }
+
+      .status-approved {
+        background: #ecfdf3;
+        color: #166534;
+      }
+
+      .status-rejected {
+        background: #fef2f2;
+        color: #991b1b;
+      }
+
+      .reject-reason {
+        color: #991b1b;
+        font-weight: 500;
+      }
+
       @media (max-width: 768px) {
         .header-content {
           flex-direction: column;
@@ -497,10 +599,12 @@ import { getDependentRelationshipLabel } from '../../utils/label-utils';
 export class MyPage {
   private readonly currentUser = inject(CurrentUserService);
   private readonly currentOffice = inject(CurrentOfficeService);
+  private readonly changeRequestsService = inject(ChangeRequestsService);
   private readonly employeesService = inject(EmployeesService);
   private readonly dependentsService = inject(DependentsService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly bonusPremiumsService = inject(BonusPremiumsService);
+  private readonly dialog = inject(MatDialog);
 
   readonly premiumDisplayedColumns = [
     'yearMonth',
@@ -526,15 +630,22 @@ export class MyPage {
     'totalEmployer'
   ];
 
+  readonly requestHistoryColumns = [
+    'requestedAt',
+    'field',
+    'currentValue',
+    'requestedValue',
+    'status',
+    'rejectReason'
+  ];
+
   readonly employee$ = combineLatest([this.currentUser.profile$, this.currentOffice.officeId$]).pipe(
     switchMap(([profile, officeId]) => {
       if (!profile?.employeeId || !officeId) {
         return of(null);
       }
 
-      return this.employeesService.list(officeId).pipe(
-        map((employees) => employees.find((e) => e.id === profile.employeeId) ?? null)
-      );
+      return this.employeesService.get(officeId, profile.employeeId);
     })
   );
 
@@ -567,6 +678,56 @@ export class MyPage {
       return this.dependentsService.list(officeId, profile.employeeId);
     })
   );
+
+  readonly myRequests$ = combineLatest([this.currentOffice.officeId$, this.currentUser.profile$]).pipe(
+    switchMap(([officeId, profile]) => {
+      if (!officeId || !profile?.id) {
+        return of([] as ChangeRequest[]);
+      }
+
+      return this.changeRequestsService.listForUser(officeId, profile.id);
+    })
+  );
+
+  async openChangeRequestDialog(): Promise<void> {
+    const [employee, officeId] = await Promise.all([
+      firstValueFrom(this.employee$),
+      firstValueFrom(this.currentOffice.officeId$)
+    ]);
+
+    if (!employee || !officeId) {
+      return;
+    }
+
+    this.dialog.open(ChangeRequestFormDialogComponent, {
+      width: '600px',
+      data: { employee, officeId }
+    });
+  }
+
+  getFieldLabel(field: ChangeRequest['field']): string {
+    switch (field) {
+      case 'address':
+        return '住所';
+      case 'phone':
+        return '電話番号';
+      case 'email':
+        return 'メールアドレス';
+      default:
+        return field;
+    }
+  }
+
+  getStatusLabel(status: ChangeRequestStatus): string {
+    switch (status) {
+      case 'pending':
+        return '承認待ち';
+      case 'approved':
+        return '承認済み';
+      case 'rejected':
+        return '却下済み';
+    }
+  }
 
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
 }

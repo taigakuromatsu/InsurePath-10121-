@@ -1,0 +1,151 @@
+import { NgIf } from '@angular/common';
+import { Component, Inject, OnDestroy, inject } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { firstValueFrom, map, Subscription } from 'rxjs';
+
+import { ChangeRequestsService } from '../../services/change-requests.service';
+import { CurrentUserService } from '../../services/current-user.service';
+import { Employee } from '../../types';
+
+@Component({
+  selector: 'ip-change-request-form-dialog',
+  standalone: true,
+  imports: [
+    MatDialogModule,
+    ReactiveFormsModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule,
+    NgIf
+  ],
+  template: `
+    <h1 mat-dialog-title>プロフィール変更申請</h1>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>変更項目</mat-label>
+        <mat-select formControlName="field" (selectionChange)="onFieldChange()">
+          <mat-option value="address">住所</mat-option>
+          <mat-option value="phone">電話番号</mat-option>
+          <mat-option value="email">メールアドレス</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width" *ngIf="form.value.field">
+        <mat-label>現在の値</mat-label>
+        <input matInput [value]="getCurrentValue(form.value.field!)" readonly />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>申請する値</mat-label>
+        <input matInput formControlName="requestedValue" />
+        <mat-error *ngIf="form.get('requestedValue')?.hasError('required')">
+          申請する値を入力してください
+        </mat-error>
+        <mat-error *ngIf="form.get('requestedValue')?.hasError('email')">
+          正しいメールアドレスを入力してください
+        </mat-error>
+      </mat-form-field>
+    </form>
+
+    <div mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>キャンセル</button>
+      <button mat-flat-button color="primary" (click)="submit()" [disabled]="form.invalid">
+        <mat-icon>send</mat-icon>
+        申請する
+      </button>
+    </div>
+  `,
+  styles: [
+    `
+      .full-width {
+        width: 100%;
+      }
+    `
+  ]
+})
+export class ChangeRequestFormDialogComponent implements OnDestroy {
+  private readonly currentUser = inject(CurrentUserService);
+  private readonly changeRequestsService = inject(ChangeRequestsService);
+  private readonly subscriptions = new Subscription();
+
+  form = this.fb.group({
+    field: ['', Validators.required],
+    requestedValue: ['', Validators.required]
+  });
+
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly dialogRef: MatDialogRef<ChangeRequestFormDialogComponent>,
+    @Inject(MAT_DIALOG_DATA)
+    public data: {
+      employee: Employee;
+      officeId: string;
+    }
+  ) {
+    this.subscriptions.add(
+      this.form.get('field')?.valueChanges.subscribe(() => this.onFieldChange()) ??
+        new Subscription()
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  onFieldChange(): void {
+    const requestedValueControl = this.form.get('requestedValue');
+    if (!requestedValueControl) return;
+
+    const validators = [Validators.required];
+    if (this.form.value.field === 'email') {
+      validators.push(Validators.email);
+    }
+
+    requestedValueControl.setValidators(validators);
+    requestedValueControl.updateValueAndValidity();
+  }
+
+  getCurrentValue(field: 'address' | 'phone' | 'email'): string {
+    switch (field) {
+      case 'address':
+        return this.data.employee.address ?? '';
+      case 'phone':
+        return this.data.employee.phone ?? '';
+      case 'email':
+        return this.data.employee.contactEmail ?? '';
+    }
+  }
+
+  async submit(): Promise<void> {
+    if (this.form.invalid) return;
+
+    const formValue = this.form.getRawValue();
+    const currentUserId = await firstValueFrom(
+      this.currentUser.profile$.pipe(map((profile) => profile?.id ?? null))
+    );
+
+    if (!currentUserId) {
+      throw new Error('ユーザーIDが取得できませんでした');
+    }
+
+    const currentValue = this.getCurrentValue(formValue.field as 'address' | 'phone' | 'email');
+
+    await this.changeRequestsService.create(this.data.officeId, {
+      employeeId: this.data.employee.id,
+      requestedByUserId: currentUserId,
+      field: formValue.field as 'address' | 'phone' | 'email',
+      currentValue,
+      requestedValue: formValue.requestedValue ?? ''
+    });
+
+    this.dialogRef.close(true);
+  }
+}
