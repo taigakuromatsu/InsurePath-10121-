@@ -546,6 +546,41 @@ service cloud.firestore {
         allow create, update, delete: if isAdminOrHr(officeId);
       }
 
+      // 変更申請
+      match /changeRequests/{requestId} {
+        allow read: if belongsToOffice(officeId) && (
+          isAdminOrHr(officeId) ||
+          (isInsureEmployee(officeId) && resource.data.requestedByUserId == request.auth.uid)
+        );
+
+        allow create: if belongsToOffice(officeId)
+          && (isInsureEmployee(officeId) || isAdminOrHr(officeId))
+          && request.resource.data.employeeId == currentUser().data.employeeId
+          && request.resource.data.requestedByUserId == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'id', 'officeId', 'employeeId', 'requestedByUserId',
+            'field', 'currentValue', 'requestedValue', 'status',
+            'requestedAt', 'decidedAt', 'decidedByUserId', 'rejectReason'
+          ])
+          && request.resource.data.officeId == officeId
+          && request.resource.data.status == 'pending'
+          && !('decidedAt' in request.resource.data)
+          && !('decidedByUserId' in request.resource.data)
+          && !('rejectReason' in request.resource.data);
+
+        allow update: if belongsToOffice(officeId) && isAdminOrHr(officeId) && (
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'decidedAt', 'decidedByUserId', 'rejectReason'])
+          && (
+            (request.resource.data.status == 'approved' && resource.data.status == 'pending')
+            || (request.resource.data.status == 'rejected' && resource.data.status == 'pending' && request.resource.data.rejectReason is string)
+          )
+          && request.resource.data.decidedByUserId == request.auth.uid
+          && request.resource.data.decidedAt is string
+        );
+
+        allow delete: if false;
+      }
+
       // 健康保険料率マスタ
       match /healthRateTables/{docId} {
         allow read: if belongsToOffice(officeId);

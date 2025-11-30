@@ -4,6 +4,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   setDoc
 } from '@angular/fire/firestore';
@@ -17,6 +18,19 @@ export class EmployeesService {
 
   private collectionPath(officeId: string) {
     return collection(this.firestore, 'offices', officeId, 'employees');
+  }
+
+  get(officeId: string, employeeId: string): Observable<Employee | null> {
+    const ref = doc(this.collectionPath(officeId), employeeId);
+    return from(getDoc(ref)).pipe(
+      map((snapshot) => {
+        if (!snapshot.exists()) {
+          return null;
+        }
+
+        return { id: snapshot.id, ...(snapshot.data() as any) } as Employee;
+      })
+    );
   }
 
   // ★ここは getDocs に戻す（元の形）
