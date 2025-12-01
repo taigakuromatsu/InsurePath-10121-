@@ -1,4 +1,4 @@
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, NgFor } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -33,7 +33,6 @@ export interface ReviewFormDialogData {
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
-    NgIf,
     NgFor,
     AsyncPipe
   ],
@@ -120,10 +119,14 @@ export class ReviewFormDialogComponent {
 
   readonly data = inject<ReviewFormDialogData>(MAT_DIALOG_DATA);
 
+  // 今日の日付 (YYYY-MM-DD)
+  private readonly today = new Date().toISOString().substring(0, 10);
+
   form = this.fb.group({
     employeeId: [this.data.review?.employeeId || this.data.employeeId || '', Validators.required],
     dependentId: [this.data.review?.dependentId || this.data.dependentId || '', Validators.required],
-    reviewDate: [this.data.review?.reviewDate || '', Validators.required],
+    // 既存レビューがあればその日付、なければ今日の日付
+    reviewDate: [this.data.review?.reviewDate || this.today, Validators.required],
     result: [this.data.review?.result || '', Validators.required],
     reviewedBy: [this.data.review?.reviewedBy || ''],
     note: [this.data.review?.note || '']
@@ -149,11 +152,25 @@ export class ReviewFormDialogComponent {
     if (this.form.invalid) return;
 
     const formValue = this.form.getRawValue();
-    const currentUserId = await firstValueFrom(this.currentUser.profile$.pipe(map((profile) => profile?.id ?? null)));
+
+    // id と displayName の両方を取得
+    const currentUserData = await firstValueFrom(
+      this.currentUser.profile$.pipe(
+        map((profile) => ({
+          id: profile?.id ?? null,
+          displayName: profile?.displayName ?? ''
+        }))
+      )
+    );
+
+    const currentUserId = currentUserData.id;
+    const currentUserName = currentUserData.displayName;
 
     if (!currentUserId) {
       throw new Error('ユーザーIDが取得できませんでした');
     }
+
+    const reviewedBy = formValue.reviewedBy || currentUserName;
 
     if (this.data.review) {
       await this.reviewsService.update(
@@ -164,7 +181,7 @@ export class ReviewFormDialogComponent {
           dependentId: formValue.dependentId || '',
           reviewDate: formValue.reviewDate || '',
           result: formValue.result as DependentReviewResult,
-          reviewedBy: formValue.reviewedBy || '',
+          reviewedBy,
           note: formValue.note || ''
         },
         currentUserId
@@ -177,7 +194,7 @@ export class ReviewFormDialogComponent {
           dependentId: formValue.dependentId || '',
           reviewDate: formValue.reviewDate || '',
           result: formValue.result as DependentReviewResult,
-          reviewedBy: formValue.reviewedBy || '',
+          reviewedBy,
           note: formValue.note || ''
         },
         currentUserId

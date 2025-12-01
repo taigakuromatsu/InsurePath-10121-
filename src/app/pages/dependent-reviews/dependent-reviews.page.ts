@@ -1,4 +1,4 @@
-import { AsyncPipe, DatePipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap, take, Observable } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -42,7 +42,6 @@ interface DependentWithReview extends Dependent {
     MatTooltipModule,
     AsyncPipe,
     NgIf,
-    NgFor,
     DatePipe
   ],
   template: `
@@ -466,7 +465,8 @@ export class DependentReviewsPage {
   private readonly employeesService = inject(EmployeesService);
   private readonly dependentsService = inject(DependentsService);
 
-  referenceDate: string = '';
+  // 扶養状況の抽出に使う基準年月日。初期値は「今日」の YYYY-MM-DD。
+  referenceDate: string = new Date().toISOString().substring(0, 10);
 
   readonly resultFilter$ = new BehaviorSubject<DependentReviewResult | 'all'>('all');
 
@@ -576,8 +576,12 @@ export class DependentReviewsPage {
               if (acquiredDate > this.referenceDate) continue;
               if (lossDate && lossDate <= this.referenceDate) continue;
 
+              // 基準日が指定されている場合は reviewDate <= referenceDate のものだけを対象
               const dependentReviews = reviews.filter(
-                (r) => r.employeeId === employee.id && r.dependentId === dependent.id
+                (r) =>
+                  r.employeeId === employee.id &&
+                  r.dependentId === dependent.id &&
+                  (!this.referenceDate || r.reviewDate <= this.referenceDate)
               );
               const latestReview = dependentReviews.length > 0 ? dependentReviews[0] : undefined;
 
@@ -633,6 +637,9 @@ export class DependentReviewsPage {
         currentUserId
       );
     }
+
+    // 保存後に再抽出して、抽出テーブル側の latestReview も最新状態に更新する
+    this.extractDependents();
   }
 
   getRelationshipLabel(relationship: string): string {
