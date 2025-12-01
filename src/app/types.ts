@@ -139,6 +139,19 @@ export interface DependentReview {
   updatedByUserId?: string;
 }
 
+export interface DependentReviewSession {
+  id: string;
+  officeId: string;
+  referenceDate: string; // YYYY-MM-DD形式（基準年月日）
+  checkedAt: string; // YYYY-MM-DD形式（実施日）
+  checkedBy?: string; // 担当者名
+  note?: string; // 備考（例：「2025年定期確認」）
+  createdAt: IsoDateString;
+  updatedAt: IsoDateString;
+  createdByUserId: string;
+  updatedByUserId: string;
+}
+
 // 標準報酬決定・改定履歴（Phase2-5: MVP）
 export interface StandardRewardHistory {
   id: string;
