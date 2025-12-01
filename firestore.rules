@@ -556,6 +556,18 @@ service cloud.firestore {
         allow create, update, delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
       }
 
+      // 扶養状況確認結果
+      match /dependentReviews/{reviewId} {
+        // 閲覧: admin/hrは全件、employeeは現時点では閲覧不可（将来拡張用にプレースホルダーを残す）
+        allow read: if belongsToOffice(officeId) && (
+          isAdminOrHr(officeId) ||
+          (isInsureEmployee(officeId) && false)
+        );
+
+        // 作成・更新・削除: admin/hrのみ
+        allow create, update, delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+      }
+
       // 変更申請
       match /changeRequests/{requestId} {
         allow read: if belongsToOffice(officeId) && (

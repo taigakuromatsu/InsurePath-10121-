@@ -120,6 +120,25 @@ export interface Dependent {
   updatedAt?: IsoDateString;
 }
 
+// 扶養状況確認結果
+export type DependentReviewResult = 'continued' | 'to_be_removed' | 'needs_review';
+
+export interface DependentReview {
+  id: string;
+  officeId: string;
+  employeeId: string;
+  dependentId: string;
+  reviewDate: string; // YYYY-MM-DD形式
+  result: DependentReviewResult;
+  reviewedBy?: string;
+  note?: string;
+  sessionId?: string;
+  createdAt: IsoDateString;
+  updatedAt: IsoDateString;
+  createdByUserId?: string;
+  updatedByUserId?: string;
+}
+
 // 標準報酬決定・改定履歴（Phase2-5: MVP）
 export interface StandardRewardHistory {
   id: string;
