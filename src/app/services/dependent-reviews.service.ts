@@ -73,6 +73,7 @@ export class DependentReviewsService {
       result?: DependentReviewResult;
       employeeId?: string;
       dependentId?: string;
+      sessionId?: string;
     }
   ): Observable<DependentReview[]> {
     const ref = this.collectionPath(officeId);
@@ -86,6 +87,9 @@ export class DependentReviewsService {
     }
     if (filters?.dependentId) {
       constraints.push(where('dependentId', '==', filters.dependentId));
+    }
+    if (filters?.sessionId) {
+      constraints.push(where('sessionId', '==', filters.sessionId));
     }
 
     constraints.push(orderBy('reviewDate', 'desc'));

@@ -609,6 +609,58 @@ service cloud.firestore {
         allow delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
       }
 
+      // 扶養状況確認セッション
+      match /dependentReviewSessions/{sessionId} {
+        // 共通バリデーション: DependentReviewSession の基本フィールド
+        function isValidDependentReviewSessionBase(data) {
+          return data.id == sessionId
+            && data.officeId == officeId
+            && data.referenceDate is string
+            && data.checkedAt is string
+            && data.createdAt is string
+            && data.updatedAt is string
+            && data.createdByUserId is string
+            && data.updatedByUserId is string;
+        }
+
+        // 閲覧: admin/hr は全件、employee は現時点では閲覧不可（将来拡張用プレースホルダー）
+        allow read: if belongsToOffice(officeId) && (
+          isAdminOrHr(officeId) ||
+          (isInsureEmployee(officeId) && false)
+        );
+
+        // 作成: admin/hr のみ、フィールドと officeId / userId を厳密チェック
+        allow create: if belongsToOffice(officeId)
+          && isAdminOrHr(officeId)
+          && request.resource.data.keys().hasOnly([
+            'id', 'officeId', 'referenceDate', 'checkedAt',
+            'checkedBy', 'note', 'createdAt', 'updatedAt',
+            'createdByUserId', 'updatedByUserId'
+          ])
+          && isValidDependentReviewSessionBase(request.resource.data)
+          && request.resource.data.createdByUserId == request.auth.uid
+          && request.resource.data.updatedByUserId == request.auth.uid;
+
+        // 更新: admin/hr のみ、変更可能なフィールドを限定
+        allow update: if belongsToOffice(officeId)
+          && isAdminOrHr(officeId)
+          && isValidDependentReviewSessionBase(request.resource.data)
+          // id / officeId / createdAt / createdByUserId は更新不可
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.officeId == resource.data.officeId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.createdByUserId == resource.data.createdByUserId
+          // 変更されうるキーを限定
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'referenceDate', 'checkedAt', 'checkedBy', 'note',
+            'updatedAt', 'updatedByUserId'
+          ])
+          && request.resource.data.updatedByUserId == request.auth.uid;
+
+        // 削除: admin/hr のみ
+        allow delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+      }
+
       // 変更申請
       match /changeRequests/{requestId} {
         allow read: if belongsToOffice(officeId) && (

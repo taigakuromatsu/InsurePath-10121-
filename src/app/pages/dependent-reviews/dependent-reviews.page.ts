@@ -13,12 +13,14 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { DependentReviewsService } from '../../services/dependent-reviews.service';
+import { DependentReviewSessionsService } from '../../services/dependent-review-sessions.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeesService } from '../../services/employees.service';
 import { DependentsService } from '../../services/dependents.service';
-import { DependentReviewResult, DependentReview, Dependent } from '../../types';
+import { DependentReviewResult, DependentReview, Dependent, DependentReviewSession } from '../../types';
 import { ReviewFormDialogComponent } from './review-form-dialog.component';
+import { SessionFormDialogComponent } from './session-form-dialog.component';
 
 interface DependentWithReview extends Dependent {
   employeeId: string;
@@ -189,6 +191,22 @@ interface DependentWithReview extends Dependent {
         <div class="card-header">
           <h2>確認結果一覧</h2>
           <div class="filters">
+            <div class="session-controls">
+              <mat-form-field appearance="outline" class="filter-select session-select">
+                <mat-label>セッション</mat-label>
+                <mat-select [value]="selectedSessionId$.value" (selectionChange)="selectedSessionId$.next($event.value || null)">
+                  <mat-option [value]="null">すべての確認結果</mat-option>
+                  <mat-option *ngFor="let session of sessions$ | async" [value]="session.id">
+                    {{ formatSessionLabel(session) }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <button mat-stroked-button type="button" color="primary" (click)="openCreateSessionDialog()">
+                <mat-icon>event_available</mat-icon>
+                セッションを作成
+              </button>
+            </div>
             <mat-form-field appearance="outline" class="filter-select">
               <mat-label>確認結果</mat-label>
               <mat-select [value]="resultFilter$.value" (selectionChange)="resultFilter$.next($event.value)">
@@ -340,8 +358,19 @@ interface DependentWithReview extends Dependent {
         flex-wrap: wrap;
       }
 
+      .session-controls {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
       .filter-select {
         width: 200px;
+      }
+
+      .session-select {
+        min-width: 260px;
       }
 
       .table-container {
@@ -459,6 +488,7 @@ interface DependentWithReview extends Dependent {
 })
 export class DependentReviewsPage {
   private readonly reviewsService = inject(DependentReviewsService);
+  private readonly sessionsService = inject(DependentReviewSessionsService);
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly dialog = inject(MatDialog);
@@ -469,6 +499,7 @@ export class DependentReviewsPage {
   referenceDate: string = new Date().toISOString().substring(0, 10);
 
   readonly resultFilter$ = new BehaviorSubject<DependentReviewResult | 'all'>('all');
+  readonly selectedSessionId$ = new BehaviorSubject<string | null>(null);
 
   readonly displayedColumns: string[] = [
     'index',
@@ -527,11 +558,38 @@ export class DependentReviewsPage {
     })
   );
 
-  readonly reviews$ = combineLatest([this.currentOffice.officeId$, this.resultFilter$]).pipe(
-    switchMap(([officeId, resultFilter]) => {
+  readonly sessions$ = this.currentOffice.officeId$.pipe(
+    switchMap((officeId) => {
       if (!officeId) return of([]);
-      const filters = resultFilter !== 'all' ? { result: resultFilter } : undefined;
-      return this.reviewsService.list(officeId, filters);
+      return this.sessionsService.list(officeId);
+    })
+  );
+
+  readonly reviewsForExtraction$ = this.currentOffice.officeId$.pipe(
+    switchMap((officeId) => {
+      if (!officeId) return of([]);
+      return this.reviewsService.list(officeId);
+    })
+  );
+
+  readonly reviews$ = combineLatest([
+    this.currentOffice.officeId$,
+    this.resultFilter$,
+    this.selectedSessionId$
+  ]).pipe(
+    switchMap(([officeId, resultFilter, sessionId]) => {
+      if (!officeId) return of([]);
+      const filters: {
+        result?: DependentReviewResult;
+        sessionId?: string;
+      } = {};
+      if (resultFilter !== 'all') {
+        filters.result = resultFilter;
+      }
+      if (sessionId) {
+        filters.sessionId = sessionId;
+      }
+      return this.reviewsService.list(officeId, Object.keys(filters).length > 0 ? filters : undefined);
     })
   );
 
@@ -558,7 +616,7 @@ export class DependentReviewsPage {
       return;
     }
 
-    combineLatest([this.employees$, this.dependentsMap$, this.reviews$])
+    combineLatest([this.employees$, this.dependentsMap$, this.reviewsForExtraction$])
       .pipe(
         take(1),
         map(([employees, dependentsMap, reviews]) => {
@@ -621,6 +679,7 @@ export class DependentReviewsPage {
 
     const reviewDate = this.referenceDate || new Date().toISOString().substring(0, 10);
     const reviewedBy = currentUserProfile?.displayName || '';
+    const selectedSessionId = await firstValueFrom(this.selectedSessionId$);
 
     if (row.latestReview) {
       await this.reviewsService.update(officeId, row.latestReview.id, { result: newResult }, currentUserId);
@@ -632,7 +691,8 @@ export class DependentReviewsPage {
           dependentId: row.id,
           reviewDate,
           result: newResult,
-          reviewedBy
+          reviewedBy,
+          ...(selectedSessionId ? { sessionId: selectedSessionId } : {})
         },
         currentUserId
       );
@@ -661,6 +721,98 @@ export class DependentReviewsPage {
       needs_review: '要確認'
     };
     return labels[result] || result;
+  }
+
+  formatSessionLabel(session: DependentReviewSession): string {
+    const detail = session.note && session.note.trim().length > 0 ? session.note : `${session.referenceDate} 現在`;
+    return `${session.checkedAt} - ${detail}`;
+  }
+
+  openCreateSessionDialog(): void {
+    this.dialog
+      .open(SessionFormDialogComponent, {
+        width: '600px',
+        data: {
+          referenceDate: this.referenceDate
+        }
+      })
+      .afterClosed()
+      .subscribe((formValue) => {
+        if (!formValue) return;
+        this.onCreateSession(formValue);
+      });
+  }
+
+  async onCreateSession(sessionData: {
+    referenceDate: string;
+    checkedAt: string;
+    checkedBy?: string;
+    note?: string;
+  }): Promise<void> {
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
+    if (!officeId) return;
+
+    const currentUserProfile = await firstValueFrom(this.currentUser.profile$);
+    const currentUserId = currentUserProfile?.id;
+    if (!currentUserId) {
+      throw new Error('ユーザーIDが取得できませんでした');
+    }
+
+    const sessionId = await this.sessionsService.create(
+      officeId,
+      {
+        referenceDate: sessionData.referenceDate,
+        checkedAt: sessionData.checkedAt,
+        checkedBy: sessionData.checkedBy || currentUserProfile?.displayName || '',
+        note: sessionData.note
+      },
+      currentUserId
+    );
+
+    const [employees, dependentsMap, allReviews] = await firstValueFrom(
+      combineLatest([this.employees$, this.dependentsMap$, this.reviewsForExtraction$]).pipe(take(1))
+    );
+
+    const referenceDate = sessionData.referenceDate;
+    const extractedDependents: DependentWithReview[] = [];
+
+    for (const employee of employees) {
+      const employeeDependents = dependentsMap.get(employee.id);
+      if (!employeeDependents) continue;
+
+      for (const dependent of employeeDependents.values()) {
+        const acquiredDate = dependent.qualificationAcquiredDate;
+        const lossDate = dependent.qualificationLossDate;
+
+        if (!acquiredDate) continue;
+        if (acquiredDate > referenceDate) continue;
+        if (lossDate && lossDate <= referenceDate) continue;
+
+        const reviewsForDependent = allReviews.filter(
+          (r) =>
+            r.employeeId === employee.id &&
+            r.dependentId === dependent.id &&
+            (!referenceDate || r.reviewDate <= referenceDate)
+        );
+        const latestReview = reviewsForDependent.length > 0 ? reviewsForDependent[0] : undefined;
+
+        extractedDependents.push({
+          ...dependent,
+          employeeId: employee.id,
+          employeeName: employee.name,
+          latestReview
+        });
+      }
+    }
+
+    for (const dependent of extractedDependents) {
+      if (dependent.latestReview && !dependent.latestReview.sessionId) {
+        await this.reviewsService.update(officeId, dependent.latestReview.id, { sessionId }, currentUserId);
+      }
+    }
+
+    this.selectedSessionId$.next(sessionId);
+    this.extractDependents();
   }
 
   async openCreateDialog(): Promise<void> {
