@@ -546,6 +546,16 @@ service cloud.firestore {
         allow create, update, delete: if isAdminOrHr(officeId);
       }
 
+      // 社会保険手続き履歴
+      match /procedures/{procedureId} {
+        allow read: if belongsToOffice(officeId) && (
+          isAdminOrHr(officeId) ||
+          (isInsureEmployee(officeId) && resource.data.employeeId == currentUser().data.employeeId)
+        );
+
+        allow create, update, delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+      }
+
       // 変更申請
       match /changeRequests/{requestId} {
         allow read: if belongsToOffice(officeId) && (

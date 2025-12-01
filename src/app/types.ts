@@ -3,6 +3,35 @@ export type UserRole = 'admin' | 'hr' | 'employee';
 export type IsoDateString = string;
 export type YearMonthString = string;
 
+// Social insurance procedures
+export type ProcedureType =
+  | 'qualification_acquisition'
+  | 'qualification_loss'
+  | 'standard_reward'
+  | 'monthly_change'
+  | 'dependent_change'
+  | 'bonus_payment';
+
+export type ProcedureStatus = 'not_started' | 'in_progress' | 'submitted' | 'rejected';
+
+export interface SocialInsuranceProcedure {
+  id: string;
+  officeId: string;
+  procedureType: ProcedureType;
+  employeeId: string;
+  dependentId?: string;
+  incidentDate: string;
+  deadline: string;
+  status: ProcedureStatus;
+  submittedAt?: string;
+  assignedPersonName?: string;
+  note?: string;
+  createdAt?: IsoDateString;
+  updatedAt?: IsoDateString;
+  createdByUserId?: string;
+  updatedByUserId?: string;
+}
+
 // 等級がどう決まったかの情報
 export type GradeDecisionSource = 'auto' | 'manual' | 'imported';
 
