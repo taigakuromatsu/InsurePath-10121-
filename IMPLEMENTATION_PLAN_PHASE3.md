@@ -232,26 +232,62 @@ Phase3では、**12月10日までの完成を目指し、残り17機能すべて
 
 ---
 
-### Phase3-5: 被扶養者状況確認・年次見直し支援機能 📋 未実装（優先度：中）
+### Phase3-5: 被扶養者状況確認・年次見直し支援機能 ✅ 実装完了
 
 **優先度**: 🟡 中（実務上必要な機能）  
 **依存関係**: Phase2-3  
-**目標完了日**: 2025年12月1日
+**目標完了日**: 2025年12月1日  
+**完了日**: 2025年12月1日
 
 **目的**: 被扶養者の年次見直しや「被扶養者状況リスト」への回答作業を支援する
 
-**実装予定内容**:
-1. **扶養状況確認の型定義**
-   - `DependentReview`型の定義
+**実装完了内容**:
+1. ✅ **扶養状況確認の型定義**
+   - `DependentReview`型の定義（`createdByUserId`、`updatedByUserId`は必須フィールド）
+   - `DependentReviewResult`型の定義（continued / to_be_removed / needs_review）
    - Firestoreコレクション構造の設計
 
-2. **基準年月日時点での抽出機能**
-   - 特定の基準年月日時点で扶養に入っている被扶養者の一覧を抽出・表示
+2. ✅ **扶養状況確認サービス**
+   - `DependentReviewsService`の実装
+   - 確認結果の作成（`create()`）
+   - 確認結果の一覧取得（`list()`）- リアルタイム購読、`sessionId`フィルタ対応
+   - 確認結果の更新（`update()`）
+   - 確認結果の削除（`delete()`）
 
-**実装予定ファイル**:
-- `src/app/types.ts`（`DependentReview`型追加）
+3. ✅ **基準年月日時点での抽出機能**
+   - 特定の基準年月日時点で扶養に入っている被扶養者の一覧を抽出・表示
+   - 基準年月日の初期値を「今日」に設定
+   - 基準年月日以前の最新の確認結果を表示
+
+4. ✅ **確認結果の登録・編集・削除機能**
+   - 確認結果登録・編集ダイアログ（`review-form-dialog.component.ts`）
+   - 対象従業員・対象被扶養者の選択（編集時も変更可能）
+   - 確認日・確認結果・確認担当者・備考の入力
+   - 確認日の初期値を「今日」に設定
+   - 確認担当者の自動補完（ログインユーザーの`displayName`）
+
+5. ✅ **被扶養者状況リスト風レイアウト**
+   - テーブル形式での一覧表示（行番号、被保険者名、被扶養者名、続柄、生年月日、資格取得日、資格喪失日、確認区分、備考、操作）
+   - インライン操作（確認区分のトグル操作：継続／削除予定／要確認）
+   - 備考列の表示（メモありの場合はアイコン＋「メモあり」、クリックでダイアログを開く）
+   - 確認結果一覧テーブル（ViewModel合成パターンによる従業員名・被扶養者名の表示）
+
+6. ✅ **Firestoreセキュリティルール**
+   - admin/hrは全確認結果を閲覧・作成・更新・削除可能
+   - employeeは現時点では閲覧不可（将来拡張用プレースホルダー）
+   - `createdByUserId`と`updatedByUserId`の必須チェック
+
+7. ✅ **ルーティングとサイドメニュー**
+   - `/dependent-reviews`ルートの追加（admin/hr専用）
+   - サイドメニューへの追加（将来拡張）
+
+**実装ファイル**:
+- `src/app/types.ts`（`DependentReview`型、`DependentReviewResult`型追加）
 - `src/app/services/dependent-reviews.service.ts`（新規作成）
 - `src/app/pages/dependent-reviews/dependent-reviews.page.ts`（新規作成）
+- `src/app/pages/dependent-reviews/review-form-dialog.component.ts`（新規作成）
+- `src/app/app.routes.ts`（`/dependent-reviews`ルート追加）
+- `firestore.rules`（`dependentReviews`コレクションのルール追加）
 
 ---
 
@@ -573,7 +609,7 @@ Phase3では、**12月10日までの完成を目指し、残り17機能すべて
 
 ### 12月1日（月）- Day 4 ✅ 完了
 - ✅ **Phase3-4**: 社会保険手続き履歴・期限管理機能（完了）
-- **Phase3-5**: 被扶養者状況確認・年次見直し支援機能（完了）
+- ✅ **Phase3-5**: 被扶養者状況確認・年次見直し支援機能（完了）
 
 ### 12月2日（火）- Day 5
 - **Phase3-6**: 社会保険料納付状況管理機能（完了）

@@ -1,4 +1,4 @@
-import { AsyncPipe, DatePipe, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, NgIf, NgForOf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap, take, Observable } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -43,6 +43,7 @@ interface DependentWithReview extends Dependent {
     MatButtonToggleModule,
     MatTooltipModule,
     AsyncPipe,
+    NgForOf,
     NgIf,
     DatePipe
   ],

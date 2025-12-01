@@ -135,8 +135,8 @@ export interface DependentReview {
   sessionId?: string;
   createdAt: IsoDateString;
   updatedAt: IsoDateString;
-  createdByUserId?: string;
-  updatedByUserId?: string;
+  createdByUserId: string;
+  updatedByUserId: string;
 }
 
 export interface DependentReviewSession {

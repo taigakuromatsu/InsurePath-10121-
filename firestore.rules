@@ -567,7 +567,9 @@ service cloud.firestore {
             && data.reviewDate is string
             && data.result in ['continued', 'to_be_removed', 'needs_review']
             && data.createdAt is string
-            && data.updatedAt is string;
+            && data.updatedAt is string
+            && data.createdByUserId is string
+            && data.updatedByUserId is string;
         }
 
         // 閲覧: admin/hr は全件、employee は現時点では閲覧不可（将来拡張用プレースホルダー）
