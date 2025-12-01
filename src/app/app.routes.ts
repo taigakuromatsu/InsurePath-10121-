@@ -74,6 +74,12 @@ export const routes: Routes = [
         path: 'procedures',
         canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
         loadComponent: () => import('./pages/procedures/procedures.page').then((m) => m.ProceduresPage)
+      },
+      {
+        path: 'dependent-reviews',
+        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
+        loadComponent: () =>
+          import('./pages/dependent-reviews/dependent-reviews.page').then((m) => m.DependentReviewsPage)
       }
     ]
   },
