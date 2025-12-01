@@ -1,5 +1,5 @@
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
-import { Component, Inject, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -112,14 +112,14 @@ export interface ProcedureFormDialogData {
           <textarea matInput formControlName="note" rows="3" maxlength="500"></textarea>
         </mat-form-field>
       </div>
-    </form>
 
-    <div mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close type="button">キャンセル</button>
-      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid" (click)="submit()">
-        保存
-      </button>
-    </div>
+      <div mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close type="button">キャンセル</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
+          保存
+        </button>
+      </div>
+    </form>
   `,
   styles: [
     `
@@ -145,18 +145,7 @@ export class ProcedureFormDialogComponent {
 
   readonly data = inject<ProcedureFormDialogData>(MAT_DIALOG_DATA);
 
-  readonly employees$ = this.employeesService.list(this.data.officeId);
-
-  readonly dependents$ = this.form.get('employeeId')!.valueChanges.pipe(
-    startWith(this.data.procedure?.employeeId ?? ''),
-    switchMap((employeeId) => {
-      if (!employeeId) {
-        return of<Dependent[]>([]);
-      }
-      return this.dependentsService.list(this.data.officeId, employeeId);
-    })
-  );
-
+  // ✅ 先に form を定義
   form = this.fb.group({
     procedureType: [this.data.procedure?.procedureType ?? '', Validators.required],
     employeeId: [this.data.procedure?.employeeId ?? '', Validators.required],
@@ -169,10 +158,29 @@ export class ProcedureFormDialogComponent {
     note: [this.data.procedure?.note ?? '']
   });
 
+  readonly employees$ = this.employeesService.list(this.data.officeId);
+
+  readonly dependents$ = this.form.get('employeeId')!.valueChanges.pipe(
+    startWith(this.data.procedure?.employeeId ?? ''),
+    switchMap((employeeId) => {
+      if (!employeeId) {
+        return of<Dependent[]>([]);
+      }
+      return this.dependentsService.list(this.data.officeId, employeeId);
+    })
+  );
+
   constructor() {
-    this.onProcedureTypeChange();
-    this.onStatusChange();
+    // 初期表示時は、既存の値を尊重し、deadline は触らない
+    // バリデーションだけを初期化
+    const initialType = this.form.get('procedureType')?.value as ProcedureType | null;
+    const initialStatus = this.form.get('status')?.value as ProcedureStatus | null;
+
+    this.updateDependentValidators(initialType);
+    this.updateSubmittedAtValidators(initialStatus);
   }
+
+  // --- 期限計算：ユーザー操作時のみ呼ぶ ---
 
   onIncidentDateChange(): void {
     const incidentDate = this.form.get('incidentDate')?.value;
@@ -188,29 +196,46 @@ export class ProcedureFormDialogComponent {
     const incidentDate = this.form.get('incidentDate')?.value;
     const procedureType = this.form.get('procedureType')?.value as ProcedureType | null;
 
+    // ユーザーが種別を変更したタイミングでのみ deadline を再計算
     if (incidentDate && procedureType) {
       const deadline = calculateDeadline(procedureType, incidentDate);
       this.form.patchValue({ deadline });
     }
 
-    if (procedureType === 'dependent_change') {
-      this.form.get('dependentId')?.setValidators([Validators.required]);
-    } else {
-      this.form.get('dependentId')?.clearValidators();
-      this.form.get('dependentId')?.setValue('');
-    }
-    this.form.get('dependentId')?.updateValueAndValidity();
+    this.updateDependentValidators(procedureType);
   }
 
   onStatusChange(): void {
     const status = this.form.get('status')?.value as ProcedureStatus | null;
-    if (status === 'submitted') {
-      this.form.get('submittedAt')?.setValidators([Validators.required]);
+    this.updateSubmittedAtValidators(status);
+  }
+
+  // --- バリデーションだけを担当するヘルパー ---
+
+  private updateDependentValidators(procedureType: ProcedureType | null): void {
+    const control = this.form.get('dependentId');
+    if (!control) return;
+
+    if (procedureType === 'dependent_change') {
+      control.setValidators([Validators.required]);
     } else {
-      this.form.get('submittedAt')?.clearValidators();
-      this.form.get('submittedAt')?.setValue('');
+      control.clearValidators();
+      control.setValue('');
     }
-    this.form.get('submittedAt')?.updateValueAndValidity();
+    control.updateValueAndValidity();
+  }
+
+  private updateSubmittedAtValidators(status: ProcedureStatus | null): void {
+    const control = this.form.get('submittedAt');
+    if (!control) return;
+
+    if (status === 'submitted') {
+      control.setValidators([Validators.required]);
+    } else {
+      control.clearValidators();
+      control.setValue('');
+    }
+    control.updateValueAndValidity();
   }
 
   async submit(): Promise<void> {
@@ -231,14 +256,14 @@ export class ProcedureFormDialogComponent {
         this.data.procedure.id,
         {
           procedureType: formValue.procedureType as ProcedureType,
-          employeeId: formValue.employeeId,
-          dependentId: formValue.dependentId || undefined,
-          incidentDate: formValue.incidentDate,
-          deadline: formValue.deadline,
+          employeeId: formValue.employeeId || '',
+          dependentId: formValue.dependentId || '',
+          incidentDate: formValue.incidentDate || '',
+          deadline: formValue.deadline || '',
           status: formValue.status as ProcedureStatus,
-          submittedAt: formValue.submittedAt || undefined,
-          assignedPersonName: formValue.assignedPersonName || undefined,
-          note: formValue.note || undefined
+          submittedAt: formValue.submittedAt || '',          
+          assignedPersonName: formValue.assignedPersonName || '', 
+          note: formValue.note || ''                         
         },
         currentUserId
       );
@@ -247,18 +272,19 @@ export class ProcedureFormDialogComponent {
         this.data.officeId,
         {
           procedureType: formValue.procedureType as ProcedureType,
-          employeeId: formValue.employeeId,
-          dependentId: formValue.dependentId || undefined,
-          incidentDate: formValue.incidentDate,
-          deadline: formValue.deadline,
+          employeeId: formValue.employeeId || '',
+          dependentId: formValue.dependentId || '',          
+          incidentDate: formValue.incidentDate || '',
+          deadline: formValue.deadline || '',
           status: formValue.status as ProcedureStatus,
-          submittedAt: formValue.submittedAt || undefined,
-          assignedPersonName: formValue.assignedPersonName || undefined,
-          note: formValue.note || undefined
+          submittedAt: formValue.submittedAt || '',          
+          assignedPersonName: formValue.assignedPersonName || '', 
+          note: formValue.note || ''                         
         },
         currentUserId
       );
     }
+    
 
     this.dialogRef.close(true);
   }

@@ -1,9 +1,9 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { map, take } from 'rxjs/operators';
+import { filter, map, take } from 'rxjs/operators';
 
 import { CurrentUserService } from '../services/current-user.service';
-import { UserRole } from '../types';
+import { UserRole, UserProfile } from '../types';
 
 /**
  * 指定されたロールのいずれかを持っているユーザーのみアクセスを許可するガード
@@ -17,13 +17,11 @@ export const roleGuard = (allowedRoles: UserRole[]): CanActivateFn => {
     const currentUser = inject(CurrentUserService);
 
     return currentUser.profile$.pipe(
+      // 最初に流れてくる null（ロード前）はスキップして、
+      // 実際の UserProfile が読めるまで待つ（officeGuard と同じパターン）
+      filter((profile): profile is UserProfile => profile !== null),
       take(1),
       map((profile) => {
-        if (!profile) {
-          router.navigateByUrl('/login');
-          return false;
-        }
-
         if (!allowedRoles.includes(profile.role)) {
           router.navigateByUrl('/me');
           return false;

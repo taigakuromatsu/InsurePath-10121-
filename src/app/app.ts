@@ -40,6 +40,7 @@ export class App {
     { label: '賞与保険料', path: '/premiums/bonus', icon: 'card_giftcard', roles: ['admin', 'hr'] },
     { label: 'マスタ管理', path: '/masters', icon: 'settings', roles: ['admin'] },
     { label: '申請ワークフロー', path: '/requests', icon: 'assignment', roles: ['admin', 'hr', 'employee'] },
+    { label: '手続き履歴', path: '/procedures', icon: 'assignment_turned_in', roles: ['admin', 'hr'] },
     { label: 'シミュレーター', path: '/simulator', icon: 'calculate', roles: ['admin', 'hr'] },
     { label: 'マイページ', path: '/me', icon: 'person', roles: ['admin', 'hr', 'employee'] }
   ];

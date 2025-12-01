@@ -1,4 +1,4 @@
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -28,8 +28,7 @@ import { ProcedureStatus, ProcedureType, SocialInsuranceProcedure, Employee } fr
     MatFormFieldModule,
     MatDialogModule,
     AsyncPipe,
-    NgIf,
-    NgFor
+    NgIf
   ],
   template: `
     <section class="page">
