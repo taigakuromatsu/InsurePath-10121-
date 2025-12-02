@@ -401,10 +401,6 @@
 - `src/app/services/employees.service.ts`（単一取得メソッド`get()`追加）
 - `firestore.rules`（`changeRequests`コレクションのルール追加）
 
----
-
-## ❌ 未実装機能
-
 **実装状況**: Phase2-5完了により、標準報酬決定・改定履歴管理機能が完全実装済み
 
 - ✅ 履歴管理の型定義（`StandardRewardHistory`型、`StandardRewardDecisionKind`型）
@@ -647,6 +643,10 @@
 - `src/app/app.routes.ts`（`/payments`ルート追加）
 - `src/app/app.ts`（サイドメニューに「社会保険料納付状況」追加）
 - `firestore.rules`（`payments`コレクションのルール追加）
+
+---
+
+## ❌ 未実装機能
 
 ### (22) e-Gov 電子申請連携機能
 
