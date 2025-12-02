@@ -195,7 +195,7 @@ Chart.register(...registerables);
             </ng-container>
 
             <ng-container matColumnDef="actualTotalCompany">
-              <th mat-header-cell *matHeaderCellDef>実績額</th>
+              <th mat-header-cell *matHeaderCellDef>納付額</th>
               <td mat-cell *matCellDef="let payment">
                 <ng-container *ngIf="payment.actualTotalCompany != null; else notInput">
                   ¥{{ payment.actualTotalCompany | number }}

@@ -1,4 +1,4 @@
-import { AsyncPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, DecimalPipe, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -24,7 +24,6 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
     MatDialogModule,
     AsyncPipe,
     NgIf,
-    NgFor,
     DecimalPipe
   ],
   template: `
@@ -45,7 +44,7 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
         <div class="card-header">
           <div>
             <h2>納付状況一覧</h2>
-            <p class="subtitle">対象年月ごとの予定額・実績額・ステータスを確認できます。</p>
+            <p class="subtitle">対象年月ごとの予定額・納付額・ステータスを確認できます。</p>
           </div>
           <button mat-flat-button color="primary" (click)="openCreateDialog()">
             <mat-icon>add</mat-icon>
@@ -67,7 +66,7 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
               </ng-container>
 
               <ng-container matColumnDef="actualTotalCompany">
-                <th mat-header-cell *matHeaderCellDef>実績合計</th>
+                <th mat-header-cell *matHeaderCellDef>納付額合計</th>
                 <td mat-cell *matCellDef="let row">
                   <ng-container *ngIf="row.actualTotalCompany != null; else notInput">
                     ¥{{ row.actualTotalCompany | number }}

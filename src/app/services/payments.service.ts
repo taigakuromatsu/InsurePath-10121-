@@ -4,7 +4,7 @@ import {
   collection,
   collectionData,
   doc,
-  getDoc,
+  docData,
   limit,
   orderBy,
   query,
@@ -12,7 +12,7 @@ import {
   setDoc,
   updateDoc
 } from '@angular/fire/firestore';
-import { firstValueFrom, from, map, Observable } from 'rxjs';
+import { firstValueFrom, map, Observable, of } from 'rxjs';
 
 import {
   IsoDateString,
@@ -156,12 +156,13 @@ export class PaymentsService {
     const collectionRef = this.getCollectionRef(officeId);
     const docRef = doc(collectionRef, targetYearMonth);
 
-    return from(getDoc(docRef)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
+    return docData(docRef, { idField: 'id' }).pipe(
+      map((data) => {
+        // docDataは存在しないドキュメントの場合、undefinedを返す可能性がある
+        if (!data || Object.keys(data).length === 0) {
           return undefined;
         }
-        return { id: snapshot.id, ...(snapshot.data() as SocialInsurancePayment) } as SocialInsurancePayment;
+        return data as SocialInsurancePayment;
       })
     );
   }
