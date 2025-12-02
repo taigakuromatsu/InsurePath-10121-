@@ -1,14 +1,16 @@
-# Phase3-7 実装指示書: e-Gov 電子申請連携機能
+# Phase3-8 実装指示書: e-Gov 電子申請連携機能
 
 ## 📋 概要
 
-Phase3-7では、既存の「社会保険手続き履歴」ページ（`/procedures`）に、e-Gov電子申請で利用する申請データ（CSV形式）を自動生成・出力する機能を統合します。
+Phase3-8では、既存の「社会保険手続き履歴」ページ（`/procedures`）に、e-Gov電子申請で利用する申請データ（CSV形式）を自動生成・出力する機能を統合します。
 
 **重要**: 本機能はe-Gov側へのAPI連携は行わず、あくまで「申請データの作成・管理」がInsurePathの役割です。ユーザーはダウンロードしたCSVファイルをe-Govの画面やツールからアップロードする前提とします。
 
-### Phase3-7のスコープ
+**注意**: 本機能を実装する前に、Phase3-7（e-Gov用必要情報の先行実装）が完了している必要があります。Phase3-7で実装した必要情報（マイナンバー、基礎年金番号、事業所整理記号など）を活用してCSVを生成します。
 
-Phase3-7では以下の機能を実装します：
+### Phase3-8のスコープ
+
+Phase3-8では以下の機能を実装します：
 
 - **e-Govステータス管理**: 手続きレコードにe-Gov専用ステータス（未出力／準備OK／出力済／申請済／差戻し）を追加し、2階建てのステータス管理を実現
 - **e-Govエクスポートダイアログ**: 手続き一覧からe-Gov用CSVを出力するための専用ダイアログを追加
@@ -27,7 +29,7 @@ Phase3-7では以下の機能を実装します：
 
 ### 目的
 
-Phase3-7の目的は、InsurePath上で作成した社会保険手続きをもとに、e-Gov電子申請で利用する申請データを自動生成できるようにすることです。
+Phase3-8の目的は、InsurePath上で作成した社会保険手続きをもとに、e-Gov電子申請で利用する申請データを自動生成できるようにすることです。
 
 具体的には：
 
@@ -39,7 +41,7 @@ Phase3-7の目的は、InsurePath上で作成した社会保険手続きをも�
 
 - **「申請ワークフロー」ページ** (`/requests`): 社内作業としての進捗を管理するタスク寄り画面（既存、Phase3-3で実装済み）
 - **「手続き履歴」ページ** (`/procedures`): いつ・どんな手続きを行ったかの履歴台帳＋期限管理（既存、Phase3-4で実装済み）
-- **Phase3-7での改修**: `/procedures`ページにe-Gov用のステータス管理とエクスポート機能を統合する。新しい`/egov`のようなページは作らない。
+- **Phase3-8での改修**: `/procedures`ページにe-Gov用のステータス管理とエクスポート機能を統合する。新しい`/egov`のようなページは作らない。
 
 ---
 
@@ -80,11 +82,11 @@ Phase3-7の目的は、InsurePath上で作成した社会保険手続きをも�
 /procedures ページ
 ├── 既存の手続き一覧テーブル
 │   ├── 既存列（手続き種別、対象者、事由発生日、提出期限、ステータス）
-│   └── 新規列（e-Gov） ← Phase3-7で追加
+│   └── 新規列（e-Gov） ← Phase3-8で追加
 ├── 既存のフィルタ（ステータス、期限、手続き種別）
-├── 「e-Gov用データ出力」ボタン ← Phase3-7で追加
+├── 「e-Gov用データ出力」ボタン ← Phase3-8で追加
 └── 行メニュー（編集、削除）
-    └── e-Gov関連アクション ← Phase3-7で追加（MVPでは最小限）
+    └── e-Gov関連アクション ← Phase3-8で追加（MVPでは最小限）
 
 EgovExportDialogComponent（新規）
 ├── フィルタ条件
@@ -133,7 +135,7 @@ export type EgovStatus =
 export interface SocialInsuranceProcedure {
   // ... 既存フィールド（id, officeId, procedureType, employeeId, dependentId, incidentDate, deadline, status, ...）
   
-  // Phase3-7で追加: e-Gov関連フィールド
+  // Phase3-8で追加: e-Gov関連フィールド
   egovStatus?: EgovStatus;                    // e-Govステータス（デフォルト: 'not_exported'）
   egovLastExportedAt?: IsoDateString | null; // 最後にCSV出力した日時
   egovLastExportedByUserId?: string | null;  // 最後にCSV出力したユーザーID
@@ -700,7 +702,7 @@ export class EgovExportService {
 - `admin` / `hr`は全手続きを閲覧・作成・更新・削除可能
 - `employee`は自分の手続きのみ閲覧可能（作成・更新・削除は不可）
 
-**Phase3-7での追加検討事項**:
+**Phase3-8での追加検討事項**:
 
 - e-Gov関連フィールド（`egovStatus`、`egovLastExportedAt`、`egovLastExportedByUserId`、`egovNote`）の更新権限
 - **方針**: 既存のルールで対応可能なため、追加のルール変更は不要
@@ -866,5 +868,5 @@ export class EgovExportService {
 
 ---
 
-以上でPhase3-7の実装指示書は完了です。実装時は、既存のコードパターンに合わせて、段階的に実装を進めてください。
+以上でPhase3-8の実装指示書は完了です。実装時は、既存のコードパターンに合わせて、段階的に実装を進めてください。
 
