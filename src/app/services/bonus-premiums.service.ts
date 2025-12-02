@@ -12,7 +12,7 @@ import {
 } from '@angular/fire/firestore';
 import { firstValueFrom, from, map, Observable } from 'rxjs';
 
-import { BonusPremium, IsoDateString } from '../types';
+import { BonusPremium, IsoDateString, YearMonthString } from '../types';
 import { getFiscalYear } from '../utils/bonus-calculator';
 
 @Injectable({ providedIn: 'root' })
@@ -50,6 +50,30 @@ export class BonusPremiumsService {
               ...(d.data() as any)
             } as BonusPremium)
         )
+      )
+    );
+  }
+
+  /**
+   * 事業所・対象年月ごとの賞与支給履歴一覧
+   */
+  listByOfficeAndYearMonth(
+    officeId: string,
+    yearMonth: YearMonthString
+  ): Observable<BonusPremium[]> {
+    const ref = this.getCollectionRef(officeId);
+    const q = query(ref, orderBy('payDate', 'desc'));
+
+    const targetYear = yearMonth.substring(0, 4);
+    const targetMonth = yearMonth.substring(5, 7);
+
+    return from(getDocs(q)).pipe(
+      map((snapshot) =>
+        snapshot.docs
+          .map((d) => ({ id: d.id, ...(d.data() as any) } as BonusPremium))
+          .filter((b) =>
+            b.payDate.substring(0, 4) === targetYear && b.payDate.substring(5, 7) === targetMonth
+          )
       )
     );
   }

@@ -546,6 +546,77 @@ service cloud.firestore {
         allow create, update, delete: if isAdminOrHr(officeId);
       }
 
+      // 社会保険料納付状況
+      match /payments/{paymentId} {
+        function isValidSocialInsurancePaymentBase(data) {
+          return data.id == paymentId
+            && data.officeId == officeId
+            && data.targetYearMonth is string
+            && data.plannedHealthCompany is int && data.plannedHealthCompany >= 0
+            && data.plannedCareCompany is int && data.plannedCareCompany >= 0
+            && data.plannedPensionCompany is int && data.plannedPensionCompany >= 0
+            && data.plannedTotalCompany is int && data.plannedTotalCompany >= 0
+            && data.paymentStatus in ['unpaid', 'paid', 'partially_paid', 'not_required']
+            && (!('paymentMethod' in data) || data.paymentMethod == null || data.paymentMethod in ['bank_transfer', 'account_transfer', 'cash', 'other'])
+            && (!('paymentMethodNote' in data) || data.paymentMethodNote == null || data.paymentMethodNote is string)
+            && (!('paymentDate' in data) || data.paymentDate == null || data.paymentDate is string)
+            && (!('memo' in data) || data.memo == null || data.memo is string)
+            && data.createdAt is string
+            && data.updatedAt is string
+            && data.createdByUserId is string
+            && data.updatedByUserId is string;
+        }
+
+        function isValidPaidStatus(data) {
+          return data.paymentStatus != 'paid' || (
+            data.paymentDate != null
+              && data.paymentDate is string
+              && data.actualTotalCompany != null
+              && data.actualTotalCompany is int
+              && data.actualTotalCompany >= 0
+          );
+        }
+
+        function isValidAmountFields(data) {
+          return (
+            (!('actualHealthCompany' in data) || data.actualHealthCompany == null || (data.actualHealthCompany is int && data.actualHealthCompany >= 0))
+              && (!('actualCareCompany' in data) || data.actualCareCompany == null || (data.actualCareCompany is int && data.actualCareCompany >= 0))
+              && (!('actualPensionCompany' in data) || data.actualPensionCompany == null || (data.actualPensionCompany is int && data.actualPensionCompany >= 0))
+              && (!('actualTotalCompany' in data) || data.actualTotalCompany == null || (data.actualTotalCompany is int && data.actualTotalCompany >= 0))
+          );
+        }
+
+        allow read: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+
+        allow create: if belongsToOffice(officeId)
+          && isAdminOrHr(officeId)
+          && request.resource.data.keys().hasOnly([
+            'id', 'officeId', 'targetYearMonth',
+            'plannedHealthCompany', 'plannedCareCompany', 'plannedPensionCompany', 'plannedTotalCompany',
+            'actualHealthCompany', 'actualCareCompany', 'actualPensionCompany', 'actualTotalCompany',
+            'paymentStatus', 'paymentMethod', 'paymentMethodNote', 'paymentDate',
+            'memo', 'createdAt', 'updatedAt', 'createdByUserId', 'updatedByUserId'
+          ])
+          && isValidSocialInsurancePaymentBase(request.resource.data)
+          && isValidAmountFields(request.resource.data)
+          && isValidPaidStatus(request.resource.data)
+          && request.resource.data.createdByUserId == request.auth.uid
+          && request.resource.data.updatedByUserId == request.auth.uid;
+
+        allow update: if belongsToOffice(officeId)
+          && isAdminOrHr(officeId)
+          && isValidSocialInsurancePaymentBase(request.resource.data)
+          && isValidAmountFields(request.resource.data)
+          && isValidPaidStatus(request.resource.data)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.officeId == resource.data.officeId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.createdByUserId == resource.data.createdByUserId
+          && request.resource.data.updatedByUserId == request.auth.uid;
+
+        allow delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+      }
+
       // 社会保険手続き履歴
       match /procedures/{procedureId} {
         allow read: if belongsToOffice(officeId) && (
