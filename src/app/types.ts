@@ -3,6 +3,38 @@ export type UserRole = 'admin' | 'hr' | 'employee';
 export type IsoDateString = string;
 export type YearMonthString = string;
 
+// Payments
+export type PaymentStatus = 'unpaid' | 'paid' | 'partially_paid' | 'not_required';
+export type PaymentMethod = 'bank_transfer' | 'account_transfer' | 'cash' | 'other';
+
+export interface SocialInsurancePayment {
+  id: string;
+  officeId: string;
+  targetYearMonth: string;
+
+  plannedHealthCompany: number;
+  plannedCareCompany: number;
+  plannedPensionCompany: number;
+  plannedTotalCompany: number;
+
+  actualHealthCompany: number | null;
+  actualCareCompany: number | null;
+  actualPensionCompany: number | null;
+  actualTotalCompany: number | null;
+
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod | null;
+  paymentMethodNote?: string | null;
+  paymentDate: IsoDateString | null;
+
+  memo?: string | null;
+
+  createdAt: IsoDateString;
+  createdByUserId: string;
+  updatedAt: IsoDateString;
+  updatedByUserId: string;
+}
+
 // Social insurance procedures
 export type ProcedureType =
   | 'qualification_acquisition'

@@ -51,6 +51,11 @@ export const routes: Routes = [
         ]
       },
       {
+        path: 'payments',
+        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
+        loadComponent: () => import('./pages/payments/payments.page').then((m) => m.PaymentsPage)
+      },
+      {
         path: 'me',
         canActivate: [authGuard, officeGuard],
         loadComponent: () => import('./pages/me/my-page').then((m) => m.MyPage)

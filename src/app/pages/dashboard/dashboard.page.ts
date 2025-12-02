@@ -1,24 +1,25 @@
-import { DecimalPipe, NgIf } from '@angular/common';
+import { AsyncPipe, DecimalPipe, NgIf } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { Chart, ChartData, ChartOptions, registerables } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
-import { firstValueFrom } from 'rxjs';
+import { catchError, firstValueFrom, map, of, switchMap } from 'rxjs';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { EmployeesService } from '../../services/employees.service';
 import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
-import { BonusPremium, Employee, MonthlyPremium } from '../../types';
+import { PaymentsService } from '../../services/payments.service';
+import { BonusPremium, Employee, MonthlyPremium, PaymentStatus, SocialInsurancePayment } from '../../types';
 
 Chart.register(...registerables);
 
 @Component({
   selector: 'ip-dashboard-page',
   standalone: true,
-  imports: [MatCardModule, MatIconModule, MatTableModule, BaseChartDirective, DecimalPipe, NgIf],
+  imports: [MatCardModule, MatIconModule, MatTableModule, BaseChartDirective, DecimalPipe, NgIf, AsyncPipe],
   template: `
     <section class="page dashboard">
       <mat-card class="header-card">
@@ -85,6 +86,24 @@ Chart.register(...registerables);
           </div>
         </mat-card>
 
+        <mat-card class="stat-card">
+          <div class="stat-icon" style="background: #ede7f6;">
+            <mat-icon style="color: #5e35b1;">account_balance</mat-icon>
+          </div>
+          <div class="stat-content">
+            <h3>今月納付予定の社会保険料</h3>
+            <p class="stat-value">
+              <ng-container *ngIf="currentPayment$ | async as payment">
+                <ng-container *ngIf="payment; else notRegistered">
+                  ¥{{ payment.plannedTotalCompany | number }}
+                </ng-container>
+              </ng-container>
+              <ng-template #notRegistered>未登録</ng-template>
+            </p>
+            <p class="stat-label">会社負担額（予定）</p>
+          </div>
+        </mat-card>
+
         <mat-card class="info-card">
           <h3>
             <mat-icon>insights</mat-icon>
@@ -143,6 +162,53 @@ Chart.register(...registerables);
           </div>
         </mat-card>
       </div>
+
+      <mat-card class="info-card">
+        <h3>
+          <mat-icon>account_balance</mat-icon>
+          最近の納付状況（最大12件）
+        </h3>
+        <div class="payment-list" *ngIf="recentPayments$ | async as payments">
+          <div *ngIf="payments.length === 0" class="empty-state">
+            <mat-icon>inbox</mat-icon>
+            <p>納付状況が登録されていません</p>
+          </div>
+
+          <table mat-table [dataSource]="payments" *ngIf="payments.length > 0">
+            <ng-container matColumnDef="targetYearMonth">
+              <th mat-header-cell *matHeaderCellDef>対象年月</th>
+              <td mat-cell *matCellDef="let payment">{{ payment.targetYearMonth }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>ステータス</th>
+              <td mat-cell *matCellDef="let payment">
+                <span [class]="getPaymentStatusClass(payment.paymentStatus)">
+                  {{ getPaymentStatusLabel(payment.paymentStatus) }}
+                </span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="plannedTotalCompany">
+              <th mat-header-cell *matHeaderCellDef>予定額</th>
+              <td mat-cell *matCellDef="let payment">¥{{ payment.plannedTotalCompany | number }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="actualTotalCompany">
+              <th mat-header-cell *matHeaderCellDef>実績額</th>
+              <td mat-cell *matCellDef="let payment">
+                <ng-container *ngIf="payment.actualTotalCompany != null; else notInput">
+                  ¥{{ payment.actualTotalCompany | number }}
+                </ng-container>
+                <ng-template #notInput>未入力</ng-template>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="['targetYearMonth', 'status', 'plannedTotalCompany', 'actualTotalCompany']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['targetYearMonth', 'status', 'plannedTotalCompany', 'actualTotalCompany']"></tr>
+          </table>
+        </div>
+      </mat-card>
 
       <div class="ranking-section">
         <mat-card class="ranking-card">
@@ -345,6 +411,58 @@ Chart.register(...registerables);
         line-height: 1.6;
       }
 
+      .payment-list table {
+        width: 100%;
+      }
+
+      .payment-list th {
+        font-weight: 600;
+        color: #666;
+      }
+
+      .payment-list td {
+        color: #333;
+      }
+
+      .empty-state {
+        display: grid;
+        place-items: center;
+        gap: 0.5rem;
+        padding: 1.5rem 1rem;
+        color: #666;
+      }
+
+      .empty-state mat-icon {
+        font-size: 32px;
+        width: 32px;
+        height: 32px;
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: white;
+      }
+
+      .status-unpaid {
+        background: #ef4444;
+      }
+
+      .status-paid {
+        background: #22c55e;
+      }
+
+      .status-partially_paid {
+        background: #f59e0b;
+      }
+
+      .status-not_required {
+        background: #9ca3af;
+      }
+
       .charts-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -431,6 +549,7 @@ export class DashboardPage implements OnInit {
   private readonly employeesService = inject(EmployeesService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly bonusPremiumsService = inject(BonusPremiumsService);
+  private readonly paymentsService = inject(PaymentsService);
 
   readonly officeId$ = this.currentOffice.officeId$;
 
@@ -444,6 +563,29 @@ export class DashboardPage implements OnInit {
   readonly fiscalYearComparisonData = signal<ChartData<'bar'>>({ labels: [], datasets: [] });
   readonly employerRanking = signal<Array<{ employeeName: string; amount: number; rank: number }>>([]);
   readonly employeeRanking = signal<Array<{ employeeName: string; amount: number; rank: number }>>([]);
+
+  readonly currentPayment$ = this.officeId$.pipe(
+    switchMap((officeId) => {
+      if (!officeId) {
+        return of<SocialInsurancePayment | null>(null);
+      }
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      return this.paymentsService
+        .get(officeId, yearMonth)
+        .pipe(map((payment) => payment ?? null), catchError(() => of<SocialInsurancePayment | null>(null)));
+    })
+  );
+
+  readonly recentPayments$ = this.officeId$.pipe(
+    switchMap((officeId) => {
+      if (!officeId) {
+        return of<SocialInsurancePayment[]>([]);
+      }
+      return this.paymentsService.listByOffice(officeId, 12);
+    }),
+    catchError(() => of<SocialInsurancePayment[]>([]))
+  );
 
   readonly trendPercentage = computed(() => {
     const current = this.currentMonthTotalEmployer();
@@ -533,6 +675,23 @@ export class DashboardPage implements OnInit {
       }
     }
   };
+
+  getPaymentStatusLabel(status: PaymentStatus): string {
+    switch (status) {
+      case 'paid':
+        return '納付済';
+      case 'partially_paid':
+        return '一部納付';
+      case 'not_required':
+        return '納付不要';
+      default:
+        return '未納';
+    }
+  }
+
+  getPaymentStatusClass(status: PaymentStatus): string {
+    return `status-badge status-${status}`;
+  }
 
   ngOnInit(): void {
     this.loadDashboardData();
