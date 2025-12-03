@@ -410,16 +410,57 @@ export interface BonusPremium {
 }
 
 // Change requests
-export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected';
+export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected' | 'canceled';
+
+export type ChangeRequestKind = 'profile' | 'dependent_add' | 'dependent_update' | 'dependent_remove';
+
+export interface DependentAddPayload {
+  name: string;
+  kana?: string;
+  relationship: DependentRelationship;
+  dateOfBirth: IsoDateString;
+  sex?: Sex;
+  postalCode?: string;
+  address?: string;
+  cohabitationFlag?: CohabitationFlag;
+  isWorking?: boolean;
+}
+
+export interface DependentUpdatePayload {
+  name: string;
+  kana?: string;
+  relationship: DependentRelationship;
+  dateOfBirth: IsoDateString;
+  sex?: Sex;
+  postalCode?: string;
+  address?: string;
+  cohabitationFlag?: CohabitationFlag;
+  isWorking?: boolean;
+}
+
+export interface DependentRemovePayload {
+  dependentName: string;
+  relationship?: DependentRelationship;
+  dateOfBirth?: IsoDateString;
+  reason?: string;
+}
+
+export type DependentRequestPayload =
+  | DependentAddPayload
+  | DependentUpdatePayload
+  | DependentRemovePayload;
 
 export interface ChangeRequest {
   id: string;
   officeId: string;
   employeeId: string;
   requestedByUserId: string;
-  field: 'address' | 'phone' | 'email' | 'other';
-  currentValue: string;
-  requestedValue: string;
+  kind: ChangeRequestKind;
+  field?: 'address' | 'phone' | 'email' | 'other';
+  currentValue?: string;
+  requestedValue?: string;
+  targetDependentId?: string;
+  payload?: DependentRequestPayload;
   status: ChangeRequestStatus;
   requestedAt: IsoDateString;
   decidedAt?: IsoDateString;

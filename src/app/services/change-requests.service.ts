@@ -10,9 +10,14 @@ import {
   updateDoc,
   where
 } from '@angular/fire/firestore';
-import { Observable } from 'rxjs';
+import { map, Observable } from 'rxjs';
 
-import { ChangeRequest, ChangeRequestStatus } from '../types';
+import {
+  ChangeRequest,
+  ChangeRequestKind,
+  ChangeRequestStatus,
+  DependentRequestPayload
+} from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class ChangeRequestsService {
@@ -27,9 +32,12 @@ export class ChangeRequestsService {
     request: {
       employeeId: string;
       requestedByUserId: string;
-      field: 'address' | 'phone' | 'email';
-      currentValue: string;
-      requestedValue: string;
+      kind: ChangeRequestKind;
+      field?: 'address' | 'phone' | 'email';
+      currentValue?: string;
+      requestedValue?: string;
+      targetDependentId?: string;
+      payload?: DependentRequestPayload;
     }
   ): Promise<void> {
     const ref = this.collectionPath(officeId);
@@ -41,9 +49,12 @@ export class ChangeRequestsService {
       officeId,
       employeeId: request.employeeId,
       requestedByUserId: request.requestedByUserId,
+      kind: request.kind ?? 'profile',
       field: request.field,
       currentValue: request.currentValue,
       requestedValue: request.requestedValue,
+      targetDependentId: request.targetDependentId,
+      payload: request.payload,
       status: 'pending',
       requestedAt: now
     };
@@ -57,7 +68,8 @@ export class ChangeRequestsService {
       ? query(ref, where('status', '==', status), orderBy('requestedAt', 'desc'))
       : query(ref, orderBy('requestedAt', 'desc'));
 
-    return collectionData(q, { idField: 'id' }) as Observable<ChangeRequest[]>;
+    return (collectionData(q, { idField: 'id' }) as Observable<ChangeRequest[]>)
+      .pipe(map((requests) => requests.map((req) => this.normalizeRequest(req))));
   }
 
   listForUser(
@@ -79,7 +91,8 @@ export class ChangeRequestsService {
           orderBy('requestedAt', 'desc')
         );
 
-    return collectionData(q, { idField: 'id' }) as Observable<ChangeRequest[]>;
+    return (collectionData(q, { idField: 'id' }) as Observable<ChangeRequest[]>)
+      .pipe(map((requests) => requests.map((req) => this.normalizeRequest(req))));
   }
 
   async approve(officeId: string, requestId: string, decidedByUserId: string): Promise<void> {
@@ -108,5 +121,20 @@ export class ChangeRequestsService {
       decidedByUserId,
       rejectReason
     });
+  }
+
+  async cancel(officeId: string, requestId: string): Promise<void> {
+    const docRef = doc(this.collectionPath(officeId), requestId);
+
+    await updateDoc(docRef, {
+      status: 'canceled'
+    });
+  }
+
+  private normalizeRequest(data: ChangeRequest): ChangeRequest {
+    return {
+      ...data,
+      kind: data.kind ?? 'profile'
+    };
   }
 }
