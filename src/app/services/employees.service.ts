@@ -3,6 +3,7 @@ import {
   Firestore,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -77,7 +78,7 @@ export class EmployeesService {
     // nullも書き込み対象として扱う（空文字でクリアするため）
     if (employee.kana !== undefined) payload.kana = employee.kana;
     if (employee.department !== undefined) payload.department = employee.department;
-    if (employee.retireDate != null) payload.retireDate = employee.retireDate;
+    if (employee.retireDate !== undefined) payload.retireDate = employee.retireDate;
     if (employee.address !== undefined) payload.address = employee.address;
     if (employee.phone !== undefined) payload.phone = employee.phone;
     if (employee.contactEmail !== undefined) {
@@ -149,51 +150,61 @@ export class EmployeesService {
     }
 
     // 健康保険の資格情報
-    if (employee.healthQualificationDate != null) {
+    if (employee.healthQualificationDate !== undefined) {
       payload.healthQualificationDate = employee.healthQualificationDate;
     }
-    if (employee.healthLossDate != null) {
+    if (employee.healthLossDate !== undefined) {
       payload.healthLossDate = employee.healthLossDate;
     }
-    if (employee.healthQualificationKind != null) {
+    if (employee.healthQualificationKind !== undefined) {
       payload.healthQualificationKind = employee.healthQualificationKind;
     }
-    if (employee.healthLossReasonKind != null) {
+    if (employee.healthLossReasonKind !== undefined) {
       payload.healthLossReasonKind = employee.healthLossReasonKind;
     }
 
     // 厚生年金の資格情報
-    if (employee.pensionQualificationDate != null) {
+    if (employee.pensionQualificationDate !== undefined) {
       payload.pensionQualificationDate = employee.pensionQualificationDate;
     }
-    if (employee.pensionLossDate != null) {
+    if (employee.pensionLossDate !== undefined) {
       payload.pensionLossDate = employee.pensionLossDate;
     }
-    if (employee.pensionQualificationKind != null) {
+    if (employee.pensionQualificationKind !== undefined) {
       payload.pensionQualificationKind = employee.pensionQualificationKind;
     }
-    if (employee.pensionLossReasonKind != null) {
+    if (employee.pensionLossReasonKind !== undefined) {
       payload.pensionLossReasonKind = employee.pensionLossReasonKind;
     }
 
     // 就業状態
-    if (employee.workingStatus != null) {
+    if (employee.workingStatus !== undefined) {
       payload.workingStatus = employee.workingStatus;
     }
-    if (employee.workingStatusStartDate != null) {
+    if (employee.workingStatusStartDate !== undefined) {
       payload.workingStatusStartDate = employee.workingStatusStartDate;
     }
-    if (employee.workingStatusEndDate != null) {
+    if (employee.workingStatusEndDate !== undefined) {
       payload.workingStatusEndDate = employee.workingStatusEndDate;
     }
-    if (employee.premiumTreatment != null) {
+    if (employee.premiumTreatment !== undefined) {
       payload.premiumTreatment = employee.premiumTreatment;
     }
     if (employee.workingStatusNote != null) {
       payload.workingStatusNote = employee.workingStatusNote;
     }
 
-    await setDoc(ref, payload, { merge: true });
+    // null を deleteField() に変換して、空で保存された項目を Firestore から削除
+    const processedPayload: any = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (value === null) {
+        processedPayload[key] = deleteField();
+      } else {
+        processedPayload[key] = value;
+      }
+    }
+
+    await setDoc(ref, processedPayload, { merge: true });
   }
 
   delete(officeId: string, employeeId: string): Promise<void> {

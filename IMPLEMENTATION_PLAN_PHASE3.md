@@ -1,9 +1,9 @@
 # Phase3 実装計画
 
 **作成日**: 2025年11月28日  
-**最終更新**: 2025年12月2日（Phase3-7完了後）  
+**最終更新**: 2025年12月3日（Phase3-8 MVP完了後）  
 **目標完了日**: 2025年12月10日  
-**残り日数**: 約8日間（Phase3-1からPhase3-7まで完了済み、残り11機能）
+**残り日数**: 約7日間（Phase3-1からPhase3-8 MVPまで完了済み、残り10機能）
 
 ---
 
@@ -34,7 +34,7 @@
 
 ## 🎯 Phase3の実装方針
 
-Phase3では、**12月10日までの完成を目指し、残り11機能すべてを実装**します（Phase3-1からPhase3-7まで完了済み）。
+Phase3では、**12月10日までの完成を目指し、残り10機能すべてを実装**します（Phase3-1からPhase3-8 MVPまで完了済み）。
 
 ### Phase3の目標
 1. **基本機能の完成**: 部分実装されている機能を完成させる
@@ -44,7 +44,7 @@ Phase3では、**12月10日までの完成を目指し、残り11機能すべて
 
 ---
 
-## 📋 Phase3の実装フェーズ（残り11機能）
+## 📋 Phase3の実装フェーズ（残り10機能）
 
 ### Phase3-1: 従業員情報の最終更新者・更新日時表示機能の完成 ✅ 実装完了
 
@@ -409,25 +409,54 @@ Phase3では、**12月10日までの完成を目指し、残り11機能すべて
 ---
 
 
-### Phase3-8: 公的帳票（届出書）自動作成・PDF出力機能 📋 未実装（優先度：中）
+### Phase3-8: 公的帳票（届出書）自動作成・PDF出力機能 ✅ 実装完了（MVP）
 
 **優先度**: 🟡 中（拡張機能）  
-**依存関係**: Phase3-4  
-**目標完了日**: 2025年12月3日
+**依存関係**: Phase3-4、Phase3-7  
+**目標完了日**: 2025年12月3日  
+**完了日**: 2025年12月3日
 
-**目的**: 資格取得届・資格喪失届・算定基礎届など、代表的な社会保険届出書について、従業員データから必要項目を自動反映した帳票を生成できる
+**目的**: 資格取得届・資格喪失届・賞与支払届など、代表的な社会保険届出書について、従業員データから必要項目を自動反映した帳票を生成できる
 
-**実装予定内容**:
-1. **帳票テンプレートの定義**
-   - 代表的な届出書のテンプレート定義
+**実装完了内容（MVP）**:
+1. ✅ **PDF生成サービスの実装**
+   - `DocumentGeneratorService`の実装（pdfmake使用）
+   - 日本語フォント対応（Noto Sans JP）
+   - PDF出力機能（プレビュー・ダウンロード・印刷）
 
-2. **PDF出力機能**
-   - 帳票の自動生成
-   - PDFとして出力・保存・印刷
+2. ✅ **帳票テンプレートの定義**
+   - 資格取得届のテンプレート定義（`qualification-acquisition.ts`）
+   - 資格喪失届のテンプレート定義（`qualification-loss.ts`）
+   - 賞与支払届のテンプレート定義（`bonus-payment.ts`）
 
-**実装予定ファイル**:
-- `src/app/utils/document-generator.service.ts`（新規作成、PDF生成ライブラリ使用）
-- `src/app/pages/procedures/procedures.page.ts`（PDF出力ボタン追加）
+3. ✅ **帳票生成ダイアログの実装**
+   - `DocumentGenerationDialogComponent`の実装
+   - バリデーション機能（致命的必須項目・通常必須項目・任意項目の3段階分類）
+   - 標準報酬月額の自動取得（標準報酬履歴を優先）
+
+4. ✅ **UI連携**
+   - 従業員詳細ダイアログからの帳票生成ボタン（資格取得届PDF、資格喪失届PDF）
+   - 賞与保険料画面からの帳票生成ボタン（賞与支払届PDF）
+
+**将来拡張（Phase4以降）**:
+- ❌ 算定基礎届の一括PDF生成（複数名を1つのPDFにまとめる）
+- ❌ 月額変更届のPDF生成
+- ❌ 被扶養者異動届のPDF生成
+- ❌ 手続き履歴画面からの一括PDF生成機能
+- ❌ 帳票履歴管理機能（Storageへの保存、履歴再ダウンロード）
+
+**実装ファイル**:
+- `src/app/services/document-generator.service.ts`（新規作成）
+- `src/app/utils/document-templates/qualification-acquisition.ts`（新規作成）
+- `src/app/utils/document-templates/qualification-loss.ts`（新規作成）
+- `src/app/utils/document-templates/bonus-payment.ts`（新規作成）
+- `src/app/utils/document-helpers.ts`（新規作成）
+- `src/app/utils/pdf-vfs-fonts-jp.ts`（日本語フォントvfsファイル）
+- `src/app/pages/documents/document-generation-dialog.component.ts`（新規作成）
+- `src/app/pages/employees/employee-detail-dialog.component.ts`（帳票生成ボタン追加）
+- `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（帳票生成ボタン追加）
+
+**注意**: 本機能は「参考様式」として位置づけられており、公的機関が正式に認めた様式ではありません。生成されたPDFは印刷して手書き修正や、e-Gov入力時の参照用として利用することを想定しています。
 
 ---
 
@@ -662,8 +691,8 @@ Phase3では、**12月10日までの完成を目指し、残り11機能すべて
 - ✅ **Phase3-6**: 社会保険料納付状況管理機能
 - ✅ **Phase3-7**: e-Gov届出対応マスタ管理機能（マイナンバー、基礎年金番号、事業所整理記号など）
 
-### 12月3日（水）- Day 6
-- **Phase3-8**: 公的帳票（届出書）自動作成・PDF出力機能
+### 12月3日（水）- Day 6 ✅ 完了
+- ✅ **Phase3-8**: 公的帳票（届出書）自動作成・PDF出力機能（MVP完了）
 - **Phase3-9**: 従業員セルフ入力・手続き申請フロー機能
 
 ### 12月4日（木）- Day 7

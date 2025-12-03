@@ -22,7 +22,7 @@ export function createQualificationLossDocument(
   return {
     info: { title: '資格喪失届（参考様式）' },
     defaultStyle: {
-      font: 'Roboto',
+      font: 'NotoSansJP',
       fontSize: 11
     },
     content: [

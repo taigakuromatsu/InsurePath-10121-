@@ -64,7 +64,15 @@ export interface DependentFormDialogData {
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>郵便番号</mat-label>
-        <input matInput formControlName="postalCode" placeholder="1234567" maxlength="7" />
+        <input
+          matInput
+          formControlName="postalCode"
+          placeholder="1234567"
+          maxlength="7"
+          name="dependent-postal-code"
+          autocomplete="off"
+          inputmode="numeric"
+        />
         <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
         <mat-error *ngIf="form.controls.postalCode.hasError('pattern')">
           7桁の数字を入力してください
@@ -88,6 +96,7 @@ export interface DependentFormDialogData {
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>続柄 *</mat-label>
         <mat-select formControlName="relationship" required>
+          <mat-option [value]="''">未選択</mat-option>
           <mat-option *ngFor="let relationship of relationships" [value]="relationship">
             {{ getDependentRelationshipLabel(relationship) }}
           </mat-option>
@@ -124,7 +133,7 @@ export interface DependentFormDialogData {
         </mat-error>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="full-width">
+      <mat-form-field appearance="outline" class="full-row">
         <mat-label>マイナンバー</mat-label>
         <input
           matInput
@@ -132,13 +141,24 @@ export interface DependentFormDialogData {
           placeholder="123456789012"
           maxlength="12"
           type="password"
+          name="dependent-my-number"
+          autocomplete="new-password"
+          inputmode="numeric"
         />
-        <mat-hint>12桁の数字（入力時は非表示）</mat-hint>
-        <mat-error *ngIf="form.controls.myNumber.hasError('invalidMyNumber')">
+
+        <!-- 左側ヒント：入力方法 -->
+        <mat-hint align="start">12桁の数字（入力時は非表示）</mat-hint>
+
+        <mat-error *ngIf="form.get('myNumber')?.hasError('invalidMyNumber')">
           正しい形式のマイナンバーを入力してください（12桁の数字）
         </mat-error>
-        <mat-hint *ngIf="maskedMyNumber">登録済み: {{ maskedMyNumber }}</mat-hint>
+
+        <!-- 右側ヒント：登録済みのマスク表示 -->
+        <mat-hint *ngIf="maskedMyNumber" align="end">
+          登録済み: {{ maskedMyNumber }}
+        </mat-hint>
       </mat-form-field>
+
     </form>
 
     <div mat-dialog-actions align="end" class="dialog-actions">
@@ -168,6 +188,10 @@ export interface DependentFormDialogData {
       }
 
       .full-width {
+        width: 100%;
+      }
+
+      .full-row {
         width: 100%;
       }
 
@@ -240,17 +264,26 @@ export class DependentFormDialogComponent {
         cohabitationFlag: data.dependent.cohabitationFlag ?? null
       });
 
+      // 扶養家族のマイナンバーがあれば復号してフォームにセットし、マスク表示も更新
       if (data.dependent.myNumber) {
-        void this.setMaskedMyNumber(data.dependent.myNumber);
+        void this.loadExistingMyNumber(data.dependent.myNumber);
       }
     }
   }
 
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
 
-  private async setMaskedMyNumber(encrypted: string): Promise<void> {
-    const decrypted = await this.myNumberService.decrypt(encrypted);
-    this.maskedMyNumber = this.myNumberService.mask(decrypted);
+  private async loadExistingMyNumber(encrypted: string): Promise<void> {
+    try {
+      const decrypted = await this.myNumberService.decrypt(encrypted);
+      // フォームの myNumber に復号済みの値をセット（type="password" なので画面上は伏字）
+      this.form.patchValue({ myNumber: decrypted });
+      // 右側ヒント用にマスク済み文字列もセット
+      this.maskedMyNumber = this.myNumberService.mask(decrypted);
+    } catch (error) {
+      console.error('Failed to decrypt dependent myNumber', error);
+      this.maskedMyNumber = null;
+    }
   }
 
   async submit(): Promise<void> {
@@ -260,29 +293,39 @@ export class DependentFormDialogComponent {
     }
 
     const value = this.form.getRawValue();
-    const encryptedMyNumber = value.myNumber
-      ? await this.myNumberService.encrypt(value.myNumber)
-      : undefined;
 
     // 空文字の場合はnullをセット（Firestoreで値をクリアする）
+    // undefined = 変更しない、null = 削除する
     const normalizeString = (val: string | null | undefined): string | null => {
       const trimmed = val?.trim() ?? '';
       return trimmed === '' ? null : trimmed;
     };
 
+    // 日付フィールド: 空文字の場合はnull（削除扱い）
+    const normalizeDate = (val: string | null | undefined): string | null => {
+      const trimmed = val?.trim() ?? '';
+      return trimmed === '' ? null : trimmed;
+    };
+
+    // マイナンバー: 空文字の場合はnull（削除扱い）
+    const encryptedMyNumber =
+      value.myNumber && value.myNumber.trim() !== ''
+        ? await this.myNumberService.encrypt(value.myNumber.trim())
+        : null;
+
     const payload: Partial<Dependent> & { id?: string } = {
       id: this.data.dependent?.id,
       name: (value.name?.trim() || '') as string,
-      kana: normalizeString(value.kana) ?? undefined,
+      kana: normalizeString(value.kana) as any,
       sex: value.sex ?? undefined,
-      postalCode: normalizeString(value.postalCode) ?? undefined,
-      address: normalizeString(value.address) ?? undefined,
+      postalCode: normalizeString(value.postalCode) as any,
+      address: normalizeString(value.address) as any,
       cohabitationFlag: value.cohabitationFlag ?? undefined,
-      myNumber: encryptedMyNumber,
+      myNumber: encryptedMyNumber as any,
       relationship: value.relationship as DependentRelationship,
       dateOfBirth: value.dateOfBirth || '',
-      qualificationAcquiredDate: value.qualificationAcquiredDate || undefined,
-      qualificationLossDate: value.qualificationLossDate || undefined
+      qualificationAcquiredDate: normalizeDate(value.qualificationAcquiredDate) as any,
+      qualificationLossDate: normalizeDate(value.qualificationLossDate) as any
     };
 
     this.dialogRef.close(payload);

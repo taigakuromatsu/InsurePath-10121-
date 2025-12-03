@@ -27,7 +27,7 @@ export function createQualificationAcquisitionDocument(
       title: '資格取得届（参考様式）'
     },
     defaultStyle: {
-      font: 'Roboto',
+      font: 'NotoSansJP',
       fontSize: 11
     },
     content: [

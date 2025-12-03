@@ -6,7 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "generate-font-vfs": "node scripts/generate-font-vfs.js"
   },
   "prettier": {
     "printWidth": 100,
@@ -27,9 +28,9 @@
     "@angular/common": "^20.3.0",
     "@angular/compiler": "^20.3.0",
     "@angular/core": "^20.3.0",
+    "@angular/fire": "^20.0.1",
     "@angular/forms": "^20.3.0",
     "@angular/material": "^20.2.13",
-    "@angular/fire": "^20.0.1",
     "@angular/platform-browser": "^20.3.0",
     "@angular/platform-browser-dynamic": "^20.3.0",
     "@angular/router": "^20.3.0",
@@ -46,6 +47,7 @@
     "@angular/cli": "^20.3.3",
     "@angular/compiler-cli": "^20.3.3",
     "@types/jasmine": "~5.1.0",
+    "@types/pdfmake": "^0.2.12",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",

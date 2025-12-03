@@ -41,3 +41,7 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Font files (vfsファイルは生成後にコミット)
+fonts/*.ttf
+fonts/*.otf

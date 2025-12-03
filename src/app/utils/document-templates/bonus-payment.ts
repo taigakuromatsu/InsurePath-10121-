@@ -15,7 +15,7 @@ export function createBonusPaymentDocument(
   return {
     info: { title: '賞与支払届（参考様式）' },
     defaultStyle: {
-      font: 'Roboto',
+      font: 'NotoSansJP',
       fontSize: 11
     },
     content: [

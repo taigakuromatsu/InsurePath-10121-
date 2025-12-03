@@ -169,6 +169,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>雇用形態</mat-label>
         <mat-select formControlName="employmentType">
+          <mat-option [value]="''">未選択</mat-option>
           <mat-option value="regular">正社員</mat-option>
           <mat-option value="contract">契約社員</mat-option>
           <mat-option value="part">パート</mat-option>
@@ -266,6 +267,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>資格取得区分（健保）</mat-label>
         <mat-select formControlName="healthQualificationKind">
+          <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'new_hire'">新規採用</mat-option>
           <mat-option [value]="'expansion'">適用拡大</mat-option>
           <mat-option [value]="'hours_change'">所定労働時間変更</mat-option>
@@ -281,6 +283,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>喪失理由区分（健保）</mat-label>
         <mat-select formControlName="healthLossReasonKind">
+          <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'retirement'">退職</mat-option>
           <mat-option [value]="'hours_decrease'">所定労働時間減少</mat-option>
           <mat-option [value]="'death'">死亡</mat-option>
@@ -304,6 +307,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>資格取得区分（厚年）</mat-label>
         <mat-select formControlName="pensionQualificationKind">
+          <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'new_hire'">新規採用</mat-option>
           <mat-option [value]="'expansion'">適用拡大</mat-option>
           <mat-option [value]="'hours_change'">所定労働時間変更</mat-option>
@@ -319,6 +323,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>喪失理由区分（厚年）</mat-label>
         <mat-select formControlName="pensionLossReasonKind">
+          <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'retirement'">退職</mat-option>
           <mat-option [value]="'hours_decrease'">所定労働時間減少</mat-option>
           <mat-option [value]="'death'">死亡</mat-option>
@@ -337,6 +342,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>就業状態</mat-label>
         <mat-select formControlName="workingStatus">
+          <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'normal'">通常勤務</mat-option>
           <mat-option [value]="'maternity_leave'">産前産後休業</mat-option>
           <mat-option [value]="'childcare_leave'">育児休業</mat-option>
@@ -358,6 +364,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>保険料の扱い</mat-label>
         <mat-select formControlName="premiumTreatment">
+          <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'normal'">通常徴収</mat-option>
           <mat-option [value]="'exempt'">保険料免除</mat-option>
         </mat-select>
@@ -498,7 +505,7 @@ export class EmployeeFormDialogComponent {
     department: [''],
     hireDate: ['', Validators.required],
     retireDate: [''],
-    employmentType: ['regular', Validators.required],
+    employmentType: ['', Validators.required],
     address: [''],
     phone: [''],
     contactEmail: [''],
@@ -537,10 +544,10 @@ export class EmployeeFormDialogComponent {
     pensionLossDate: [''],
     pensionQualificationKind: [''],
     pensionLossReasonKind: [''],
-    workingStatus: ['normal'],
+    workingStatus: [''],
     workingStatusStartDate: [''],
     workingStatusEndDate: [''],
-    premiumTreatment: ['normal'],
+    premiumTreatment: [''],
     workingStatusNote: ['']
   });
 
@@ -568,15 +575,15 @@ export class EmployeeFormDialogComponent {
         pensionLossDate: employee.pensionLossDate ?? '',
         pensionQualificationKind: employee.pensionQualificationKind ?? '',
         pensionLossReasonKind: employee.pensionLossReasonKind ?? '',
-        workingStatus: employee.workingStatus ?? 'normal',
+        workingStatus: employee.workingStatus ?? '',
         workingStatusStartDate: employee.workingStatusStartDate ?? '',
         workingStatusEndDate: employee.workingStatusEndDate ?? '',
-        premiumTreatment: employee.premiumTreatment ?? 'normal',
+        premiumTreatment: employee.premiumTreatment ?? '',
         workingStatusNote: employee.workingStatusNote ?? ''
       } as any);
 
       if (employee.myNumber) {
-        void this.setMaskedMyNumber(employee.myNumber);
+        void this.loadExistingMyNumber(employee.myNumber);
       }
     }
   }
@@ -593,9 +600,17 @@ export class EmployeeFormDialogComponent {
     });
   }
 
-  private async setMaskedMyNumber(encrypted: string): Promise<void> {
-    const decrypted = await this.myNumberService.decrypt(encrypted);
-    this.maskedMyNumber = this.myNumberService.mask(decrypted);
+  private async loadExistingMyNumber(encrypted: string): Promise<void> {
+    try {
+      const decrypted = await this.myNumberService.decrypt(encrypted);
+      // フォームの myNumber に復号済みの値をセット（type="password" なので画面上は伏字）
+      this.form.patchValue({ myNumber: decrypted });
+      // 右側ヒント用にマスク済み文字列もセット
+      this.maskedMyNumber = this.myNumberService.mask(decrypted);
+    } catch (error) {
+      console.error('Failed to decrypt employee myNumber', error);
+      this.maskedMyNumber = null;
+    }
   }
 
   async submit(): Promise<void> {
@@ -608,42 +623,74 @@ export class EmployeeFormDialogComponent {
     const currentUserId = await firstValueFrom(
       this.currentUser.profile$.pipe(map((profile) => profile?.id ?? null))
     );
-    const encryptedMyNumber = formValue.myNumber
-      ? await this.myNumberService.encrypt(formValue.myNumber)
-      : undefined;
-
-    const basePayload: Partial<Employee> & { id?: string } = this.data.employee
-      ? ({
-          ...this.data.employee,
-          ...formValue,
-          updatedByUserId: currentUserId ?? undefined
-        } as unknown as Partial<Employee> & { id?: string })
-      : ({
-          ...formValue,
-          updatedByUserId: currentUserId ?? undefined
-        } as unknown as Partial<Employee> & { id?: string });
 
     // 空文字の場合はnullをセット（Firestoreで値をクリアする）
+    // undefined = 変更しない、null = 削除する
     const normalizeString = (value: string | null | undefined): string | null => {
       const trimmed = value?.trim() ?? '';
       return trimmed === '' ? null : trimmed;
     };
 
+    // 日付フィールド: 空文字の場合はnull（削除扱い）
+    const normalizeDate = (value: string | null | undefined): string | null => {
+      const trimmed = value?.trim() ?? '';
+      return trimmed === '' ? null : trimmed;
+    };
+
+    // 文字列選択フィールド: 空文字の場合はnull（削除扱い）
+    const normalizeSelectString = (value: string | null | undefined): string | null => {
+      const trimmed = value?.trim() ?? '';
+      return trimmed === '' ? null : trimmed;
+    };
+
+    // マイナンバー: 空文字の場合はnull（削除扱い）
+    const encryptedMyNumber =
+      formValue.myNumber && formValue.myNumber.trim() !== ''
+        ? await this.myNumberService.encrypt(formValue.myNumber.trim())
+        : null;
+
     const payload: Partial<Employee> & { id?: string } = {
-      ...basePayload,
-      employeeCodeInOffice: normalizeString(formValue.employeeCodeInOffice) ?? undefined,
+      id: this.data.employee?.id,
+      name: (formValue.name?.trim() || '') as string,
+      kana: normalizeString(formValue.kana) as any,
+      birthDate: formValue.birthDate || '',
+      department: normalizeString(formValue.department) as any,
+      hireDate: formValue.hireDate || '',
+      retireDate: normalizeDate(formValue.retireDate) as any,
+      employmentType: (formValue.employmentType || '') as any,
+      address: normalizeString(formValue.address) as any,
+      phone: normalizeString(formValue.phone) as any,
+      contactEmail: normalizeString(formValue.contactEmail) as any,
+      employeeCodeInOffice: normalizeString(formValue.employeeCodeInOffice) as any,
       sex: formValue.sex ?? undefined,
-      postalCode: normalizeString(formValue.postalCode) ?? undefined,
-      addressKana: normalizeString(formValue.addressKana) ?? undefined,
-      myNumber: encryptedMyNumber ?? basePayload.myNumber,
-      address: normalizeString(formValue.address) ?? undefined,
-      phone: normalizeString(formValue.phone) ?? undefined,
-      contactEmail: normalizeString(formValue.contactEmail) ?? undefined,
-      department: normalizeString(formValue.department) ?? undefined,
-      retireDate: formValue.retireDate || undefined,
-      contractPeriodNote: normalizeString(formValue.contractPeriodNote) ?? undefined,
-      workingStatusNote: normalizeString(formValue.workingStatusNote) ?? undefined,
-      kana: normalizeString(formValue.kana) ?? undefined
+      postalCode: normalizeString(formValue.postalCode) as any,
+      addressKana: normalizeString(formValue.addressKana) as any,
+      myNumber: encryptedMyNumber as any,
+      weeklyWorkingHours: formValue.weeklyWorkingHours ?? undefined,
+      weeklyWorkingDays: formValue.weeklyWorkingDays ?? undefined,
+      contractPeriodNote: normalizeString(formValue.contractPeriodNote) as any,
+      isStudent: formValue.isStudent ?? false,
+      monthlyWage: Number(formValue.monthlyWage ?? 0),
+      isInsured: formValue.isInsured ?? true,
+      healthGrade: formValue.healthGrade ?? undefined,
+      pensionGrade: formValue.pensionGrade ?? undefined,
+      healthInsuredSymbol: normalizeString(formValue.healthInsuredSymbol) as any,
+      healthInsuredNumber: normalizeString(formValue.healthInsuredNumber) as any,
+      pensionNumber: normalizeString(formValue.pensionNumber) as any,
+      healthQualificationDate: normalizeDate(formValue.healthQualificationDate) as any,
+      healthLossDate: normalizeDate(formValue.healthLossDate) as any,
+      healthQualificationKind: normalizeSelectString(formValue.healthQualificationKind) as any,
+      healthLossReasonKind: normalizeSelectString(formValue.healthLossReasonKind) as any,
+      pensionQualificationDate: normalizeDate(formValue.pensionQualificationDate) as any,
+      pensionLossDate: normalizeDate(formValue.pensionLossDate) as any,
+      pensionQualificationKind: normalizeSelectString(formValue.pensionQualificationKind) as any,
+      pensionLossReasonKind: normalizeSelectString(formValue.pensionLossReasonKind) as any,
+      workingStatus: normalizeSelectString(formValue.workingStatus) as any,
+      workingStatusStartDate: normalizeDate(formValue.workingStatusStartDate) as any,
+      workingStatusEndDate: normalizeDate(formValue.workingStatusEndDate) as any,
+      premiumTreatment: normalizeSelectString(formValue.premiumTreatment) as any,
+      workingStatusNote: normalizeString(formValue.workingStatusNote) as any,
+      updatedByUserId: currentUserId ?? undefined
     };
 
     try {

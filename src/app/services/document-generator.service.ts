@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 import pdfMake from 'pdfmake/build/pdfmake';
-import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
 
 import { BonusPremium, Employee, Office, StandardRewardHistory } from '../types';
+import { pdfVfsJp } from '../utils/pdf-vfs-fonts-jp';
 import { createBonusPaymentDocument } from '../utils/document-templates/bonus-payment';
 import { createQualificationAcquisitionDocument } from '../utils/document-templates/qualification-acquisition';
 import { createQualificationLossDocument } from '../utils/document-templates/qualification-loss';
@@ -46,14 +46,18 @@ export class DocumentGeneratorService {
   private ensureFonts(): void {
     if (this.initialized) return;
 
-    (pdfMake as any).vfs = pdfFonts.pdfMake.vfs;
+    // 日本語フォントをvfsとして設定
+    (pdfMake as any).vfs = {
+      ...pdfVfsJp
+    };
+
+    // 日本語フォントをデフォルトフォントとして登録
     (pdfMake as any).fonts = {
-      ...(pdfFonts as any).pdfMake?.fonts,
-      Roboto: {
-        normal: 'Roboto-Regular.ttf',
-        bold: 'Roboto-Medium.ttf',
-        italics: 'Roboto-Italic.ttf',
-        bolditalics: 'Roboto-MediumItalic.ttf'
+      NotoSansJP: {
+        normal: 'NotoSansJP-Regular.ttf',
+        bold: 'NotoSansJP-Bold.ttf',
+        italics: 'NotoSansJP-Regular.ttf',
+        bolditalics: 'NotoSansJP-Bold.ttf'
       }
     };
 

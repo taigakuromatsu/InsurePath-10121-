@@ -1,5 +1,5 @@
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
-import { Component, Inject, inject } from '@angular/core';
+import { AsyncPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -45,6 +45,7 @@ interface DocumentViewModel {
   standalone: true,
   imports: [
     AsyncPipe,
+    DecimalPipe,
     NgFor,
     NgIf,
     ReactiveFormsModule,
@@ -81,98 +82,100 @@ interface DocumentViewModel {
       </div>
 
       <ng-container *ngIf="(viewModel$ | async) as vm">
-        <ng-container *ngIf="vm.type === 'bonus_payment'">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>対象賞与</mat-label>
-            <mat-select [formControl]="bonusControl">
-              <mat-option *ngFor="let bonus of bonuses" [value]="bonus.id">
-                {{ bonus.payDate }} / {{ bonus.grossAmount | number }} 円
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
+        <ng-container *ngIf="(validation$ | async) as validation">
+          <ng-container *ngIf="vm.type === 'bonus_payment'">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>対象賞与</mat-label>
+              <mat-select [formControl]="bonusControl">
+                <mat-option *ngFor="let bonus of bonuses" [value]="bonus.id">
+                  {{ bonus.payDate }} / {{ bonus.grossAmount | number }} 円
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </ng-container>
+
+          <ng-container *ngIf="vm.type !== 'bonus_payment'">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>対象基準日</mat-label>
+              <input matInput type="date" [formControl]="referenceDateControl" />
+            </mat-form-field>
+          </ng-container>
+
+          <div class="warnings">
+            <div class="error" *ngIf="validation.criticalMissing.length > 0">
+              <strong>不足している致命的項目:</strong>
+              <ul>
+                <li *ngFor="let item of validation.criticalMissing">{{ item }}</li>
+              </ul>
+            </div>
+
+            <div class="warning" *ngIf="validation.requiredMissing.length > 0">
+              <strong>未入力の主要項目:</strong>
+              <ul>
+                <li *ngFor="let item of validation.requiredMissing">{{ item }}</li>
+              </ul>
+              <mat-checkbox [formControl]="ackWarningsControl">
+                警告を理解した上で空欄のまま続行する
+              </mat-checkbox>
+            </div>
+
+            <div class="info" *ngIf="validation.optionalMissing.length > 0">
+              <strong>任意項目の不足:</strong>
+              <ul>
+                <li *ngFor="let item of validation.optionalMissing">{{ item }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="summary">
+            <div>
+              <strong>標準報酬月額（推定）:</strong>
+              {{
+                vm.standardMonthlyReward !== null && vm.standardMonthlyReward !== undefined
+                  ? (vm.standardMonthlyReward | number)
+                  : '未取得'
+              }}
+            </div>
+            <div *ngIf="vm.type !== 'bonus_payment'">
+              <strong>基準日:</strong> {{ vm.referenceDate || '未入力' }}
+            </div>
+            <div *ngIf="vm.type === 'bonus_payment'">
+              <strong>対象賞与:</strong> {{ vm.bonus?.payDate || '未選択' }}
+            </div>
+          </div>
+
+          <div class="actions">
+            <button
+              mat-stroked-button
+              color="primary"
+              type="button"
+              (click)="generate('open')"
+              [disabled]="!canGenerate(vm, validation)"
+            >
+              <mat-icon>visibility</mat-icon>
+              プレビュー
+            </button>
+            <button
+              mat-raised-button
+              color="primary"
+              type="button"
+              (click)="generate('download')"
+              [disabled]="!canGenerate(vm, validation)"
+            >
+              <mat-icon>download</mat-icon>
+              PDFダウンロード
+            </button>
+            <button
+              mat-button
+              type="button"
+              (click)="generate('print')"
+              [disabled]="!canGenerate(vm, validation)"
+            >
+              <mat-icon>print</mat-icon>
+              印刷
+            </button>
+          </div>
         </ng-container>
-
-        <ng-container *ngIf="vm.type !== 'bonus_payment'">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>対象基準日</mat-label>
-            <input matInput type="date" [formControl]="referenceDateControl" />
-          </mat-form-field>
-        </ng-container>
-
-        <div class="warnings" *ngIf="(validation$ | async) as validation">
-          <div class="error" *ngIf="validation.criticalMissing.length > 0">
-            <strong>不足している致命的項目:</strong>
-            <ul>
-              <li *ngFor="let item of validation.criticalMissing">{{ item }}</li>
-            </ul>
-          </div>
-
-          <div class="warning" *ngIf="validation.requiredMissing.length > 0">
-            <strong>未入力の主要項目:</strong>
-            <ul>
-              <li *ngFor="let item of validation.requiredMissing">{{ item }}</li>
-            </ul>
-            <mat-checkbox [formControl]="ackWarningsControl">
-              警告を理解した上で空欄のまま続行する
-            </mat-checkbox>
-          </div>
-
-          <div class="info" *ngIf="validation.optionalMissing.length > 0">
-            <strong>任意項目の不足:</strong>
-            <ul>
-              <li *ngFor="let item of validation.optionalMissing">{{ item }}</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="summary">
-          <div>
-            <strong>標準報酬月額（推定）:</strong>
-            {{
-              vm.standardMonthlyReward !== null && vm.standardMonthlyReward !== undefined
-                ? (vm.standardMonthlyReward | number)
-                : '未取得'
-            }}
-          </div>
-          <div *ngIf="vm.type !== 'bonus_payment'">
-            <strong>基準日:</strong> {{ vm.referenceDate || '未入力' }}
-          </div>
-          <div *ngIf="vm.type === 'bonus_payment'">
-            <strong>対象賞与:</strong> {{ vm.bonus?.payDate || '未選択' }}
-          </div>
-        </div>
-
-        <div class="actions">
-          <button
-            mat-stroked-button
-            color="primary"
-            type="button"
-            (click)="generate('open')"
-            [disabled]="!canGenerate(vm, validation)"
-          >
-            <mat-icon>visibility</mat-icon>
-            プレビュー
-          </button>
-          <button
-            mat-raised-button
-            color="primary"
-            type="button"
-            (click)="generate('download')"
-            [disabled]="!canGenerate(vm, validation)"
-          >
-            <mat-icon>download</mat-icon>
-            PDFダウンロード
-          </button>
-          <button
-            mat-button
-            type="button"
-            (click)="generate('print')"
-            [disabled]="!canGenerate(vm, validation)"
-          >
-            <mat-icon>print</mat-icon>
-            印刷
-          </button>
-        </div>
       </ng-container>
     </div>
 
@@ -281,6 +284,9 @@ export class DocumentGenerationDialogComponent {
   private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
   private readonly snackBar = inject(MatSnackBar);
 
+  // 他の this.data 利用フィールドよりも先に定義する
+  readonly data = inject<DocumentGenerationDialogData>(MAT_DIALOG_DATA);
+
   readonly documentTypes: Array<{ value: DocumentType; label: string }> = [
     { value: 'qualification_acquisition', label: '資格取得届' },
     { value: 'qualification_loss', label: '資格喪失届' },
@@ -337,7 +343,7 @@ export class DocumentGenerationDialogComponent {
 
   readonly validation$ = this.viewModel$.pipe(map((vm) => this.buildValidation(vm)));
 
-  constructor(@Inject(MAT_DIALOG_DATA) public data: DocumentGenerationDialogData) {}
+  constructor() {}
 
   canGenerate(vm: DocumentViewModel, validation: DocumentValidationResult): boolean {
     if (validation.criticalMissing.length > 0) return false;

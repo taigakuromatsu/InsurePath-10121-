@@ -1,5 +1,13 @@
 import { Injectable } from '@angular/core';
-import { collection, collectionData, deleteDoc, doc, Firestore, setDoc } from '@angular/fire/firestore';
+import {
+  collection,
+  collectionData,
+  deleteDoc,
+  deleteField,
+  doc,
+  Firestore,
+  setDoc
+} from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 
 import { Dependent } from '../types';
@@ -40,10 +48,10 @@ export class DependentsService {
       payload.createdAt = dependent.createdAt;
     }
 
-    if (dependent.qualificationAcquiredDate != null) {
+    if (dependent.qualificationAcquiredDate !== undefined) {
       payload.qualificationAcquiredDate = dependent.qualificationAcquiredDate;
     }
-    if (dependent.qualificationLossDate != null) {
+    if (dependent.qualificationLossDate !== undefined) {
       payload.qualificationLossDate = dependent.qualificationLossDate;
     }
 
@@ -67,7 +75,17 @@ export class DependentsService {
       payload.myNumber = dependent.myNumber;
     }
 
-    await setDoc(ref, payload, { merge: true });
+    // null を deleteField() に変換して、空で保存された項目を Firestore から削除
+    const processedPayload: Partial<Dependent> = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (value === null) {
+        (processedPayload as any)[key] = deleteField();
+      } else {
+        (processedPayload as any)[key] = value;
+      }
+    }
+
+    await setDoc(ref, processedPayload, { merge: true });
   }
 
   delete(officeId: string, employeeId: string, dependentId: string): Promise<void> {
