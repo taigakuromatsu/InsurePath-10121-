@@ -21,7 +21,7 @@ import { DecimalPipe } from '@angular/common'; // ★ number パイプ用
 import { map, Observable, of, switchMap } from 'rxjs';
 import { MatTableModule } from '@angular/material/table';
 
-import { Dependent, Employee, StandardRewardHistory } from '../../types';
+import { Dependent, Employee, StandardRewardHistory, Sex } from '../../types';
 import {
   getDependentRelationshipLabel,
   getInsuranceLossReasonKindLabel,
@@ -113,9 +113,6 @@ export interface EmployeeDetailDialogData {
         <div class="label">退社日</div>
         <div class="value">{{ data.employee.retireDate || '-' }}</div>
 
-        <div class="label">雇用形態</div>
-        <div class="value">{{ data.employee.employmentType }}</div>
-
         <div class="label">住所</div>
         <div class="value">{{ data.employee.address || '-' }}</div>
 
@@ -124,6 +121,23 @@ export interface EmployeeDetailDialogData {
 
         <div class="label">連絡先メール</div>
         <div class="value">{{ data.employee.contactEmail || '-' }}</div>
+
+        <div class="label">被保険者整理番号</div>
+        <div class="value">{{ data.employee.employeeCodeInOffice || '-' }}</div>
+
+        <div class="label">性別</div>
+        <div class="value">{{ getSexLabel(data.employee.sex) }}</div>
+
+        <div class="label">郵便番号</div>
+        <div class="value">{{ data.employee.postalCode || '-' }}</div>
+
+        <div class="label">住所カナ</div>
+        <div class="value">{{ data.employee.addressKana || '-' }}</div>
+
+        <div class="label">マイナンバー</div>
+        <div class="value">
+          {{ data.employee.myNumber ? '登録済み（番号は非表示）' : '未登録' }}
+        </div>
       </div>
       </div>
 
@@ -134,6 +148,12 @@ export interface EmployeeDetailDialogData {
         就労条件
       </h2>
       <div class="grid">
+        <div class="label">雇用形態</div>
+        <div class="value">{{ getEmploymentTypeLabel(data.employee.employmentType) }}</div>
+
+        <div class="label">標準報酬月額</div>
+        <div class="value">{{ data.employee.monthlyWage | number }}</div>
+
         <div class="label">所定労働時間（週）</div>
         <div class="value">{{ data.employee.weeklyWorkingHours ?? '-' }}</div>
 
@@ -155,10 +175,6 @@ export interface EmployeeDetailDialogData {
         社会保険情報
       </h2>
       <div class="grid">
-        <!-- ★ フォームと同じ「標準報酬月額」に統一 -->
-        <div class="label">標準報酬月額</div>
-        <div class="value">{{ data.employee.monthlyWage | number }}</div>
-
         <!-- ★ フォームのラベル「社会保険対象」に合わせる -->
         <div class="label">社会保険対象</div>
         <div class="value">
@@ -821,6 +837,38 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
   protected readonly getStandardRewardDecisionKindLabel =
     getStandardRewardDecisionKindLabel;
+
+  protected readonly getSexLabel = (sex: Sex | null | undefined): string => {
+    switch (sex) {
+      case 'male':
+        return '男';
+      case 'female':
+        return '女';
+      case 'other':
+        return 'その他';
+      default:
+        return '-';
+    }
+  };
+
+  protected readonly getEmploymentTypeLabel = (
+    type: Employee['employmentType'] | null | undefined
+  ): string => {
+    switch (type) {
+      case 'regular':
+        return '正社員';
+      case 'contract':
+        return '契約社員';
+      case 'part':
+        return 'パート';
+      case 'アルバイト':
+        return 'アルバイト';
+      case 'other':
+        return 'その他';
+      default:
+        return '-';
+    }
+  };
 
   scrollToSection(sectionId: DialogFocusSection): void {
     const container = this.contentRef?.nativeElement;

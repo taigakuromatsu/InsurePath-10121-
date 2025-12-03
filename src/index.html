@@ -15,6 +15,14 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <script>
+      // localhost で動かしているときだけ有効
+      if (location.hostname === 'localhost') {
+        self.FIREBASE_APPCHECK_DEBUG_TOKEN =
+          'c633aa25-e4d0-4356-9e9c-36f20053ee64';
+      }
+    </script>
 </head>
   <body>
     <app-root></app-root>

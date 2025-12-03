@@ -111,7 +111,15 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>郵便番号</mat-label>
-        <input matInput formControlName="postalCode" placeholder="1234567" maxlength="7" autocomplete="off" inputmode="numeric"/>
+        <input
+          matInput
+          formControlName="postalCode"
+          placeholder="1234567"
+          maxlength="7"
+          name="employee-postal-code"
+          autocomplete="off"
+          inputmode="numeric"
+        />
         <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
         <mat-error *ngIf="form.get('postalCode')?.hasError('pattern')">
           7桁の数字を入力してください
@@ -131,15 +139,24 @@ export interface EmployeeDialogData {
           placeholder="123456789012"
           maxlength="12"
           type="password"
-          autocomplete="off"
+          name="employee-my-number"
+          autocomplete="new-password"
           inputmode="numeric"
         />
-        <mat-hint>12桁の数字（入力時は非表示）</mat-hint>
+
+        <!-- 左側ヒント：入力方法 -->
+        <mat-hint align="start">12桁の数字（入力時は非表示）</mat-hint>
+
         <mat-error *ngIf="form.get('myNumber')?.hasError('invalidMyNumber')">
           正しい形式のマイナンバーを入力してください（12桁の数字）
         </mat-error>
-        <mat-hint *ngIf="maskedMyNumber">登録済み: {{ maskedMyNumber }}</mat-hint>
+
+        <!-- 右側ヒント：登録済みのマスク表示 -->
+        <mat-hint *ngIf="maskedMyNumber" align="end">
+          登録済み: {{ maskedMyNumber }}
+        </mat-hint>
       </mat-form-field>
+
         </div>
       </div>
 
