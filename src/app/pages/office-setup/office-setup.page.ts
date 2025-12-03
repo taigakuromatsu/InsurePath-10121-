@@ -290,8 +290,12 @@ export class OfficeSetupPage {
       });
       await this.currentUser.assignOffice(office.id);
       await this.currentUser.updateProfile({ role: 'admin' });
-      await this.router.navigateByUrl('/dashboard');
-      this.snackBar.open('新しい事業所を作成しました', '閉じる', { duration: 3000 });
+      await this.router.navigateByUrl('/offices');
+      this.snackBar.open(
+        '新しい事業所を作成しました。事業所設定画面で事業所記号や郵便番号などの識別情報も入力してください。',
+        '閉じる',
+        { duration: 4000 }
+      );
     } catch (error) {
       console.error(error);
       this.snackBar.open('事業所の作成に失敗しました', '閉じる', { duration: 4000 });
