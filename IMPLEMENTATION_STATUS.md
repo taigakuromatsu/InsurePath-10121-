@@ -1,37 +1,30 @@
 # InsurePath 実装状況レポート
 
 **作成日**: 2025年1月  
-**最終更新**: 2025年12月2日（Phase3-6完了後）
+**最終更新**: 2025年12月2日（Phase3-7完了後）
 
 ## 概要
 
-本ドキュメントは、CATALOG.mdに記載された35の機能要件に対する現時点での実装状況をまとめたものです。
+本ドキュメントは、IMPLEMENTATION_CATALOG.mdに記載された35の機能要件に対する現時点での実装状況をまとめたものです。
 
 ---
 
 ## ✅ 実装済み機能
 
-### (12) 賞与管理・賞与保険料計算機能（実装済み）
+### (1) 事業所（会社）管理機能（基本実装）
 
-**実装状況**: 賞与支給履歴の登録・閲覧・計算機能は実装済み
+**実装状況**: CRUD操作は実装済み
 
-- ✅ ページコンポーネントとルーティング
-- ✅ 型定義（BonusPremium）
-- ✅ 賞与支給履歴の登録・閲覧・編集・削除
-- ✅ 標準賞与額の計算（1,000円未満切り捨て）
-- ✅ 賞与保険料の計算ロジック（健康保険・厚生年金）
-- ✅ 上限チェック（健康保険573万円/年度累計、厚生年金150万円/回）
-- ✅ 年度（4月1日基準）の自動判定
-- ✅ 健康保険の年度内累計標準賞与額の管理
-- ✅ マスタからの保険料率自動取得
-- ✅ 計算結果プレビュー表示
-- ✅ 本人負担額・会社負担額の集計表示
+- ✅ 事業所の基本情報（事業所名、所在地、健康保険種別）の登録・編集
+- ✅ 協会けんぽ／組合健保の選択
+- ✅ 都道府県支部の選択（協会けんぽ）
+- ✅ 健康保険組合名の登録（組合健保）
+- ⚠️ 保険料率の初期値設定は未実装
 
 **関連ファイル**:
-- `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（実装済み）
-- `src/app/pages/premiums/bonus/bonus-form-dialog.component.ts`（実装済み）
-- `src/app/services/bonus-premiums.service.ts`（実装済み）
-- `src/app/utils/bonus-calculator.ts`（実装済み）
+- `src/app/services/offices.service.ts`
+- `src/app/pages/offices/offices.page.ts`
+- `src/app/pages/office-setup/office-setup.page.ts`
 
 ### (2) ユーザー・ロール管理機能（部分実装）
 
@@ -48,21 +41,6 @@
 - `src/app/services/current-user.service.ts`
 - `src/app/guards/auth.guard.ts`
 - `src/app/guards/office.guard.ts`
-
-### (1) 事業所（会社）管理機能（基本実装）
-
-**実装状況**: CRUD操作は実装済み
-
-- ✅ 事業所の基本情報（事業所名、所在地、健康保険種別）の登録・編集
-- ✅ 協会けんぽ／組合健保の選択
-- ✅ 都道府県支部の選択（協会けんぽ）
-- ✅ 健康保険組合名の登録（組合健保）
-- ⚠️ 保険料率の初期値設定は未実装
-
-**関連ファイル**:
-- `src/app/services/offices.service.ts`
-- `src/app/pages/offices/offices.page.ts`
-- `src/app/pages/office-setup/office-setup.page.ts`
 
 ### (3) 従業員台帳・在籍・資格情報・就労条件管理機能（実装済み）
 
@@ -140,6 +118,139 @@
 - `src/app/utils/label-utils.ts`（`getStandardRewardDecisionKindLabel`関数追加）
 - `firestore.rules`（`standardRewardHistories`サブコレクションのルール追加）
 
+### (6) 標準報酬月額・等級・保険プランマスタ管理機能（実装済み）
+
+**実装状況**: マスタ管理機能は実装済み
+
+- ✅ ページコンポーネントとルーティング
+- ✅ 型定義（HealthRateTable, CareRateTable, PensionRateTable, StandardRewardBand）
+- ✅ マスタ登録・編集画面（健康保険・介護保険・厚生年金）
+- ✅ 年度別マスタ管理
+- ✅ 協会けんぽの初期値プリセット（都道府県別）
+- ✅ 標準報酬等級表の登録・管理
+- ✅ 月次保険料計算画面とのマスタ連携
+- ⚠️ 等級自動判定機能（報酬月額からの自動判定）は未実装
+
+**関連ファイル**:
+- `src/app/pages/masters/masters.page.ts`（実装済み）
+- `src/app/services/masters.service.ts`（新規追加）
+- `src/app/pages/masters/health-master-form-dialog.component.ts`（新規追加）
+- `src/app/pages/masters/care-master-form-dialog.component.ts`（新規追加）
+- `src/app/pages/masters/pension-master-form-dialog.component.ts`（新規追加）
+- `src/app/utils/kyokai-presets.ts`（新規追加）
+
+### (7) 社会保険料自動計算機能（実装済み）
+
+**実装状況**: 計算ロジックと保存機能は実装済み
+
+- ✅ 型定義（MonthlyPremium, PremiumRateContext, MonthlyPremiumCalculationResult）
+- ✅ 厚生年金保険料計算ロジック
+- ✅ 介護保険料計算ロジック（40〜64歳判定含む）
+- ✅ 健康保険料計算ロジック
+- ✅ 端数処理の統一（1円未満切り捨て）
+- ✅ 計算結果の保存（Firestore）
+- ✅ 資格取得日・喪失日ベースの対象月判定
+- ✅ 保険料免除（premiumTreatment === 'exempt'）の処理
+
+**関連ファイル**:
+- `src/app/utils/premium-calculator.ts`（新規追加）
+- `src/app/services/monthly-premiums.service.ts`（新規追加）
+
+### (8) 月次保険料一覧・会社負担集計機能（実装済み）
+
+**実装状況**: 計算・保存・一覧表示・マスタ連携・機能拡張は実装済み（Phase1-9完了）
+
+- ✅ ページコンポーネントとルーティング
+- ✅ 保険料計算ロジック（premium-calculator.ts経由）
+- ✅ 一括計算・保存機能
+- ✅ 一覧表示（シート形式）
+- ✅ 会社負担額総計の集計
+- ✅ 本人負担額総計の集計
+- ✅ マスタからの料率自動取得
+- ✅ 適用料率の表示
+- ✅ 過去月分の一覧表示（年月選択UI、直近12ヶ月対応）
+- ✅ 従業員名での絞り込み機能
+- ✅ 月単位の合計行表示（本人負担・会社負担）
+- ✅ 初期表示で当月分を自動ロード
+
+**関連ファイル**:
+- `src/app/pages/premiums/monthly/monthly-premiums.page.ts`（実装済み）
+- `src/app/services/monthly-premiums.service.ts`（実装済み）
+- `src/app/utils/premium-calculator.ts`（実装済み）
+
+### (9) 従業員別保険料明細（マイページ）機能（実装済み）
+
+**実装状況**: Phase1-7で完全実装済み
+
+- ✅ ページコンポーネントとルーティング
+- ✅ 基本情報の表示（氏名、所属部署、入社日、等級・標準報酬月額、社会保険加入状況）
+- ✅ 月次保険料明細の表示（直近12ヶ月分）
+- ✅ 賞与保険料明細の表示
+- ✅ 本人・会社負担額の表示
+- ✅ 空データ時の適切なメッセージ表示
+- ✅ 従業員IDによる自動フィルタリング（セキュリティ確保）
+- ⚠️ 推移グラフ（未実装、将来の拡張）
+
+**関連ファイル**:
+- `src/app/pages/me/my-page.ts`（実装済み）
+- `src/app/services/monthly-premiums.service.ts`（`listByOfficeAndEmployee`メソッド追加）
+
+### (10) 保険料シミュレーション機能（実装済み）
+
+**実装状況**: Phase1-11完了により、保険料シミュレーション機能が完全実装済み
+
+- ✅ ページコンポーネントとルーティング
+- ✅ シミュレーション計算ロジック（`premium-calculator.ts`を再利用）
+- ✅ 入力フォーム（対象年月、報酬月額、健康保険等級、厚生年金等級、介護保険対象フラグ）
+- ✅ 結果表示（等級・標準報酬月額、各保険の本人負担額・会社負担額・合計、トータル）
+- ✅ マスタからの保険料率自動取得
+- ✅ エラーハンドリング（マスタ未設定、料率未設定など）
+- ✅ 既存の月次保険料計算ロジックとの整合性確保
+
+**関連ファイル**:
+- `src/app/pages/simulator/simulator.page.ts`（実装済み）
+- `src/app/utils/premium-calculator.ts`（再利用）
+
+### (11) 負担構成ダッシュボード機能（実装済み）
+
+**実装状況**: Phase1-10完了によりKPIカードの基本機能が実装済み、Phase1-12完了によりグラフ表示機能が追加実装済み
+
+- ✅ ページコンポーネントとルーティング
+- ✅ 従業員数カード（社会保険加入者数または全従業員数）
+- ✅ 月次保険料カード（今月の会社負担額合計）
+- ✅ トレンドカード（前月比の変化、増減率%）
+- ✅ 過去12ヶ月の推移グラフ（折れ線グラフ、月次保険料の会社負担額推移）
+- ✅ 当月の月次・賞与比較グラフ（棒グラフ）
+- ✅ 年度別集計グラフ（棒グラフ、4月1日基準）
+- ✅ 従業員別ランキング表示（会社負担額・本人負担額トップ10）
+- ✅ データ取得と集計ロジック
+- ✅ エラーハンドリングとデータなし時の表示
+
+**関連ファイル**:
+- `src/app/pages/dashboard/dashboard.page.ts`（実装済み）
+
+### (12) 賞与管理・賞与保険料計算機能（実装済み）
+
+**実装状況**: 賞与支給履歴の登録・閲覧・計算機能は実装済み
+
+- ✅ ページコンポーネントとルーティング
+- ✅ 型定義（BonusPremium）
+- ✅ 賞与支給履歴の登録・閲覧・編集・削除
+- ✅ 標準賞与額の計算（1,000円未満切り捨て）
+- ✅ 賞与保険料の計算ロジック（健康保険・厚生年金）
+- ✅ 上限チェック（健康保険573万円/年度累計、厚生年金150万円/回）
+- ✅ 年度（4月1日基準）の自動判定
+- ✅ 健康保険の年度内累計標準賞与額の管理
+- ✅ マスタからの保険料率自動取得
+- ✅ 計算結果プレビュー表示
+- ✅ 本人負担額・会社負担額の集計表示
+
+**関連ファイル**:
+- `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（実装済み）
+- `src/app/pages/premiums/bonus/bonus-form-dialog.component.ts`（実装済み）
+- `src/app/services/bonus-premiums.service.ts`（実装済み）
+- `src/app/utils/bonus-calculator.ts`（実装済み）
+
 ### (13) セキュリティ・アクセス制御機能（実装済み）
 
 **実装状況**: Phase2-1完了により、FirestoreセキュリティルールとAngular側のアクセス制御が完全実装済み
@@ -203,157 +314,39 @@
 - `src/app/pages/premiums/monthly/monthly-premiums.page.ts`（CSVエクスポートボタン追加）
 - `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（CSVエクスポートボタン追加）
 
-### (35) CSVテンプレートダウンロード機能（実装済み）
+### (16) 従業員情報の最終更新者・更新日時表示機能（実装済み）
 
-**実装状況**: Phase2-7完了により、CSVテンプレートダウンロード機能が完全実装済み
+**実装状況**: Phase3-1完了により、従業員情報の最終更新者・更新日時表示機能が完全実装済み
 
-- ✅ CSVテンプレートダウンロード機能
-- ✅ ヘッダ行のみのテンプレートCSV出力
-- ✅ コメント行付きテンプレート（入力ルール説明）
-- ✅ 従業員台帳ページからのダウンロード
-- ✅ CSVインポートダイアログからのダウンロード
-
-**関連ファイル**:
-- `src/app/utils/csv-export.service.ts`（`exportEmployeesTemplate()`メソッド）
-- `src/app/pages/employees/employees.page.ts`（CSVテンプレートボタン追加）
-- `src/app/pages/employees/employee-import-dialog.component.ts`（テンプレートダウンロードボタン追加）
-
----
-
-## 🚧 部分実装・プレースホルダー状態
-
-### (8) 月次保険料一覧・会社負担集計機能（実装済み）
-
-**実装状況**: 計算・保存・一覧表示・マスタ連携・機能拡張は実装済み（Phase1-9完了）
-
-- ✅ ページコンポーネントとルーティング
-- ✅ 保険料計算ロジック（premium-calculator.ts経由）
-- ✅ 一括計算・保存機能
-- ✅ 一覧表示（シート形式）
-- ✅ 会社負担額総計の集計
-- ✅ 本人負担額総計の集計
-- ✅ マスタからの料率自動取得
-- ✅ 適用料率の表示
-- ✅ 過去月分の一覧表示（年月選択UI、直近12ヶ月対応）
-- ✅ 従業員名での絞り込み機能
-- ✅ 月単位の合計行表示（本人負担・会社負担）
-- ✅ 初期表示で当月分を自動ロード
+- ✅ 従業員一覧テーブルに「最終更新者」「最終更新日時」列を追加
+- ✅ 最終更新者名の表示（ユーザーIDからユーザー名への変換）
+- ✅ 最終更新日時のフォーマット表示（YYYY-MM-DD HH:mm形式）
+- ✅ ユーザー名解決サービスの実装（`UsersService`）
+- ✅ 従業員フォームでの`updatedByUserId`自動設定
+- ✅ 既存機能（CSVエクスポート、インポート、追加・編集・削除）への影響なし
 
 **関連ファイル**:
-- `src/app/pages/premiums/monthly/monthly-premiums.page.ts`（実装済み）
-- `src/app/services/monthly-premiums.service.ts`（実装済み）
-- `src/app/utils/premium-calculator.ts`（実装済み）
+- `src/app/services/users.service.ts`（新規作成）
+- `src/app/pages/employees/employees.page.ts`（最終更新者・更新日時列追加）
+- `src/app/pages/employees/employee-form-dialog.component.ts`（`updatedByUserId`設定追加）
 
-### (10) 保険料シミュレーション機能（実装済み）
+### (17) 社会保険用語・ルールヘルプ機能（実装済み）
 
-**実装状況**: Phase1-11完了により、保険料シミュレーション機能が完全実装済み
+**実装状況**: Phase3-2完了により、社会保険用語・ルールヘルプ機能が完全実装済み
 
-- ✅ ページコンポーネントとルーティング
-- ✅ シミュレーション計算ロジック（`premium-calculator.ts`を再利用）
-- ✅ 入力フォーム（対象年月、報酬月額、健康保険等級、厚生年金等級、介護保険対象フラグ）
-- ✅ 結果表示（等級・標準報酬月額、各保険の本人負担額・会社負担額・合計、トータル）
-- ✅ マスタからの保険料率自動取得
-- ✅ エラーハンドリング（マスタ未設定、料率未設定など）
-- ✅ 既存の月次保険料計算ロジックとの整合性確保
+- ✅ ヘルプコンテンツ定義ファイル（`help-content.ts`）
+- ✅ 3つのヘルプトピック（標準報酬月額・等級、賞与範囲、短時間労働者）
+- ✅ ヘルプダイアログコンポーネント（`HelpDialogComponent`）
+- ✅ 対象画面へのヘルプアイコン追加（従業員一覧、従業員フォーム、月次保険料、賞与保険料）
+- ✅ レスポンシブ対応（PC幅・スマホ幅での適切な表示）
 
 **関連ファイル**:
-- `src/app/pages/simulator/simulator.page.ts`（実装済み）
-- `src/app/utils/premium-calculator.ts`（再利用）
-
-### (11) 負担構成ダッシュボード機能（実装済み）
-
-**実装状況**: Phase1-10完了によりKPIカードの基本機能が実装済み、Phase1-12完了によりグラフ表示機能が追加実装済み
-
-- ✅ ページコンポーネントとルーティング
-- ✅ 従業員数カード（社会保険加入者数または全従業員数）
-- ✅ 月次保険料カード（今月の会社負担額合計）
-- ✅ トレンドカード（前月比の変化、増減率%）
-- ✅ 過去12ヶ月の推移グラフ（折れ線グラフ、月次保険料の会社負担額推移）
-- ✅ 当月の月次・賞与比較グラフ（棒グラフ）
-- ✅ 年度別集計グラフ（棒グラフ、4月1日基準）
-- ✅ 従業員別ランキング表示（会社負担額・本人負担額トップ10）
-- ✅ データ取得と集計ロジック
-- ✅ エラーハンドリングとデータなし時の表示
-
-**関連ファイル**:
-- `src/app/pages/dashboard/dashboard.page.ts`（実装済み）
-
-### (9) 従業員別保険料明細（マイページ）機能（実装済み）
-
-**実装状況**: Phase1-7で完全実装済み
-
-- ✅ ページコンポーネントとルーティング
-- ✅ 基本情報の表示（氏名、所属部署、入社日、等級・標準報酬月額、社会保険加入状況）
-- ✅ 月次保険料明細の表示（直近12ヶ月分）
-- ✅ 賞与保険料明細の表示
-- ✅ 本人・会社負担額の表示
-- ✅ 空データ時の適切なメッセージ表示
-- ✅ 従業員IDによる自動フィルタリング（セキュリティ確保）
-- ⚠️ 推移グラフ（未実装、将来の拡張）
-
-**関連ファイル**:
-- `src/app/pages/me/my-page.ts`（実装済み）
-- `src/app/services/monthly-premiums.service.ts`（`listByOfficeAndEmployee`メソッド追加）
-
-### (12) 賞与管理・賞与保険料計算機能（実装済み）
-
-**実装状況**: 賞与支給履歴の登録・閲覧・計算機能は実装済み
-
-- ✅ ページコンポーネントとルーティング
-- ✅ 型定義（BonusPremium）
-- ✅ 賞与支給履歴の登録・閲覧・編集・削除
-- ✅ 標準賞与額の計算（1,000円未満切り捨て）
-- ✅ 賞与保険料の計算ロジック（健康保険・厚生年金）
-- ✅ 上限チェック（健康保険573万円/年度累計、厚生年金150万円/回）
-- ✅ 年度（4月1日基準）の自動判定
-- ✅ 健康保険の年度内累計標準賞与額の管理
-- ✅ マスタからの保険料率自動取得
-- ✅ 計算結果プレビュー表示
-- ✅ 本人負担額・会社負担額の集計表示
-
-**関連ファイル**:
-- `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（実装済み）
-- `src/app/pages/premiums/bonus/bonus-form-dialog.component.ts`（実装済み）
-- `src/app/services/bonus-premiums.service.ts`（実装済み）
-- `src/app/utils/bonus-calculator.ts`（実装済み）
-
-### (7) 社会保険料自動計算機能（実装済み）
-
-**実装状況**: 計算ロジックと保存機能は実装済み
-
-- ✅ 型定義（MonthlyPremium, PremiumRateContext, MonthlyPremiumCalculationResult）
-- ✅ 厚生年金保険料計算ロジック
-- ✅ 介護保険料計算ロジック（40〜64歳判定含む）
-- ✅ 健康保険料計算ロジック
-- ✅ 端数処理の統一（1円未満切り捨て）
-- ✅ 計算結果の保存（Firestore）
-- ✅ 資格取得日・喪失日ベースの対象月判定
-- ✅ 保険料免除（premiumTreatment === 'exempt'）の処理
-
-**関連ファイル**:
-- `src/app/utils/premium-calculator.ts`（新規追加）
-- `src/app/services/monthly-premiums.service.ts`（新規追加）
-
-### (6) 標準報酬月額・等級・保険プランマスタ管理機能（実装済み）
-
-**実装状況**: マスタ管理機能は実装済み
-
-- ✅ ページコンポーネントとルーティング
-- ✅ 型定義（HealthRateTable, CareRateTable, PensionRateTable, StandardRewardBand）
-- ✅ マスタ登録・編集画面（健康保険・介護保険・厚生年金）
-- ✅ 年度別マスタ管理
-- ✅ 協会けんぽの初期値プリセット（都道府県別）
-- ✅ 標準報酬等級表の登録・管理
-- ✅ 月次保険料計算画面とのマスタ連携
-- ⚠️ 等級自動判定機能（報酬月額からの自動判定）は未実装
-
-**関連ファイル**:
-- `src/app/pages/masters/masters.page.ts`（実装済み）
-- `src/app/services/masters.service.ts`（新規追加）
-- `src/app/pages/masters/health-master-form-dialog.component.ts`（新規追加）
-- `src/app/pages/masters/care-master-form-dialog.component.ts`（新規追加）
-- `src/app/pages/masters/pension-master-form-dialog.component.ts`（新規追加）
-- `src/app/utils/kyokai-presets.ts`（新規追加）
+- `src/app/components/help-dialog.component.ts`（新規作成）
+- `src/app/utils/help-content.ts`（新規作成）
+- `src/app/pages/employees/employees.page.ts`（ヘルプアイコン追加）
+- `src/app/pages/employees/employee-form-dialog.component.ts`（ヘルプアイコン追加）
+- `src/app/pages/premiums/monthly/monthly-premiums.page.ts`（ヘルプアイコン追加）
+- `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（ヘルプアイコン追加）
 
 ### (18) 従業員情報の変更申請・承認（簡易ワークフロー）機能 ✅ 実装済み
 
@@ -400,137 +393,6 @@
 - `src/app/pages/me/my-page.ts`（申請履歴セクション追加）
 - `src/app/services/employees.service.ts`（単一取得メソッド`get()`追加）
 - `firestore.rules`（`changeRequests`コレクションのルール追加）
-
-**実装状況**: Phase2-5完了により、標準報酬決定・改定履歴管理機能が完全実装済み
-
-- ✅ 履歴管理の型定義（`StandardRewardHistory`型、`StandardRewardDecisionKind`型）
-- ✅ 履歴登録・編集・削除画面（`standard-reward-history-form-dialog.component.ts`）
-- ✅ 履歴一覧表示（従業員詳細ダイアログ内のセクションとして実装、時系列順）
-- ✅ 適用開始年月の管理（決定年月と適用開始年月の両方を入力可能）
-- ✅ 決定区分の管理（定時決定、随時改定、賞与支払時、資格取得時、資格喪失時、その他）
-- ✅ Firestoreセキュリティルールによるアクセス制御（admin/hrのみ追加・編集・削除可能）
-- ✅ Phase2-6により、従業員編集フォームでの`monthlyWage`変更時に自動で履歴を追加する機能も実装済み
-
-**関連ファイル**:
-- `src/app/types.ts`（`StandardRewardHistory`型、`StandardRewardDecisionKind`型追加）
-- `src/app/services/standard-reward-history.service.ts`（新規作成）
-- `src/app/pages/employees/standard-reward-history-form-dialog.component.ts`（新規作成）
-- `src/app/pages/employees/employee-detail-dialog.component.ts`（標準報酬履歴セクション追加）
-- `src/app/pages/employees/employee-form-dialog.component.ts`（自動履歴追加ロジック追加）
-- `src/app/utils/label-utils.ts`（`getStandardRewardDecisionKindLabel`関数追加）
-- `firestore.rules`（`standardRewardHistories`サブコレクションのルール追加）
-
-### (13) セキュリティ・アクセス制御機能（実装済み）
-
-**実装状況**: Phase2-1完了により、FirestoreセキュリティルールとAngular側のアクセス制御が完全実装済み
-
-- ✅ Firebase Authenticationによる認証
-- ✅ Firestoreセキュリティルールの詳細化（事業所IDに基づくデータ分離、ロール別アクセス制御）
-- ✅ InsurePath向けのユーティリティ関数（`currentUser`, `getUserRole`, `belongsToOffice`, `isAdminOrHr`, `isInsureAdmin`, `isInsureEmployee`, `isOwnEmployee`）
-- ✅ `offices/{officeId}`配下の各コレクションに対するロール別アクセス制御
-  - 事業所情報: 所属ユーザー全員閲覧可能、adminのみ更新・削除可能
-  - 従業員情報: admin/hrは全件閲覧可能、employeeは自分のレコードのみ閲覧可能
-  - 月次保険料・賞与保険料: admin/hrは全件閲覧可能、employeeは自分のデータのみ閲覧可能
-  - マスタ情報: 所属ユーザー全員閲覧可能、adminのみ更新・削除可能
-- ✅ Angular側の`roleGuard`実装（ロール別ルート保護）
-- ✅ ルーティング設定への`roleGuard`適用（各ルートに適切なロール制限を設定）
-- ✅ サイドメニューのロール別表示制御（`app.ts`で実装）
-- ✅ 権限がない場合の適切なリダイレクト（`/me`へ遷移）
-- ⚠️ 識別情報のマスキング表示は未実装（将来の拡張として検討）
-
-**関連ファイル**:
-- `firestore.rules`（大幅拡張、InsurePath向けルール追加）
-- `src/app/guards/role.guard.ts`（新規作成）
-- `src/app/app.routes.ts`（`roleGuard`追加）
-- `src/app/app.ts`（サイドメニューのロール別表示制御）
-
-### (14) 従業員情報一括インポート機能（実装済み）
-
-**実装状況**: Phase2-8完了により、従業員情報の一括インポート機能が完全実装済み
-
-- ✅ CSVインポートサービスの実装（`CsvImportService`）
-- ✅ CSVパース機能（自前実装の簡易CSVパーサー、コメント行サポート）
-- ✅ バリデーション機能（必須項目チェック、データ型チェック、形式チェック）
-- ✅ ヘッダマッピング（日本語ヘッダ → Employeeプロパティキー）
-- ✅ 雇用形態のマッピング（日本語入力 → 内部コード変換）
-- ✅ インポートダイアログ（ファイル選択、プレビュー、エラー行表示、確認ダイアログ、結果表示）
-- ✅ エラーハンドリング（部分的な成功も許容、エラー行はスキップ）
-- ✅ エラーメッセージの改善（利用可能な値を表示）
-- ✅ CSVテンプレートダウンロード機能
-- ✅ 簡易ルール説明表示
-
-**関連ファイル**:
-- `src/app/utils/csv-import.service.ts`（新規作成）
-- `src/app/pages/employees/employee-import-dialog.component.ts`（新規作成）
-- `src/app/pages/employees/employees.page.ts`（CSVインポートボタン追加）
-- `src/app/utils/csv-export.service.ts`（テンプレート出力機能追加）
-
-### (15) 保険料データのCSVエクスポート機能（実装済み）
-
-**実装状況**: Phase2-7完了により、CSVエクスポート機能が完全実装済み
-
-- ✅ CSVエクスポートサービスの実装（`CsvExportService`）
-- ✅ 従業員台帳のエクスポート（全件エクスポート、admin/hrのみ）
-- ✅ 月次保険料一覧のエクスポート（対象年月指定、フィルタ後のデータをエクスポート）
-- ✅ 賞与一覧のエクスポート（全件エクスポート）
-- ✅ CSV形式の定義（UTF-8 + BOMエンコーディング、日本語ヘッダ、CRLF改行）
-- ✅ CSVテンプレートダウンロード機能（ヘッダ行のみ、コメント行付き）
-- ✅ エクスポートとテンプレートのフォーマット統一（`CsvImportService.getEmployeeHeaderMapping()`を使用）
-
-**関連ファイル**:
-- `src/app/utils/csv-export.service.ts`（新規作成）
-- `src/app/pages/employees/employees.page.ts`（CSVエクスポートボタン追加）
-- `src/app/pages/premiums/monthly/monthly-premiums.page.ts`（CSVエクスポートボタン追加）
-- `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（CSVエクスポートボタン追加）
-
-### (35) CSVテンプレートダウンロード機能（実装済み）
-
-**実装状況**: Phase2-7完了により、CSVテンプレートダウンロード機能が完全実装済み
-
-- ✅ CSVテンプレートダウンロード機能
-- ✅ ヘッダ行のみのテンプレートCSV出力
-- ✅ コメント行付きテンプレート（入力ルール説明）
-- ✅ 従業員台帳ページからのダウンロード
-- ✅ CSVインポートダイアログからのダウンロード
-
-**関連ファイル**:
-- `src/app/utils/csv-export.service.ts`（`exportEmployeesTemplate()`メソッド）
-- `src/app/pages/employees/employees.page.ts`（CSVテンプレートボタン追加）
-- `src/app/pages/employees/employee-import-dialog.component.ts`（テンプレートダウンロードボタン追加）
-
-### (16) 従業員情報の最終更新者・更新日時表示機能（実装済み）
-
-**実装状況**: Phase3-1完了により、従業員情報の最終更新者・更新日時表示機能が完全実装済み
-
-- ✅ 従業員一覧テーブルに「最終更新者」「最終更新日時」列を追加
-- ✅ 最終更新者名の表示（ユーザーIDからユーザー名への変換）
-- ✅ 最終更新日時のフォーマット表示（YYYY-MM-DD HH:mm形式）
-- ✅ ユーザー名解決サービスの実装（`UsersService`）
-- ✅ 従業員フォームでの`updatedByUserId`自動設定
-- ✅ 既存機能（CSVエクスポート、インポート、追加・編集・削除）への影響なし
-
-**関連ファイル**:
-- `src/app/services/users.service.ts`（新規作成）
-- `src/app/pages/employees/employees.page.ts`（最終更新者・更新日時列追加）
-- `src/app/pages/employees/employee-form-dialog.component.ts`（`updatedByUserId`設定追加）
-
-### (17) 社会保険用語・ルールヘルプ機能（実装済み）
-
-**実装状況**: Phase3-2完了により、社会保険用語・ルールヘルプ機能が完全実装済み
-
-- ✅ ヘルプコンテンツ定義ファイル（`help-content.ts`）
-- ✅ 3つのヘルプトピック（標準報酬月額・等級、賞与範囲、短時間労働者）
-- ✅ ヘルプダイアログコンポーネント（`HelpDialogComponent`）
-- ✅ 対象画面へのヘルプアイコン追加（従業員一覧、従業員フォーム、月次保険料、賞与保険料）
-- ✅ レスポンシブ対応（PC幅・スマホ幅での適切な表示）
-
-**関連ファイル**:
-- `src/app/components/help-dialog.component.ts`（新規作成）
-- `src/app/utils/help-content.ts`（新規作成）
-- `src/app/pages/employees/employees.page.ts`（ヘルプアイコン追加）
-- `src/app/pages/employees/employee-form-dialog.component.ts`（ヘルプアイコン追加）
-- `src/app/pages/premiums/monthly/monthly-premiums.page.ts`（ヘルプアイコン追加）
-- `src/app/pages/premiums/bonus/bonus-premiums.page.ts`（ヘルプアイコン追加）
 
 ### (19) 社会保険手続き履歴・期限管理機能 ✅ 実装済み
 
@@ -644,17 +506,75 @@
 - `src/app/app.ts`（サイドメニューに「社会保険料納付状況」追加）
 - `firestore.rules`（`payments`コレクションのルール追加）
 
+### (22) e-Gov届出対応マスタ管理機能 ✅ 実装済み
+
+**実装状況**: Phase3-7完了により、e-Gov届出対応マスタ管理機能が完全実装済み
+
+- ✅ 事業所マスタの拡張（事業所記号・事業所番号・郡市区符号・事業主氏名・所在地・郵便番号・電話番号）
+- ✅ 従業員マスタの拡張（被保険者整理番号・性別・郵便番号・住所カナ・マイナンバー）
+- ✅ 被扶養者マスタの拡張（氏名カナ・性別・郵便番号・住所・同居／別居区分・マイナンバー）
+- ✅ マイナンバー管理機能（MyNumberService経由での管理、マスキング表示、バリデーション）
+- ✅ 型エイリアスの追加（Sex型、CohabitationFlag型）
+- ✅ 空文字フィールドのnull化処理（任意文字列フィールドを空にした場合、Firestore上でnullに上書き）
+- ✅ Firestoreルールの拡張（新フィールドの型チェック、MyNumberフィールドのバリデーション）
+
+**注意**: 本システムは e-Gov への直接送信や CSV 出力は行わず、「e-Gov届出に必要な基礎情報を漏れなく整備しておけるマスタ管理機能」として位置づけています。担当者は InsurePath のマスタ画面を参照しながら e-Gov の入力画面へ転記することで、届出作成作業を効率化できます。項目設計にあたっては、日本年金機構が公開している届書作成仕様書（資格取得・喪失・算定基礎・月額変更・賞与支払・被扶養者異動に関する仕様）を参考にしています。
+
+**関連ファイル**:
+- `src/app/types.ts`（Office、Employee、Dependent型の拡張、Sex型、CohabitationFlag型の追加）
+- `src/app/services/mynumber.service.ts`（新規作成）
+- `src/app/services/employees.service.ts`（拡張）
+- `src/app/services/dependents.service.ts`（拡張）
+- `src/app/services/offices.service.ts`（拡張）
+- `src/app/pages/offices/offices.page.ts`（拡張）
+- `src/app/pages/employees/employee-form-dialog.component.ts`（拡張）
+- `src/app/pages/employees/dependent-form-dialog.component.ts`（拡張）
+- `firestore.rules`（拡張）
+
+### (27) マイナンバー管理機能 ✅ 実装済み
+
+**実装状況**: Phase3-7完了により、マイナンバー管理機能が実装済み（e-Gov届出対応マスタ管理機能に統合）
+
+- ✅ マイナンバー管理サービス（MyNumberService）の実装
+- ✅ マイナンバーのバリデーション（12桁数字のみ、正規表現パターン統一）
+- ✅ マイナンバーのマスキング表示機能（`mask()`メソッド）
+- ✅ マイナンバーの暗号化・復号化インターフェース（`encrypt()`、`decrypt()`メソッド、現時点では簡易実装）
+- ✅ 従業員・被扶養者へのマイナンバーフィールド追加
+- ✅ FirestoreルールでのMyNumberフィールドの型チェック
+- ⚠️ 現時点では簡易実装（プレーン文字列保存）。本番運用では暗号化必須
+- ⚠️ アクセスログ記録は未実装（将来の拡張として検討）
+
+**関連ファイル**:
+- `src/app/services/mynumber.service.ts`（新規作成）
+- `src/app/types.ts`（Employee、Dependent型へのmyNumberフィールド追加）
+- `src/app/pages/employees/employee-form-dialog.component.ts`（マイナンバー入力フィールド追加）
+- `src/app/pages/employees/dependent-form-dialog.component.ts`（マイナンバー入力フィールド追加）
+- `firestore.rules`（MyNumberフィールドの型チェック追加）
+
+### (35) CSVテンプレートダウンロード機能（実装済み）
+
+**実装状況**: Phase2-7完了により、CSVテンプレートダウンロード機能が完全実装済み
+
+- ✅ CSVテンプレートダウンロード機能
+- ✅ ヘッダ行のみのテンプレートCSV出力
+- ✅ コメント行付きテンプレート（入力ルール説明）
+- ✅ 従業員台帳ページからのダウンロード
+- ✅ CSVインポートダイアログからのダウンロード
+
+**関連ファイル**:
+- `src/app/utils/csv-export.service.ts`（`exportEmployeesTemplate()`メソッド）
+- `src/app/pages/employees/employees.page.ts`（CSVテンプレートボタン追加）
+- `src/app/pages/employees/employee-import-dialog.component.ts`（テンプレートダウンロードボタン追加）
+
+---
+
+## 🚧 部分実装・プレースホルダー状態
+
+（現在、部分実装の機能はありません）
+
 ---
 
 ## ❌ 未実装機能
-
-### (22) e-Gov 電子申請連携機能
-
-**実装状況**: 完全に未実装
-
-- ❌ 電子申請用データの自動生成
-- ❌ 電子申請用ファイル（CSV／固定長テキスト）の出力
-- ❌ 申請ステータス管理
 
 ### (23) 公的帳票（届出書）自動作成・PDF 出力機能
 
@@ -691,15 +611,6 @@
 - ❌ 事業所への自動適用機能
 - ❌ マスタ改定履歴管理
 
-### (27) マイナンバー管理機能
-
-**実装状況**: 完全に未実装
-
-- ❌ マイナンバーの暗号化保存
-- ❌ アクセス制御
-- ❌ マスキング表示
-- ❌ アクセスログ記録
-
 ### (28) 多言語対応機能
 
 **実装状況**: 完全に未実装
@@ -725,6 +636,14 @@
 - ❌ ダッシュボードへの集計表示
 - ❌ 簡易アラート機能
 
+### (31) 外部給与システム連携（CSV）機能
+
+**実装状況**: 完全に未実装
+
+- ❌ 外部給与システムとの連携仕様の最適化
+- ❌ インポート用テンプレートの拡張
+- ❌ 列名や形式のマッピング機能
+- ❌ 代表的なクラウド人事・給与システムが出力する従業員情報CSVの項目構成への対応
 
 ### (32) 口座情報・給与情報管理機能
 
@@ -756,14 +675,14 @@
 | カテゴリ | 実装済み | 部分実装 | 未実装 | 合計 |
 |---------|---------|---------|--------|------|
 | 基本機能 | 3 | 0 | 0 | 3 |
-| 管理機能 | 6 | 0 | 0 | 6 |
-| 計算・表示機能 | 7 | 0 | 0 | 7 |
-| その他機能 | 5 | 0 | 12 | 17 |
-| **合計** | **22** | **0** | **13** | **35** |
+| 管理機能 | 12 | 0 | 0 | 12 |
+| 計算・表示機能 | 8 | 0 | 0 | 8 |
+| その他機能 | 1 | 0 | 11 | 12 |
+| **合計** | **24** | **0** | **11** | **35** |
 
-**実装率**: 約63%（完全実装のみ）
+**実装率**: 約69%（完全実装のみ）
 
-**注**: Phase3-6まで完了し、実装済み機能は22件（(1)～(21), (35)）です。残り13機能（(22)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。
+**注**: Phase3-7まで完了し、実装済み機能は24件（(1)～(22), (27), (35)）です。残り11機能（(23)～(26), (28)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。
 
 **最新更新**: 
 - Phase1-2完了により、従業員台帳機能の資格情報・就業状態管理が追加実装されました。
@@ -791,6 +710,7 @@
 - Phase3-4完了により、社会保険手続き履歴・期限管理機能が完全実装されました。手続き履歴サービス（CRUD操作、リアルタイム購読、期限別フィルタ）、手続き登録・閲覧画面（admin/hr専用）、提出期限の自動計算ロジック（資格取得・喪失・被扶養者異動・賞与支払は事由日＋5日、算定基礎届は対象年の7月10日、月額変更届は事由月の翌月10日）、期限管理機能（期限が近い・期限切れの一覧表示）、Firestoreセキュリティルール、サイドメニューへの追加が実装されました。人事担当者が手続きの進捗を把握し、届出漏れ・提出遅れを防止できる機能が完成しました。
 - Phase3-5完了により、被扶養者状況確認・年次見直し支援機能が完全実装されました。扶養状況確認の型定義（`DependentReview`型、`DependentReviewResult`型）、確認結果の記録機能（CRUD操作、リアルタイム購読）、基準年月日時点での抽出機能、確認結果の登録・編集・削除機能、確認結果一覧表示（フィルタ機能付き）、インライン操作（確認区分のトグル操作：継続／削除予定／要確認）、被扶養者状況リスト風レイアウト、Firestoreセキュリティルールが実装されました。健康保険組合等から送付される「被扶養者状況リスト」への回答作業を効率化できる機能が完成しました。
 - Phase3-6完了により、社会保険料納付状況管理機能が完全実装されました。納付状況の型定義（`PaymentStatus`型、`PaymentMethod`型、`SocialInsurancePayment`型）、納付状況サービス（CRUD操作、予定額自動計算、リアルタイム購読）、BonusPremiumsServiceの拡張（`listByOfficeAndYearMonth`メソッド追加）、納付状況一覧画面、納付状況フォームダイアログ（バリデーション強化、ヘルプテキスト追加）、ダッシュボード連携（「今月納付予定の社会保険料」カード、「最近の納付状況（最大12件）」セクション）、Firestoreセキュリティルール、ルーティングとサイドメニュー追加が実装されました。事業所ごと・対象年月ごとの社会保険料の納付状況を記録・管理し、納付漏れや金額確認漏れを防止できる機能が完成しました。
+- Phase3-7完了により、e-Gov届出対応マスタ管理機能が完全実装されました。事業所マスタの拡張（事業所記号・事業所番号・郡市区符号・事業主氏名・所在地・郵便番号・電話番号）、従業員マスタの拡張（被保険者整理番号・性別・郵便番号・住所カナ・マイナンバー）、被扶養者マスタの拡張（氏名カナ・性別・郵便番号・住所・同居／別居区分・マイナンバー）、マイナンバー管理サービス（MyNumberService）の実装、型エイリアスの追加（Sex型、CohabitationFlag型）、空文字フィールドのnull化処理、Firestoreルールの拡張が実装されました。本システムは e-Gov への直接送信や CSV 出力は行わず、「e-Gov届出に必要な基礎情報を漏れなく整備しておけるマスタ管理機能」として位置づけられています。担当者は InsurePath のマスタ画面を参照しながら e-Gov の入力画面へ転記することで、届出作成作業を効率化できます。
 
 ---
 
@@ -810,4 +730,3 @@
 - 保険料計算ロジックは、実務上の細かなルール（入社月・退職月の扱い、端数処理など）を簡略化した形で実装する必要があります。カタログの制約条件を参照してください。
 
 - マスタデータ（保険料率・等級表）は、外部サイトからの自動取得ではなく、管理者が手動で更新する運用を前提としています。
-

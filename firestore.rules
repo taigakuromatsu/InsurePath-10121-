@@ -533,6 +533,7 @@ service cloud.firestore {
             && (!('sex' in data) || data.sex == null || data.sex in ['male', 'female', 'other'])
             && (!('postalCode' in data) || data.postalCode == null || (data.postalCode is string && data.postalCode.matches('^[0-9]{7}$')))
             && (!('addressKana' in data) || data.addressKana == null || data.addressKana is string)
+            // TODO: 現在は平文12桁前提。将来、本当に暗号化する場合はこのチェックを変更する必要がある
             && (!('myNumber' in data) || data.myNumber == null || (data.myNumber is string && data.myNumber.size() == 12 && data.myNumber.matches('^[0-9]{12}$')));
         }
 
@@ -548,6 +549,7 @@ service cloud.firestore {
               && (!('postalCode' in data) || data.postalCode == null || (data.postalCode is string && data.postalCode.matches('^[0-9]{7}$')))
               && (!('address' in data) || data.address == null || data.address is string)
               && (!('cohabitationFlag' in data) || data.cohabitationFlag == null || data.cohabitationFlag in ['cohabiting', 'separate'])
+              // TODO: 現在は平文12桁前提。将来、本当に暗号化する場合はこのチェックを変更する必要がある
               && (!('myNumber' in data) || data.myNumber == null || (data.myNumber is string && data.myNumber.size() == 12 && data.myNumber.matches('^[0-9]{12}$')));
           }
 

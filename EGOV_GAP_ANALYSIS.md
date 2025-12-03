@@ -1,7 +1,10 @@
 # e-Gov 6種類届出に必要な項目の実装状況ギャップ分析
 
 **作成日**: 2025年12月2日  
+**最終更新日**: 2025年12月2日（Phase3-7実装完了後）  
 **対象**: InsurePath Phase3-7（e-Gov用必要情報の先行実装）
+
+**注意**: このドキュメントはPhase3-7の実装完了後に更新されています。実装済み項目の状態が「既存」に更新されています。
 
 ---
 
@@ -19,15 +22,15 @@
 | カテゴリ | 必要フィールド論理名 | CSV上の意味・用途 | 状態 | 実際のInsurePathでのフィールド | 備考 |
 |---------|---------------------|------------------|------|------------------------------|------|
 | office | officePrefCode | 都道府県コード | 部分的に既存 | `kyokaiPrefCode?: string` | 協会けんぽの場合のみ存在。都道府県コードとしての形式は未確認 |
-| office | officeCityCode | 郡市区符号 | **不足** | - | 実装なし |
-| office | officeSymbol | 事業所記号 | **不足** | - | 実装なし |
-| office | officeNumber | 事業所番号 | **不足** | - | 実装なし |
-| office | officeName | 事業所名称 | **既存** | `name: string` | `types.ts:84` Office型 |
-| office | officeOwnerName | 事業主（代表者）氏名 | **不足** | - | 実装なし |
-| office | officePostalCode | 郵便番号（7桁） | **不足** | - | 実装なし |
-| office | officeAddressKanji | 所在地（漢字） | **既存** | `address?: string` | `types.ts:87` Office型 |
+| office | officeCityCode | 郡市区符号 | **既存** | `officeCityCode?: string` | `types.ts:110` Office型。Phase3-7で実装 |
+| office | officeSymbol | 事業所記号 | **既存** | `officeSymbol?: string` | `types.ts:108` Office型。Phase3-7で実装 |
+| office | officeNumber | 事業所番号 | **既存** | `officeNumber?: string` | `types.ts:109` Office型。Phase3-7で実装 |
+| office | officeName | 事業所名称 | **既存** | `name: string` | `types.ts:101` Office型 |
+| office | officeOwnerName | 事業主（代表者）氏名 | **既存** | `officeOwnerName?: string` | `types.ts:113` Office型。Phase3-7で実装 |
+| office | officePostalCode | 郵便番号（7桁） | **既存** | `officePostalCode?: string` | `types.ts:111` Office型。Phase3-7で実装。7桁数字のみバリデーション |
+| office | officeAddressKanji | 所在地（漢字） | **既存** | `address?: string` | `types.ts:102` Office型 |
 | office | officeAddressKana | 所在地（カナ） | **不足** | - | 実装なし |
-| office | officePhone | 電話番号 | **不足** | - | 実装なし |
+| office | officePhone | 電話番号 | **既存** | `officePhone?: string` | `types.ts:112` Office型。Phase3-7で実装 |
 | office | officeSubmissionDestType | 年金事務所／健保組合等の区分 | 部分的に既存 | `healthPlanType: HealthPlanType` | `kyokai` / `kumiai` のみ。より詳細な区分は不足 |
 
 ---
@@ -39,21 +42,21 @@
 | カテゴリ | 必要フィールド論理名 | CSV上の意味・用途 | 状態 | 実際のInsurePathでのフィールド | 備考 |
 |---------|---------------------|------------------|------|------------------------------|------|
 | employee | employeeId | InsurePath内部ID | **既存** | `id: string` | `types.ts:203` Employee型 |
-| employee | employeeCodeInOffice | 被保険者整理番号／社内従業員番号 | **不足** | - | 実装なし |
-| employee | nameKanji | 氏名（漢字） | **既存** | `name: string` | `types.ts:205` Employee型 |
-| employee | nameKana | 氏名（カナ） | **既存** | `kana?: string` | `types.ts:206` Employee型（任意） |
-| employee | dateOfBirth | 生年月日（西暦） | **既存** | `birthDate: IsoDateString` | `types.ts:207` Employee型 |
-| employee | sex | 性別コード | **不足** | - | 実装なし |
-| employee | postalCode | 郵便番号 | **不足** | - | 実装なし |
-| employee | addressKanji | 住所（漢字） | **既存** | `address?: string` | `types.ts:212` Employee型（任意） |
-| employee | addressKana | 住所（カナ） | **不足** | - | 実装なし |
+| employee | employeeCodeInOffice | 被保険者整理番号／社内従業員番号 | **既存** | `employeeCodeInOffice?: string` | `types.ts:242` Employee型。Phase3-7で実装 |
+| employee | nameKanji | 氏名（漢字） | **既存** | `name: string` | `types.ts:232` Employee型 |
+| employee | nameKana | 氏名（カナ） | **既存** | `kana?: string` | `types.ts:233` Employee型（任意） |
+| employee | dateOfBirth | 生年月日（西暦） | **既存** | `birthDate: IsoDateString` | `types.ts:234` Employee型 |
+| employee | sex | 性別コード | **既存** | `sex?: Sex` | `types.ts:243` Employee型。Phase3-7で実装。`'male'` / `'female'` / `'other'` / `null` |
+| employee | postalCode | 郵便番号 | **既存** | `postalCode?: string` | `types.ts:244` Employee型。Phase3-7で実装。7桁数字のみバリデーション |
+| employee | addressKanji | 住所（漢字） | **既存** | `address?: string` | `types.ts:239` Employee型（任意） |
+| employee | addressKana | 住所（カナ） | **既存** | `addressKana?: string` | `types.ts:245` Employee型。Phase3-7で実装 |
 
 ### 2-2. 番号系
 
 | カテゴリ | 必要フィールド論理名 | CSV上の意味・用途 | 状態 | 実際のInsurePathでのフィールド | 備考 |
 |---------|---------------------|------------------|------|------------------------------|------|
-| employee | myNumber | 個人番号（マイナンバー・暗号化保存） | **不足** | - | Phase3-7で実装予定 |
-| employee | basicPensionNumber | 基礎年金番号 | 部分的に既存 | `pensionNumber?: string` | `types.ts:231` Employee型。課所符号＋一連番号への分解対応は未確認 |
+| employee | myNumber | 個人番号（マイナンバー・暗号化保存） | **既存** | `myNumber?: string` | `types.ts:263` Employee型。Phase3-7で実装。MyNumberService経由で管理。現時点では簡易実装（プレーン文字列）。本番運用では暗号化必須 |
+| employee | basicPensionNumber | 基礎年金番号 | 部分的に既存 | `pensionNumber?: string` | `types.ts:262` Employee型。課所符号＋一連番号への分解対応は未確認 |
 | employee | cannotUseResidenceAddressReason | 住民票住所を使えない理由コード | **不足** | - | 実装なし |
 | employee | personalNumberNote | 個人番号関連の備考 | **不足** | - | 実装なし |
 
@@ -73,20 +76,20 @@
 | カテゴリ | 必要フィールド論理名 | CSV上の意味・用途 | 状態 | 実際のInsurePathでのフィールド | 備考 |
 |---------|---------------------|------------------|------|------------------------------|------|
 | dependent | dependentId | 内部ID | **既存** | `id: string` | `types.ts:144` Dependent型 |
-| dependent | dependentNameKanji | 被扶養者氏名（漢字） | **既存** | `name: string` | `types.ts:146` Dependent型 |
-| dependent | dependentNameKana | 被扶養者氏名（カナ） | **不足** | - | 実装なし |
-| dependent | dependentDateOfBirth | 生年月日 | **既存** | `dateOfBirth: IsoDateString` | `types.ts:148` Dependent型 |
-| dependent | dependentSex | 性別 | **不足** | - | 実装なし |
+| dependent | dependentNameKanji | 被扶養者氏名（漢字） | **既存** | `name: string` | `types.ts:167` Dependent型 |
+| dependent | dependentNameKana | 被扶養者氏名（カナ） | **既存** | `kana?: string` | `types.ts:168` Dependent型。Phase3-7で実装 |
+| dependent | dependentDateOfBirth | 生年月日 | **既存** | `dateOfBirth: IsoDateString` | `types.ts:174` Dependent型 |
+| dependent | dependentSex | 性別 | **既存** | `sex?: Sex` | `types.ts:169` Dependent型。Phase3-7で実装。`'male'` / `'female'` / `'other'` / `null` |
 
 ### 3-2. 番号・続柄・居住
 
 | カテゴリ | 必要フィールド論理名 | CSV上の意味・用途 | 状態 | 実際のInsurePathでのフィールド | 備考 |
 |---------|---------------------|------------------|------|------------------------------|------|
-| dependent | dependentMyNumber | 被扶養者の個人番号（マイナンバー） | **不足** | - | Phase3-7で実装予定 |
-| dependent | relationshipToInsured | 続柄（子／配偶者／父母等） | **既存** | `relationship: DependentRelationship` | `types.ts:147` Dependent型。`spouse`/`child`/`parent`/`grandparent`/`sibling`/`other` |
-| dependent | cohabitationFlag | 同居／別居 1/2等 | **不足** | - | 実装なし |
-| dependent | dependentPostalCode | 郵便番号 | **不足** | - | 実装なし |
-| dependent | dependentAddress | 住所 | **不足** | - | 実装なし |
+| dependent | dependentMyNumber | 被扶養者の個人番号（マイナンバー） | **既存** | `myNumber?: string` | `types.ts:175` Dependent型。Phase3-7で実装。MyNumberService経由で管理。現時点では簡易実装（プレーン文字列）。本番運用では暗号化必須 |
+| dependent | relationshipToInsured | 続柄（子／配偶者／父母等） | **既存** | `relationship: DependentRelationship` | `types.ts:173` Dependent型。`spouse`/`child`/`parent`/`grandparent`/`sibling`/`other` |
+| dependent | cohabitationFlag | 同居／別居 1/2等 | **既存** | `cohabitationFlag?: CohabitationFlag` | `types.ts:172` Dependent型。Phase3-7で実装。`'cohabiting'` / `'separate'` / `null` |
+| dependent | dependentPostalCode | 郵便番号 | **既存** | `postalCode?: string` | `types.ts:170` Dependent型。Phase3-7で実装。7桁数字のみバリデーション |
+| dependent | dependentAddress | 住所 | **既存** | `address?: string` | `types.ts:171` Dependent型。Phase3-7で実装 |
 
 ### 3-3. 要件判定
 
@@ -110,7 +113,7 @@
 | procedure | dependentId | 対象被扶養者（必要な場合のみ） | **既存** | `dependentId?: string` | `types.ts:54` SocialInsuranceProcedure型 |
 | procedure | createdAt, updatedAt | 作成日時／更新日時 | **既存** | `createdAt?: IsoDateString`, `updatedAt?: IsoDateString` | `types.ts:61-62` SocialInsuranceProcedure型 |
 | procedure | createdByUserId, updatedByUserId | 作成者／更新者 | **既存** | `createdByUserId?: string`, `updatedByUserId?: string` | `types.ts:63-64` SocialInsuranceProcedure型 |
-| procedure | eGovStatus | e-Gov連携ステータス | **不足** | - | Phase3-8で実装予定（`egovStatus?: EgovStatus`） |
+| procedure | eGovStatus | e-Gov連携ステータス | **不足** | - | 実装予定なし（e-Gov CSV生成機能は実装しない方針） |
 | procedure | notes | 共通の備考 | **既存** | `note?: string` | `types.ts:60` SocialInsuranceProcedure型 |
 
 ---
@@ -220,56 +223,67 @@
 | procedure:dependent_change | dependentAnnualIncome | 年間収入 | **不足** | - | 実装なし |
 | procedure:dependent_change | livelihoodSupportRelation | 生計維持関係 | **不足** | - | 実装なし |
 | procedure:dependent_change | domesticResidenceFlag | 国内居住かどうか | **不足** | - | 実装なし |
-| procedure:dependent_change | cohabitationFlag | 同居／別居 | **不足** | - | 実装なし |
-| procedure:dependent_change | dependentPostalCode | 異動時点の郵便番号 | **不足** | - | 実装なし |
-| procedure:dependent_change | dependentAddress | 異動時点の住所 | **不足** | - | 実装なし |
+| procedure:dependent_change | cohabitationFlag | 同居／別居 | 部分的に既存 | `dependent.cohabitationFlag?: CohabitationFlag` | 被扶養者マスタ側に存在（Phase3-7で実装）。手続きレコード側には不足。異動時点のスナップショットは不足 |
+| procedure:dependent_change | dependentPostalCode | 異動時点の郵便番号 | 部分的に既存 | `dependent.postalCode?: string` | 被扶養者マスタ側に存在（Phase3-7で実装）。手続きレコード側には不足。異動時点のスナップショットは不足 |
+| procedure:dependent_change | dependentAddress | 異動時点の住所 | 部分的に既存 | `dependent.address?: string` | 被扶養者マスタ側に存在（Phase3-7で実装）。手続きレコード側には不足。異動時点のスナップショットは不足 |
 | procedure:dependent_change | dependentChangeNotes | 備考 | **既存** | `note?: string` | `types.ts:60` SocialInsuranceProcedure型 |
 
 ---
 
 ## 📊 サマリ
 
-### 改善の優先度（e-Gov CSV実装のために急いで追加・整理すべき項目）
+### Phase3-7実装完了後の状況
 
-#### 🔴 最高優先度（Phase3-7で必須）
+**Phase3-7で実装された項目**:
+- ✅ マイナンバー管理機能（`employee.myNumber`, `dependent.myNumber`）
+- ✅ 事業所識別情報（`office.officeSymbol`, `office.officeNumber`, `office.officeCityCode`）
+- ✅ 事業所基本情報の拡張（`office.officePostalCode`, `office.officePhone`, `office.officeOwnerName`）
+- ✅ 従業員基本情報の拡張（`employee.sex`, `employee.postalCode`, `employee.addressKana`, `employee.employeeCodeInOffice`）
+- ✅ 被扶養者情報の拡張（`dependent.kana`, `dependent.sex`, `dependent.postalCode`, `dependent.address`, `dependent.cohabitationFlag`）
+
+### 改善の優先度（e-Gov CSV実装のために追加・整理すべき項目）
+
+#### ✅ Phase3-7で実装完了
 
 1. **マイナンバー管理機能**
-   - `employee.myNumber`（暗号化保存）
-   - `dependent.dependentMyNumber`（暗号化保存）
-   - マスキング表示機能
+   - ✅ `employee.myNumber`（MyNumberService経由で管理、現時点では簡易実装）
+   - ✅ `dependent.myNumber`（MyNumberService経由で管理、現時点では簡易実装）
+   - ✅ マスキング表示機能（`MyNumberService.mask()`）
 
 2. **事業所識別情報**
-   - `office.officeSymbol`（事業所記号）
-   - `office.officeNumber`（事業所番号）
-   - `office.officeCityCode`（郡市区符号）
+   - ✅ `office.officeSymbol`（事業所記号）
+   - ✅ `office.officeNumber`（事業所番号）
+   - ✅ `office.officeCityCode`（郡市区符号）
 
 3. **事業所基本情報の拡張**
-   - `office.officePostalCode`（郵便番号）
-   - `office.officePhone`（電話番号）
-   - `office.officeOwnerName`（事業主氏名）
+   - ✅ `office.officePostalCode`（郵便番号、7桁数字のみバリデーション）
+   - ✅ `office.officePhone`（電話番号）
+   - ✅ `office.officeOwnerName`（事業主氏名）
 
 4. **従業員基本情報の拡張**
-   - `employee.sex`（性別コード）
-   - `employee.postalCode`（郵便番号）
-   - `employee.addressKana`（住所カナ）
-   - `employee.employeeCodeInOffice`（被保険者整理番号）
+   - ✅ `employee.sex`（性別コード、`Sex`型）
+   - ✅ `employee.postalCode`（郵便番号、7桁数字のみバリデーション）
+   - ✅ `employee.addressKana`（住所カナ）
+   - ✅ `employee.employeeCodeInOffice`（被保険者整理番号）
 
-5. **基礎年金番号の整理**
+5. **被扶養者情報の拡張（最低限）**
+   - ✅ `dependent.kana`（被扶養者氏名カナ）
+   - ✅ `dependent.sex`（性別、`Sex`型）
+   - ✅ `dependent.postalCode`（郵便番号、7桁数字のみバリデーション）
+   - ✅ `dependent.address`（住所）
+   - ✅ `dependent.cohabitationFlag`（同居／別居フラグ、`CohabitationFlag`型）
+
+#### 🟡 中優先度（将来の拡張候補）
+
+6. **基礎年金番号の整理**
    - `employee.basicPensionNumber`の形式確認・分解対応（課所符号＋一連番号）
 
-#### 🟡 高優先度（Phase3-7またはPhase3-8で実装）
-
-6. **被扶養者情報の拡張**
-   - `dependent.dependentNameKana`（被扶養者氏名カナ）
-   - `dependent.dependentSex`（性別）
-   - `dependent.dependentPostalCode`（郵便番号）
-   - `dependent.dependentAddress`（住所）
-   - `dependent.cohabitationFlag`（同居／別居）
+7. **被扶養者情報の詳細判定項目**
    - `dependent.dependentAnnualIncome`（年間収入）
    - `dependent.livelihoodSupportRelation`（生計維持関係）
    - `dependent.domesticResidenceFlag`（国内居住フラグ）
 
-7. **手続きレコードの拡張（手続きタイプ別）**
+8. **手続きレコードの拡張（手続きタイプ別）**
    - 資格取得届: `qualificationType`, `hasDependentsAtAcquisition`, `baseMonthlyWageAtAcquisition`, `inKindWageAtAcquisition`, `totalWageAtAcquisition`
    - 資格喪失届: `lossReasonCode`, `retirementOrDeathDate`, `multiEmployerFlag`, `reEmploymentFlag`, `postRetirementPostalCode`, `postRetirementAddress`
    - 算定基礎届: `prevStandardRemunerationHealth`, `prevStandardRemunerationPension`, `aprilBaseDays`〜`juneTotalWage`（4〜6月の基礎日数・賃金）
@@ -279,30 +293,38 @@
 
 #### 🟢 中優先度（余裕があれば後回しでもいい項目）
 
-8. **従業員の被保険者区分の詳細化**
+9. **従業員の被保険者区分の詳細化**
    - `employee.insuredCategory`（一般／短時間／70歳以上等）
 
-9. **事業所の提出先区分の詳細化**
-   - `office.officeSubmissionDestType`（年金事務所／健保組合等の詳細区分）
+10. **事業所の提出先区分の詳細化**
+    - `office.officeSubmissionDestType`（年金事務所／健保組合等の詳細区分）
 
-10. **その他の任意項目**
+11. **その他の任意項目**
     - `employee.cannotUseResidenceAddressReason`（住民票住所を使えない理由）
     - `employee.personalNumberNote`（個人番号関連の備考）
     - `dependent.otherCoverageFlags`（他制度への加入有無）
+
+12. **事業所の所在地カナ**
+    - `office.officeAddressKana`（所在地カナ）
 
 ---
 
 ## 📝 実装方針の推奨
 
-### Phase3-7での実装範囲
+### Phase3-7での実装範囲（実装完了）
 
-1. **必須項目（最高優先度）**: マイナンバー管理、事業所識別情報、事業所基本情報拡張、従業員基本情報拡張、基礎年金番号整理
-2. **可能な範囲で**: 被扶養者情報の拡張（最低限、カナ・性別・住所・郵便番号）
+1. ✅ **必須項目（最高優先度）**: マイナンバー管理、事業所識別情報、事業所基本情報拡張、従業員基本情報拡張
+2. ✅ **可能な範囲で**: 被扶養者情報の拡張（最低限、カナ・性別・住所・郵便番号・同居別居フラグ）
 
-### Phase3-8での実装範囲
+**実装状況**: Phase3-7の実装は完了しています。詳細は `PHASE3-7_ADDED_FIELDS.md` を参照してください。
+
+### 将来の拡張候補（実装予定なし）
+
+以下の項目は、現時点では実装予定がありませんが、将来の拡張候補として記載します：
 
 1. **手続きレコードの拡張**: 各手続きタイプごとの固有フィールドを追加
-2. **e-Govステータス管理**: `egovStatus`, `egovLastExportedAt`, `egovLastExportedByUserId`, `egovNote` の追加
+2. **e-Gov CSV生成ロジック**: CSV生成機能自体の実装（本システムは e-Gov への直接送信や CSV 出力は行わない方針）
+3. **マイナンバーの暗号化実装**: 本番運用での必須実装（MyNumberServiceの暗号化処理）
 
 ### データ整合性の考慮
 
@@ -312,5 +334,55 @@
 
 ---
 
+## 📌 Phase3-7実装後の主な変更点
+
+### 実装完了した項目
+
+**事業所マスタ**:
+- ✅ `officeSymbol`, `officeNumber`, `officeCityCode`（事業所識別情報）
+- ✅ `officePostalCode`, `officePhone`, `officeOwnerName`（事業所基本情報）
+
+**従業員マスタ**:
+- ✅ `employeeCodeInOffice`（被保険者整理番号）
+- ✅ `sex`（性別コード、`Sex`型）
+- ✅ `postalCode`（郵便番号、7桁数字のみバリデーション）
+- ✅ `addressKana`（住所カナ）
+- ✅ `myNumber`（マイナンバー、MyNumberService経由で管理）
+
+**被扶養者マスタ**:
+- ✅ `kana`（被扶養者氏名カナ）
+- ✅ `sex`（性別コード、`Sex`型）
+- ✅ `postalCode`（郵便番号、7桁数字のみバリデーション）
+- ✅ `address`（住所）
+- ✅ `cohabitationFlag`（同居／別居フラグ、`CohabitationFlag`型）
+- ✅ `myNumber`（マイナンバー、MyNumberService経由で管理）
+
+### 追加されたサービス・型
+
+- ✅ `MyNumberService`（マイナンバー管理サービス）
+- ✅ `Sex`型エイリアス（`'male' | 'female' | 'other' | null`）
+- ✅ `CohabitationFlag`型エイリアス（`'cohabiting' | 'separate' | null`）
+
+### 残っている不足項目
+
+**事業所マスタ**:
+- ❌ `officeAddressKana`（所在地カナ）
+
+**従業員マスタ**:
+- ⚠️ `basicPensionNumber`（基礎年金番号の分解対応は未実装）
+
+**被扶養者マスタ**:
+- ❌ `dependentAnnualIncome`（年間収入）
+- ❌ `livelihoodSupportRelation`（生計維持関係）
+- ❌ `domesticResidenceFlag`（国内居住フラグ）
+
+**手続きレコード**:
+- ❌ 各手続きタイプごとの固有フィールド（実装予定なし）
+- ❌ `eGovStatus`（e-Gov連携ステータス、実装予定なし。e-Gov CSV生成機能は実装しない方針）
+
+---
+
 以上で、e-Gov 6種類届出に必要な項目の実装状況ギャップ分析は完了です。
+
+**参考**: Phase3-7で追加された項目の詳細は `PHASE3-7_ADDED_FIELDS.md` を参照してください。
 

@@ -351,21 +351,27 @@ export class OfficesPage implements OnDestroy {
       return;
     }
 
+    // 空文字の場合はnullをセット（Firestoreで値をクリアする）
+    const normalizeString = (val: string | null | undefined): string | null => {
+      const trimmed = val?.trim() ?? '';
+      return trimmed === '' ? null : trimmed;
+    };
+
     const office: Office = {
       id: formValue.id,
       name: formValue.name ?? '',
-      address: formValue.address || undefined,
+      address: normalizeString(formValue.address) ?? undefined,
       healthPlanType: (formValue.healthPlanType as HealthPlanType) ?? 'kyokai',
-      kyokaiPrefCode: formValue.kyokaiPrefCode || undefined,
-      kyokaiPrefName: formValue.kyokaiPrefName || undefined,
-      unionName: formValue.unionName || undefined,
-      unionCode: formValue.unionCode || undefined,
-      officeSymbol: formValue.officeSymbol || undefined,
-      officeNumber: formValue.officeNumber || undefined,
-      officeCityCode: formValue.officeCityCode || undefined,
-      officePostalCode: formValue.officePostalCode || undefined,
-      officePhone: formValue.officePhone || undefined,
-      officeOwnerName: formValue.officeOwnerName || undefined
+      kyokaiPrefCode: normalizeString(formValue.kyokaiPrefCode) ?? undefined,
+      kyokaiPrefName: normalizeString(formValue.kyokaiPrefName) ?? undefined,
+      unionName: normalizeString(formValue.unionName) ?? undefined,
+      unionCode: normalizeString(formValue.unionCode) ?? undefined,
+      officeSymbol: normalizeString(formValue.officeSymbol) ?? undefined,
+      officeNumber: normalizeString(formValue.officeNumber) ?? undefined,
+      officeCityCode: normalizeString(formValue.officeCityCode) ?? undefined,
+      officePostalCode: normalizeString(formValue.officePostalCode) ?? undefined,
+      officePhone: normalizeString(formValue.officePhone) ?? undefined,
+      officeOwnerName: normalizeString(formValue.officeOwnerName) ?? undefined
     };
 
     try {

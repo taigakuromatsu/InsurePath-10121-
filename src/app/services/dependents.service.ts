@@ -47,6 +47,7 @@ export class DependentsService {
       payload.qualificationLossDate = dependent.qualificationLossDate;
     }
 
+    // nullも書き込み対象として扱う（空文字でクリアするため）
     if (dependent.kana !== undefined) {
       payload.kana = dependent.kana;
     }

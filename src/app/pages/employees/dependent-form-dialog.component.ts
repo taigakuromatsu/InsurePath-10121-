@@ -134,11 +134,8 @@ export interface DependentFormDialogData {
           type="password"
         />
         <mat-hint>12桁の数字（入力時は非表示）</mat-hint>
-        <mat-error *ngIf="form.controls.myNumber.hasError('pattern')">
-          12桁の数字を入力してください
-        </mat-error>
         <mat-error *ngIf="form.controls.myNumber.hasError('invalidMyNumber')">
-          正しい形式のマイナンバーを入力してください
+          正しい形式のマイナンバーを入力してください（12桁の数字）
         </mat-error>
         <mat-hint *ngIf="maskedMyNumber">登録済み: {{ maskedMyNumber }}</mat-hint>
       </mat-form-field>
@@ -214,8 +211,8 @@ export class DependentFormDialogComponent {
     myNumber: [
       '',
       [
-        Validators.pattern(/^\d{12}$/),
-        (control) => {
+        (control: any) => {
+          // MyNumberService経由でバリデーション（MyNumber関連の処理はMyNumberServiceに集約）
           if (control.value && !this.myNumberService.isValid(control.value)) {
             return { invalidMyNumber: true };
           }
@@ -267,17 +264,23 @@ export class DependentFormDialogComponent {
       ? await this.myNumberService.encrypt(value.myNumber)
       : undefined;
 
+    // 空文字の場合はnullをセット（Firestoreで値をクリアする）
+    const normalizeString = (val: string | null | undefined): string | null => {
+      const trimmed = val?.trim() ?? '';
+      return trimmed === '' ? null : trimmed;
+    };
+
     const payload: Partial<Dependent> & { id?: string } = {
       id: this.data.dependent?.id,
-      name: value.name.trim(),
-      kana: value.kana?.trim() || undefined,
+      name: (value.name?.trim() || '') as string,
+      kana: normalizeString(value.kana) ?? undefined,
       sex: value.sex ?? undefined,
-      postalCode: value.postalCode || undefined,
-      address: value.address?.trim() || undefined,
+      postalCode: normalizeString(value.postalCode) ?? undefined,
+      address: normalizeString(value.address) ?? undefined,
       cohabitationFlag: value.cohabitationFlag ?? undefined,
       myNumber: encryptedMyNumber,
       relationship: value.relationship as DependentRelationship,
-      dateOfBirth: value.dateOfBirth,
+      dateOfBirth: value.dateOfBirth || '',
       qualificationAcquiredDate: value.qualificationAcquiredDate || undefined,
       qualificationLossDate: value.qualificationLossDate || undefined
     };

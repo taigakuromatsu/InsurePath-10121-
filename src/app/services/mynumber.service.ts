@@ -9,8 +9,14 @@ import { Injectable } from '@angular/core';
   providedIn: 'root'
 })
 export class MyNumberService {
+  /**
+   * MyNumberの正規表現パターン（12桁の数字のみ）
+   * encrypt / isValid の両方で使用する
+   */
+  private static readonly MY_NUMBER_PATTERN = /^\d{12}$/;
+
   async encrypt(plainText: string): Promise<string> {
-    if (!plainText || !/^\d{12}$/.test(plainText)) {
+    if (!plainText || !MyNumberService.MY_NUMBER_PATTERN.test(plainText)) {
       throw new Error('Invalid MyNumber format');
     }
     return plainText;
@@ -29,6 +35,6 @@ export class MyNumberService {
 
   isValid(value: string | null | undefined): boolean {
     if (!value) return false;
-    return /^\d{12}$/.test(value);
+    return MyNumberService.MY_NUMBER_PATTERN.test(value);
   }
 }

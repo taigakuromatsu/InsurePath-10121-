@@ -133,11 +133,8 @@ export interface EmployeeDialogData {
           type="password"
         />
         <mat-hint>12桁の数字（入力時は非表示）</mat-hint>
-        <mat-error *ngIf="form.get('myNumber')?.hasError('pattern')">
-          12桁の数字を入力してください
-        </mat-error>
         <mat-error *ngIf="form.get('myNumber')?.hasError('invalidMyNumber')">
-          正しい形式のマイナンバーを入力してください
+          正しい形式のマイナンバーを入力してください（12桁の数字）
         </mat-error>
         <mat-hint *ngIf="maskedMyNumber">登録済み: {{ maskedMyNumber }}</mat-hint>
       </mat-form-field>
@@ -493,8 +490,8 @@ export class EmployeeFormDialogComponent {
     myNumber: [
       '',
       [
-        Validators.pattern(/^\d{12}$/),
-        (control) => {
+        (control: any) => {
+          // MyNumberService経由でバリデーション（MyNumber関連の処理はMyNumberServiceに集約）
           if (control.value && !this.myNumberService.isValid(control.value)) {
             return { invalidMyNumber: true };
           }
@@ -607,20 +604,27 @@ export class EmployeeFormDialogComponent {
           updatedByUserId: currentUserId ?? undefined
         } as unknown as Partial<Employee> & { id?: string });
 
+    // 空文字の場合はnullをセット（Firestoreで値をクリアする）
+    const normalizeString = (value: string | null | undefined): string | null => {
+      const trimmed = value?.trim() ?? '';
+      return trimmed === '' ? null : trimmed;
+    };
+
     const payload: Partial<Employee> & { id?: string } = {
       ...basePayload,
-      employeeCodeInOffice: formValue.employeeCodeInOffice?.trim() || undefined,
+      employeeCodeInOffice: normalizeString(formValue.employeeCodeInOffice) ?? undefined,
       sex: formValue.sex ?? undefined,
-      postalCode: formValue.postalCode || undefined,
-      addressKana: formValue.addressKana?.trim() || undefined,
+      postalCode: normalizeString(formValue.postalCode) ?? undefined,
+      addressKana: normalizeString(formValue.addressKana) ?? undefined,
       myNumber: encryptedMyNumber ?? basePayload.myNumber,
-      address: formValue.address || undefined,
-      phone: formValue.phone || undefined,
-      contactEmail: formValue.contactEmail || undefined,
-      department: formValue.department || undefined,
+      address: normalizeString(formValue.address) ?? undefined,
+      phone: normalizeString(formValue.phone) ?? undefined,
+      contactEmail: normalizeString(formValue.contactEmail) ?? undefined,
+      department: normalizeString(formValue.department) ?? undefined,
       retireDate: formValue.retireDate || undefined,
-      contractPeriodNote: formValue.contractPeriodNote || undefined,
-      workingStatusNote: formValue.workingStatusNote || undefined
+      contractPeriodNote: normalizeString(formValue.contractPeriodNote) ?? undefined,
+      workingStatusNote: normalizeString(formValue.workingStatusNote) ?? undefined,
+      kana: normalizeString(formValue.kana) ?? undefined
     };
 
     try {

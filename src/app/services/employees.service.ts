@@ -58,7 +58,8 @@ export class EmployeesService {
     const now = new Date().toISOString();
 
     // 必須系＋よく使う基本項目だけをまずセット
-    const payload: Employee = {
+    // nullも書き込み対象として扱うため、型をanyに拡張
+    const payload: any = {
       id: ref.id,
       officeId,
       name: employee.name ?? '未入力',
@@ -73,20 +74,25 @@ export class EmployeesService {
     };
 
     // --- ここから下は「値が入っているものだけ追加する」 ---
-    if (employee.kana != null) payload.kana = employee.kana;
-    if (employee.department != null) payload.department = employee.department;
+    // nullも書き込み対象として扱う（空文字でクリアするため）
+    if (employee.kana !== undefined) payload.kana = employee.kana;
+    if (employee.department !== undefined) payload.department = employee.department;
     if (employee.retireDate != null) payload.retireDate = employee.retireDate;
-    if (employee.address != null) payload.address = employee.address;
-    if (employee.phone != null) payload.phone = employee.phone;
-    if (employee.contactEmail != null) {
-      const normalizedEmail = employee.contactEmail.trim().toLowerCase();
-      // 空文字だったら保存しない（お好みで）
-      if (normalizedEmail) {
-        payload.contactEmail = normalizedEmail;
+    if (employee.address !== undefined) payload.address = employee.address;
+    if (employee.phone !== undefined) payload.phone = employee.phone;
+    if (employee.contactEmail !== undefined) {
+      // nullも書き込み対象として扱う（空文字でクリアするため）
+      if (employee.contactEmail === null) {
+        payload.contactEmail = null;
+      } else {
+        const normalizedEmail = employee.contactEmail?.trim().toLowerCase();
+        // 空文字の場合はnullをセット（Firestoreで値をクリアする）
+        payload.contactEmail = normalizedEmail && normalizedEmail.length > 0 ? normalizedEmail : null;
       }
     }
     
-    if (employee.contractPeriodNote != null) payload.contractPeriodNote = employee.contractPeriodNote;
+    if (employee.contractPeriodNote !== undefined) payload.contractPeriodNote = employee.contractPeriodNote;
+    if (employee.workingStatusNote !== undefined) payload.workingStatusNote = employee.workingStatusNote;
     if (employee.updatedByUserId != null) payload.updatedByUserId = employee.updatedByUserId;
 
     if (employee.employeeCodeInOffice !== undefined) {

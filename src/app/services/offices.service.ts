@@ -73,7 +73,7 @@ export class OfficesService {
       updatedAt: now,
     };
 
-    // undefined を含むフィールドを落としてから Firestore に送る
+    // undefined を含むフィールドを落としてから Firestore に送る（nullは残す）
     const payload = Object.fromEntries(
       Object.entries(office).filter(([, value]) => value !== undefined)
     ) as Office;
@@ -91,7 +91,7 @@ export class OfficesService {
       updatedAt: now,
     };
 
-    // ここでも undefined を削除してから送る
+    // undefined を削除してから送る（nullは残す）
     const payload = Object.fromEntries(
       Object.entries(officeWithUpdated).filter(([, value]) => value !== undefined)
     );
