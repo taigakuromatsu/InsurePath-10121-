@@ -16,6 +16,7 @@ import { BonusPremium, Employee } from '../../../types';
 import { BonusFormDialogComponent } from './bonus-form-dialog.component';
 import { CsvExportService } from '../../../utils/csv-export.service';
 import { HelpDialogComponent, HelpDialogData } from '../../../components/help-dialog.component';
+import { DocumentGenerationDialogComponent } from '../../documents/document-generation-dialog.component';
 
 interface BonusPremiumWithEmployee extends BonusPremium {
   employeeName: string;
@@ -136,6 +137,20 @@ interface BonusPremiumWithEmployee extends BonusPremium {
                 <th mat-header-cell *matHeaderCellDef class="center">合計</th>
                 <td mat-cell *matCellDef="let row" class="center">
                   本人 {{ row.totalEmployee | number }} / 会社 {{ row.totalEmployer | number }}
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="document">
+                <th mat-header-cell *matHeaderCellDef class="actions-header">帳票</th>
+                <td mat-cell *matCellDef="let row" class="actions-cell">
+                  <button
+                    mat-icon-button
+                    color="primary"
+                    aria-label="賞与支払届を生成"
+                    (click)="openDocumentDialog(row)"
+                  >
+                    <mat-icon>picture_as_pdf</mat-icon>
+                  </button>
                 </td>
               </ng-container>
 
@@ -398,6 +413,7 @@ export class BonusPremiumsPage {
     'health',
     'pension',
     'total',
+    'document',
     'actions'
   ];
 
@@ -497,5 +513,29 @@ export class BonusPremiumsPage {
       console.error('削除に失敗しました', error);
       this.snackBar.open('削除に失敗しました', '閉じる', { duration: 3000 });
     }
+  }
+
+  async openDocumentDialog(row: BonusPremiumWithEmployee): Promise<void> {
+    const office = await firstValueFrom(this.currentOffice.office$);
+    if (!office) {
+      this.snackBar.open('事業所が設定されていません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const employee = await firstValueFrom(this.employeesService.get(office.id, row.employeeId));
+    if (!employee) {
+      this.snackBar.open('従業員情報が取得できませんでした', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    this.dialog.open(DocumentGenerationDialogComponent, {
+      width: '720px',
+      data: {
+        office,
+        employee,
+        bonuses: [row],
+        defaultType: 'bonus_payment'
+      }
+    });
   }
 }

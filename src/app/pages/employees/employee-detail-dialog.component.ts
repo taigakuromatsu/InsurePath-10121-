@@ -18,7 +18,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DecimalPipe } from '@angular/common'; // ★ number パイプ用
-import { map, Observable, of, switchMap } from 'rxjs';
+import { firstValueFrom, map, Observable, of, switchMap } from 'rxjs';
 import { MatTableModule } from '@angular/material/table';
 
 import { Dependent, Employee, StandardRewardHistory, Sex } from '../../types';
@@ -35,6 +35,8 @@ import { CurrentUserService } from '../../services/current-user.service';
 import { DependentFormDialogComponent } from './dependent-form-dialog.component';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
 import { StandardRewardHistoryFormDialogComponent } from './standard-reward-history-form-dialog.component';
+import { DocumentGenerationDialogComponent } from '../documents/document-generation-dialog.component';
+import { CurrentOfficeService } from '../../services/current-office.service';
 
 export type DialogFocusSection =
   | 'basic'
@@ -486,6 +488,24 @@ export interface EmployeeDetailDialogData {
     </div>
 
     <div mat-dialog-actions align="end" class="dialog-actions">
+      <button
+        mat-stroked-button
+        color="primary"
+        type="button"
+        (click)="openDocumentDialog('qualification_acquisition')"
+      >
+        <mat-icon>picture_as_pdf</mat-icon>
+        資格取得届PDF
+      </button>
+      <button
+        mat-stroked-button
+        color="primary"
+        type="button"
+        (click)="openDocumentDialog('qualification_loss')"
+      >
+        <mat-icon>picture_as_pdf</mat-icon>
+        資格喪失届PDF
+      </button>
       <button mat-button mat-dialog-close>
         <mat-icon>close</mat-icon>
         閉じる
@@ -758,6 +778,7 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   private readonly dependentsService = inject(DependentsService);
   private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
   private readonly currentUser = inject(CurrentUserService);
+  private readonly currentOffice = inject(CurrentOfficeService);
 
   readonly dependents$!: Observable<Dependent[]>;
   readonly standardRewardHistories$!: Observable<StandardRewardHistory[]>;
@@ -869,6 +890,25 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
         return '-';
     }
   };
+
+  async openDocumentDialog(
+    type: 'qualification_acquisition' | 'qualification_loss'
+  ): Promise<void> {
+    const office = await firstValueFrom(this.currentOffice.office$);
+    if (!office) {
+      this.snackBar.open('事業所情報が取得できませんでした。', undefined, { duration: 3000 });
+      return;
+    }
+
+    this.dialog.open(DocumentGenerationDialogComponent, {
+      width: '720px',
+      data: {
+        office,
+        employee: this.data.employee,
+        defaultType: type
+      }
+    });
+  }
 
   scrollToSection(sectionId: DialogFocusSection): void {
     const container = this.contentRef?.nativeElement;
