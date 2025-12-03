@@ -145,6 +145,7 @@ export class ChangeRequestFormDialogComponent implements OnDestroy {
     await this.changeRequestsService.create(this.data.officeId, {
       employeeId: this.data.employee.id,
       requestedByUserId: currentUserId,
+      kind: 'profile',
       field: formValue.field as 'address' | 'phone' | 'email',
       currentValue,
       requestedValue: formValue.requestedValue ?? ''

@@ -1,4 +1,6 @@
 import {
+  ChangeRequestKind,
+  ChangeRequestStatus,
   DependentRelationship,
   InsuranceLossReasonKind,
   InsuranceQualificationKind,
@@ -81,6 +83,35 @@ export function getDependentRelationshipLabel(
       return '兄弟姉妹';
     case 'other':
       return 'その他';
+    default:
+      return '-';
+  }
+}
+
+export function getChangeRequestKindLabel(kind?: ChangeRequestKind): string {
+  switch (kind) {
+    case 'dependent_add':
+      return '扶養家族追加';
+    case 'dependent_update':
+      return '扶養家族変更';
+    case 'dependent_remove':
+      return '扶養家族削除';
+    case 'profile':
+    default:
+      return 'プロフィール変更';
+  }
+}
+
+export function getChangeRequestStatusLabel(status?: ChangeRequestStatus): string {
+  switch (status) {
+    case 'pending':
+      return '承認待ち';
+    case 'approved':
+      return '承認済み';
+    case 'rejected':
+      return '却下済み';
+    case 'canceled':
+      return '取り下げ';
     default:
       return '-';
   }

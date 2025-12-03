@@ -13,9 +13,19 @@ import { CurrentUserService } from '../../services/current-user.service';
 import { ChangeRequestsService } from '../../services/change-requests.service';
 import { EmployeesService } from '../../services/employees.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
-import { BonusPremium, ChangeRequest, ChangeRequestStatus, Dependent, MonthlyPremium } from '../../types';
+import {
+  BonusPremium,
+  ChangeRequest,
+  ChangeRequestStatus,
+  Dependent,
+  MonthlyPremium
+} from '../../types';
 import { DependentsService } from '../../services/dependents.service';
-import { getDependentRelationshipLabel } from '../../utils/label-utils';
+import {
+  getChangeRequestKindLabel,
+  getChangeRequestStatusLabel,
+  getDependentRelationshipLabel
+} from '../../utils/label-utils';
 import { ChangeRequestFormDialogComponent } from '../requests/change-request-form-dialog.component';
 
 @Component({
@@ -287,7 +297,7 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
         <div class="page-header">
           <h2>
             <mat-icon>edit</mat-icon>
-            変更申請履歴
+            申請・手続き
           </h2>
         </div>
 
@@ -299,7 +309,7 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
             [disabled]="!(employee$ | async)"
           >
             <mat-icon>add</mat-icon>
-            変更申請を行う
+            新しい申請を作成
           </button>
         </div>
 
@@ -309,6 +319,11 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
               <ng-container matColumnDef="requestedAt">
                 <th mat-header-cell *matHeaderCellDef>申請日時</th>
                 <td mat-cell *matCellDef="let row">{{ row.requestedAt | date: 'yyyy-MM-dd HH:mm' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="kind">
+                <th mat-header-cell *matHeaderCellDef>申請種別</th>
+                <td mat-cell *matCellDef="let row">{{ getKindLabel(row.kind) }}</td>
               </ng-container>
 
               <ng-container matColumnDef="field">
@@ -342,6 +357,20 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
                     {{ row.rejectReason }}
                   </span>
                   <ng-template #noReason>-</ng-template>
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    mat-stroked-button
+                    color="warn"
+                    *ngIf="row.status === 'pending'"
+                    (click)="cancelRequest(row)"
+                  >
+                    取り下げ
+                  </button>
                 </td>
               </ng-container>
 
@@ -632,11 +661,13 @@ export class MyPage {
 
   readonly requestHistoryColumns = [
     'requestedAt',
+    'kind',
     'field',
     'currentValue',
     'requestedValue',
     'status',
-    'rejectReason'
+    'rejectReason',
+    'actions'
   ];
 
   readonly employee$ = combineLatest([this.currentUser.profile$, this.currentOffice.officeId$]).pipe(
@@ -714,19 +745,31 @@ export class MyPage {
       case 'email':
         return 'メールアドレス';
       default:
-        return field;
+        return field || '-';
     }
   }
 
+  getKindLabel(kind: ChangeRequest['kind']): string {
+    return getChangeRequestKindLabel(kind);
+  }
+
   getStatusLabel(status: ChangeRequestStatus): string {
-    switch (status) {
-      case 'pending':
-        return '承認待ち';
-      case 'approved':
-        return '承認済み';
-      case 'rejected':
-        return '却下済み';
+    return getChangeRequestStatusLabel(status);
+  }
+
+  async cancelRequest(request: ChangeRequest): Promise<void> {
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
+
+    if (!officeId || request.status !== 'pending') {
+      return;
     }
+
+    const confirmed = window.confirm('この申請を取り下げますか？');
+    if (!confirmed) {
+      return;
+    }
+
+    await this.changeRequestsService.cancel(officeId, request.id);
   }
 
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;

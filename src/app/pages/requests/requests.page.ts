@@ -15,6 +15,7 @@ import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeesService } from '../../services/employees.service';
 import { ChangeRequest, ChangeRequestStatus, Employee } from '../../types';
 import { RejectReasonDialogComponent } from './reject-reason-dialog.component';
+import { getChangeRequestKindLabel, getChangeRequestStatusLabel } from '../../utils/label-utils';
 
 @Component({
   selector: 'ip-requests-page',
@@ -58,6 +59,7 @@ import { RejectReasonDialogComponent } from './reject-reason-dialog.component';
               <mat-option value="pending">承認待ち</mat-option>
               <mat-option value="approved">承認済み</mat-option>
               <mat-option value="rejected">却下済み</mat-option>
+              <mat-option value="canceled">取り下げ</mat-option>
             </mat-select>
           </mat-form-field>
         </div>
@@ -75,6 +77,11 @@ import { RejectReasonDialogComponent } from './reject-reason-dialog.component';
               <ng-container matColumnDef="employee">
                 <th mat-header-cell *matHeaderCellDef>申請者</th>
                 <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="kind">
+                <th mat-header-cell *matHeaderCellDef>申請種別</th>
+                <td mat-cell *matCellDef="let row">{{ getKindLabel(row.kind) }}</td>
               </ng-container>
 
               <ng-container matColumnDef="field">
@@ -292,6 +299,7 @@ export class RequestsPage {
   readonly displayedColumns = [
     'requestedAt',
     'employee',
+    'kind',
     'field',
     'currentValue',
     'requestedValue',
@@ -343,19 +351,16 @@ export class RequestsPage {
       case 'email':
         return 'メールアドレス';
       default:
-        return field;
+        return field || '-';
     }
   }
 
+  getKindLabel(kind: ChangeRequest['kind']): string {
+    return getChangeRequestKindLabel(kind);
+  }
+
   getStatusLabel(status: ChangeRequestStatus): string {
-    switch (status) {
-      case 'pending':
-        return '承認待ち';
-      case 'approved':
-        return '承認済み';
-      case 'rejected':
-        return '却下済み';
-    }
+    return getChangeRequestStatusLabel(status);
   }
 
   private buildUpdateData(request: ChangeRequest): Partial<Employee> {

@@ -778,7 +778,8 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly([
             'id', 'officeId', 'employeeId', 'requestedByUserId',
             'field', 'currentValue', 'requestedValue', 'status',
-            'requestedAt', 'decidedAt', 'decidedByUserId', 'rejectReason'
+            'requestedAt', 'decidedAt', 'decidedByUserId', 'rejectReason',
+            'kind', 'targetDependentId', 'payload'
           ])
           && request.resource.data.officeId == officeId
           && request.resource.data.status == 'pending'
@@ -786,19 +787,29 @@ service cloud.firestore {
           && !('decidedByUserId' in request.resource.data)
           && !('rejectReason' in request.resource.data);
 
-        allow update: if belongsToOffice(officeId) && isAdminOrHr(officeId) && (
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'decidedAt', 'decidedByUserId', 'rejectReason'])
-          && (
-            (request.resource.data.status == 'approved' && resource.data.status == 'pending')
-            || (
-              request.resource.data.status == 'rejected'
-              && resource.data.status == 'pending'
-              && request.resource.data.rejectReason is string
-              && request.resource.data.rejectReason.size() > 0
-            )
+        allow update: if belongsToOffice(officeId) && (
+          (
+            isAdminOrHr(officeId)
+              && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'decidedAt', 'decidedByUserId', 'rejectReason'])
+              && (
+                (request.resource.data.status == 'approved' && resource.data.status == 'pending')
+                || (
+                  request.resource.data.status == 'rejected'
+                  && resource.data.status == 'pending'
+                  && request.resource.data.rejectReason is string
+                  && request.resource.data.rejectReason.size() > 0
+                )
+              )
+              && request.resource.data.decidedByUserId == request.auth.uid
+              && request.resource.data.decidedAt is string
           )
-          && request.resource.data.decidedByUserId == request.auth.uid
-          && request.resource.data.decidedAt is string
+          || (
+            (isInsureEmployee(officeId) || isAdminOrHr(officeId))
+              && resource.data.requestedByUserId == request.auth.uid
+              && resource.data.status == 'pending'
+              && request.resource.data.status == 'canceled'
+              && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status'])
+          )
         );
 
         allow delete: if false;
