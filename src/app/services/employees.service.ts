@@ -89,6 +89,19 @@ export class EmployeesService {
     if (employee.contractPeriodNote != null) payload.contractPeriodNote = employee.contractPeriodNote;
     if (employee.updatedByUserId != null) payload.updatedByUserId = employee.updatedByUserId;
 
+    if (employee.employeeCodeInOffice !== undefined) {
+      payload.employeeCodeInOffice = employee.employeeCodeInOffice;
+    }
+    if (employee.sex !== undefined) {
+      payload.sex = employee.sex;
+    }
+    if (employee.postalCode !== undefined) {
+      payload.postalCode = employee.postalCode;
+    }
+    if (employee.addressKana !== undefined) {
+      payload.addressKana = employee.addressKana;
+    }
+
     if (employee.weeklyWorkingHours != null) {
       payload.weeklyWorkingHours = Number(employee.weeklyWorkingHours);
     }
@@ -104,6 +117,9 @@ export class EmployeesService {
     }
     if (employee.pensionNumber != null) {
       payload.pensionNumber = employee.pensionNumber;
+    }
+    if (employee.myNumber !== undefined) {
+      payload.myNumber = employee.myNumber;
     }
 
     if (employee.healthGrade != null) {

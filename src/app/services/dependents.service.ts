@@ -47,6 +47,25 @@ export class DependentsService {
       payload.qualificationLossDate = dependent.qualificationLossDate;
     }
 
+    if (dependent.kana !== undefined) {
+      payload.kana = dependent.kana;
+    }
+    if (dependent.sex !== undefined) {
+      payload.sex = dependent.sex;
+    }
+    if (dependent.postalCode !== undefined) {
+      payload.postalCode = dependent.postalCode;
+    }
+    if (dependent.address !== undefined) {
+      payload.address = dependent.address;
+    }
+    if (dependent.cohabitationFlag !== undefined) {
+      payload.cohabitationFlag = dependent.cohabitationFlag;
+    }
+    if (dependent.myNumber !== undefined) {
+      payload.myNumber = dependent.myNumber;
+    }
+
     await setDoc(ref, payload, { merge: true });
   }
 

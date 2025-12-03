@@ -63,6 +63,12 @@ export class OfficesService {
       kyokaiPrefName: partial.kyokaiPrefName,
       unionCode: partial.unionCode,
       unionName: partial.unionName,
+      officeSymbol: partial.officeSymbol,
+      officeNumber: partial.officeNumber,
+      officeCityCode: partial.officeCityCode,
+      officePostalCode: partial.officePostalCode,
+      officePhone: partial.officePhone,
+      officeOwnerName: partial.officeOwnerName,
       createdAt: now,
       updatedAt: now,
     };
