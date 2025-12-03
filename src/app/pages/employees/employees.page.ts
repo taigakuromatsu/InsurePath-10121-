@@ -36,6 +36,7 @@ import {
   ImportResult
 } from './employee-import-dialog.component';
 import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialog.component';
+import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/confirm-dialog.component';
 
 interface EmployeeWithUpdatedBy extends Employee {
   updatedByDisplayName: string | null;
@@ -257,7 +258,7 @@ interface EmployeeWithUpdatedBy extends Employee {
                 <button
                   mat-icon-button
                   color="warn"
-                  (click)="delete(row)"
+                  (click)="confirmDeleteEmployee(row)"
                   aria-label="削除"
                   title="削除"
                 >
@@ -771,8 +772,33 @@ export class EmployeesPage {
     });
   }
 
+  // 削除確認ダイアログを表示してから削除
+  async confirmDeleteEmployee(employee: Employee): Promise<void> {
+    const dialogRef = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
+      ConfirmDialogComponent,
+      {
+        width: '400px',
+        data: {
+          title: '従業員を削除しますか？',
+          message: `従業員「${employee.name}」を削除します。よろしいですか？`,
+          confirmLabel: '削除',
+          cancelLabel: 'キャンセル'
+        }
+      }
+    );
+
+    const result = await firstValueFrom(dialogRef.afterClosed());
+    if (!result) {
+      // キャンセル時は何もしない
+      return;
+    }
+
+    // 削除処理を実行
+    await this.delete(employee);
+  }
+
   // 削除後も reload$.next() で一覧を再取得
-  async delete(employee: Employee): Promise<void> {
+  private async delete(employee: Employee): Promise<void> {
     const officeId = await firstValueFrom(this.officeId$);
     if (!officeId) {
       return;

@@ -37,6 +37,7 @@ import { StandardRewardHistoryService } from '../../services/standard-reward-his
 import { StandardRewardHistoryFormDialogComponent } from './standard-reward-history-form-dialog.component';
 import { DocumentGenerationDialogComponent } from '../documents/document-generation-dialog.component';
 import { CurrentOfficeService } from '../../services/current-office.service';
+import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/confirm-dialog.component';
 
 export type DialogFocusSection =
   | 'basic'
@@ -442,7 +443,7 @@ export interface EmployeeDetailDialogData {
                   <button mat-icon-button color="primary" (click)="openEditDependent(dependent)">
                     <mat-icon>edit</mat-icon>
                   </button>
-                  <button mat-icon-button color="warn" (click)="deleteDependent(dependent)">
+                  <button mat-icon-button color="warn" (click)="confirmDeleteDependent(dependent)">
                     <mat-icon>delete</mat-icon>
                   </button>
                 </div>
@@ -1037,20 +1038,44 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
       });
   }
 
-  deleteDependent(dependent: Dependent): void {
-    const confirmed = window.confirm(`${dependent.name} を削除しますか？`);
-    if (!confirmed) return;
+  async confirmDeleteDependent(dependent: Dependent): Promise<void> {
+    const dialogRef = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
+      ConfirmDialogComponent,
+      {
+        width: '400px',
+        data: {
+          title: '扶養家族を削除しますか？',
+          message: `扶養家族「${dependent.name}」を削除します。よろしいですか？`,
+          confirmLabel: '削除',
+          cancelLabel: 'キャンセル'
+        }
+      }
+    );
 
-    this.dependentsService
-      .delete(this.data.employee.officeId, this.data.employee.id, dependent.id)
-      .then(() => {
-        this.snackBar.open('扶養家族を削除しました', undefined, { duration: 2500 });
-      })
-      .catch(() => {
-        this.snackBar.open('削除に失敗しました。時間をおいて再度お試しください。', undefined, {
-          duration: 3000
-        });
+    const result = await firstValueFrom(dialogRef.afterClosed());
+    if (!result) {
+      // キャンセル時は何もしない
+      return;
+    }
+
+    // 削除処理を実行
+    await this.deleteDependent(dependent);
+  }
+
+  private async deleteDependent(dependent: Dependent): Promise<void> {
+    try {
+      await this.dependentsService.delete(
+        this.data.employee.officeId,
+        this.data.employee.id,
+        dependent.id
+      );
+      this.snackBar.open('扶養家族を削除しました', undefined, { duration: 2500 });
+    } catch (error) {
+      console.error(error);
+      this.snackBar.open('削除に失敗しました。時間をおいて再度お試しください。', undefined, {
+        duration: 3000
       });
+    }
   }
 
   private saveDependent(dependent: Partial<Dependent> & { id?: string }): void {
