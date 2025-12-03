@@ -41,7 +41,7 @@ export interface EmployeeDialogData {
       <mat-icon>{{ data.employee ? 'edit' : 'person_add' }}</mat-icon>
       {{ data.employee ? '従業員を編集' : '従業員を追加' }}
     </h1>
-    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content autocomplete="off">
       <div class="form-section">
         <h3 class="section-title">
           <mat-icon>person</mat-icon>
@@ -90,7 +90,7 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>連絡先メール</mat-label>
-        <input matInput formControlName="contactEmail" type="email" />
+        <input matInput formControlName="contactEmail" type="email" autocomplete="off" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -111,7 +111,7 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>郵便番号</mat-label>
-        <input matInput formControlName="postalCode" placeholder="1234567" maxlength="7" />
+        <input matInput formControlName="postalCode" placeholder="1234567" maxlength="7" autocomplete="off" inputmode="numeric"/>
         <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
         <mat-error *ngIf="form.get('postalCode')?.hasError('pattern')">
           7桁の数字を入力してください
@@ -131,6 +131,8 @@ export interface EmployeeDialogData {
           placeholder="123456789012"
           maxlength="12"
           type="password"
+          autocomplete="off"
+          inputmode="numeric"
         />
         <mat-hint>12桁の数字（入力時は非表示）</mat-hint>
         <mat-error *ngIf="form.get('myNumber')?.hasError('invalidMyNumber')">

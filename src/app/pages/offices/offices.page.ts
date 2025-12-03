@@ -105,25 +105,22 @@ import { HealthPlanType, Office } from '../../types';
           <div class="form-section">
             <h3 class="section-title">
               <mat-icon>business_center</mat-icon>
-              e-Gov用事業所情報
+              事業所識別情報
             </h3>
             <div class="form-grid">
               <mat-form-field appearance="outline">
                 <mat-label>事業所記号</mat-label>
                 <input matInput formControlName="officeSymbol" />
-                <mat-hint>e-Gov CSV出力に必要です</mat-hint>
               </mat-form-field>
 
               <mat-form-field appearance="outline">
                 <mat-label>事業所番号</mat-label>
                 <input matInput formControlName="officeNumber" />
-                <mat-hint>e-Gov CSV出力に必要です</mat-hint>
               </mat-form-field>
 
               <mat-form-field appearance="outline">
                 <mat-label>郡市区符号</mat-label>
                 <input matInput formControlName="officeCityCode" />
-                <mat-hint>e-Gov CSV出力に必要です</mat-hint>
               </mat-form-field>
 
               <mat-form-field appearance="outline">
