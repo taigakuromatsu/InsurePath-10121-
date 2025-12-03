@@ -8,8 +8,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { NgFor, NgIf } from '@angular/common';
 
-import { Dependent, DependentRelationship } from '../../types';
+import { CohabitationFlag, Dependent, DependentRelationship, Sex } from '../../types';
 import { getDependentRelationshipLabel } from '../../utils/label-utils';
+import { MyNumberService } from '../../services/mynumber.service';
 
 export interface DependentFormDialogData {
   officeId: string;
@@ -44,6 +45,44 @@ export interface DependentFormDialogData {
         <mat-error *ngIf="form.controls.name.hasError('required')">
           氏名を入力してください
         </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>氏名カナ</mat-label>
+        <input matInput formControlName="kana" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>性別</mat-label>
+        <mat-select formControlName="sex">
+          <mat-option [value]="null">未選択</mat-option>
+          <mat-option value="male">男</mat-option>
+          <mat-option value="female">女</mat-option>
+          <mat-option value="other">その他</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>郵便番号</mat-label>
+        <input matInput formControlName="postalCode" placeholder="1234567" maxlength="7" />
+        <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
+        <mat-error *ngIf="form.controls.postalCode.hasError('pattern')">
+          7桁の数字を入力してください
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>住所</mat-label>
+        <textarea matInput formControlName="address" rows="2"></textarea>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>同居／別居</mat-label>
+        <mat-select formControlName="cohabitationFlag">
+          <mat-option [value]="null">未選択</mat-option>
+          <mat-option value="cohabiting">同居</mat-option>
+          <mat-option value="separate">別居</mat-option>
+        </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
@@ -83,6 +122,25 @@ export interface DependentFormDialogData {
         <mat-error *ngIf="form.controls.qualificationLossDate.hasError('pattern')">
           YYYY-MM-DD 形式で入力してください
         </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>マイナンバー</mat-label>
+        <input
+          matInput
+          formControlName="myNumber"
+          placeholder="123456789012"
+          maxlength="12"
+          type="password"
+        />
+        <mat-hint>12桁の数字（入力時は非表示）</mat-hint>
+        <mat-error *ngIf="form.controls.myNumber.hasError('pattern')">
+          12桁の数字を入力してください
+        </mat-error>
+        <mat-error *ngIf="form.controls.myNumber.hasError('invalidMyNumber')">
+          正しい形式のマイナンバーを入力してください
+        </mat-error>
+        <mat-hint *ngIf="maskedMyNumber">登録済み: {{ maskedMyNumber }}</mat-hint>
       </mat-form-field>
     </form>
 
@@ -130,6 +188,7 @@ export interface DependentFormDialogData {
 })
 export class DependentFormDialogComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly myNumberService = inject(MyNumberService);
   protected readonly relationships: DependentRelationship[] = [
     'spouse',
     'child',
@@ -139,12 +198,31 @@ export class DependentFormDialogComponent {
     'other'
   ];
 
-  readonly form = this.fb.nonNullable.group({
+  protected maskedMyNumber: string | null = null;
+
+  readonly form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
     relationship: ['', Validators.required],
     dateOfBirth: ['', [Validators.required, Validators.pattern(/^\d{4}-\d{2}-\d{2}$/)]],
     qualificationAcquiredDate: ['', Validators.pattern(/^\d{4}-\d{2}-\d{2}$/)],
-    qualificationLossDate: ['', Validators.pattern(/^\d{4}-\d{2}-\d{2}$/)]
+    qualificationLossDate: ['', Validators.pattern(/^\d{4}-\d{2}-\d{2}$/)],
+    kana: ['', Validators.maxLength(100)],
+    sex: [null as Sex | null],
+    postalCode: ['', [Validators.pattern(/^\d{7}$/)]],
+    address: ['', Validators.maxLength(200)],
+    cohabitationFlag: [null as CohabitationFlag | null],
+    myNumber: [
+      '',
+      [
+        Validators.pattern(/^\d{12}$/),
+        (control) => {
+          if (control.value && !this.myNumberService.isValid(control.value)) {
+            return { invalidMyNumber: true };
+          }
+          return null;
+        }
+      ]
+    ]
   });
 
   constructor(
@@ -157,24 +235,47 @@ export class DependentFormDialogComponent {
         relationship: data.dependent.relationship,
         dateOfBirth: data.dependent.dateOfBirth,
         qualificationAcquiredDate: data.dependent.qualificationAcquiredDate ?? '',
-        qualificationLossDate: data.dependent.qualificationLossDate ?? ''
+        qualificationLossDate: data.dependent.qualificationLossDate ?? '',
+        kana: data.dependent.kana ?? '',
+        sex: data.dependent.sex ?? null,
+        postalCode: data.dependent.postalCode ?? '',
+        address: data.dependent.address ?? '',
+        cohabitationFlag: data.dependent.cohabitationFlag ?? null
       });
+
+      if (data.dependent.myNumber) {
+        void this.setMaskedMyNumber(data.dependent.myNumber);
+      }
     }
   }
 
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
 
-  submit(): void {
+  private async setMaskedMyNumber(encrypted: string): Promise<void> {
+    const decrypted = await this.myNumberService.decrypt(encrypted);
+    this.maskedMyNumber = this.myNumberService.mask(decrypted);
+  }
+
+  async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
     const value = this.form.getRawValue();
+    const encryptedMyNumber = value.myNumber
+      ? await this.myNumberService.encrypt(value.myNumber)
+      : undefined;
 
     const payload: Partial<Dependent> & { id?: string } = {
       id: this.data.dependent?.id,
       name: value.name.trim(),
+      kana: value.kana?.trim() || undefined,
+      sex: value.sex ?? undefined,
+      postalCode: value.postalCode || undefined,
+      address: value.address?.trim() || undefined,
+      cohabitationFlag: value.cohabitationFlag ?? undefined,
+      myNumber: encryptedMyNumber,
       relationship: value.relationship as DependentRelationship,
       dateOfBirth: value.dateOfBirth,
       qualificationAcquiredDate: value.qualificationAcquiredDate || undefined,

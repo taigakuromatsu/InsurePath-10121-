@@ -102,6 +102,56 @@ import { HealthPlanType, Office } from '../../types';
             </div>
           </div>
 
+          <div class="form-section">
+            <h3 class="section-title">
+              <mat-icon>business_center</mat-icon>
+              e-Gov用事業所情報
+            </h3>
+            <div class="form-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>事業所記号</mat-label>
+                <input matInput formControlName="officeSymbol" />
+                <mat-hint>e-Gov CSV出力に必要です</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>事業所番号</mat-label>
+                <input matInput formControlName="officeNumber" />
+                <mat-hint>e-Gov CSV出力に必要です</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>郡市区符号</mat-label>
+                <input matInput formControlName="officeCityCode" />
+                <mat-hint>e-Gov CSV出力に必要です</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>郵便番号</mat-label>
+                <input
+                  matInput
+                  formControlName="officePostalCode"
+                  placeholder="1234567"
+                  maxlength="7"
+                />
+                <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
+                <mat-error *ngIf="form.get('officePostalCode')?.hasError('pattern')">
+                  7桁の数字を入力してください
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>電話番号</mat-label>
+                <input matInput formControlName="officePhone" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>事業主（代表者）氏名</mat-label>
+                <input matInput formControlName="officeOwnerName" />
+              </mat-form-field>
+            </div>
+          </div>
+
           <div class="actions">
             <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || loading()">
               <mat-icon>save</mat-icon>
@@ -265,7 +315,13 @@ export class OfficesPage implements OnDestroy {
     kyokaiPrefCode: [''],
     kyokaiPrefName: [''],
     unionName: [''],
-    unionCode: ['']
+    unionCode: [''],
+    officeSymbol: [''],
+    officeNumber: [''],
+    officeCityCode: [''],
+    officePostalCode: ['', [Validators.pattern(/^\d{7}$/)]],
+    officePhone: [''],
+    officeOwnerName: ['']
   });
 
   private readonly subscription: Subscription;
@@ -289,11 +345,28 @@ export class OfficesPage implements OnDestroy {
       return;
     }
 
-    const office = this.form.value as Office;
-    if (!office.id) {
+    const formValue = this.form.getRawValue();
+    if (!formValue.id) {
       this.snackBar.open('事業所IDを取得できませんでした', '閉じる', { duration: 3000 });
       return;
     }
+
+    const office: Office = {
+      id: formValue.id,
+      name: formValue.name ?? '',
+      address: formValue.address || undefined,
+      healthPlanType: (formValue.healthPlanType as HealthPlanType) ?? 'kyokai',
+      kyokaiPrefCode: formValue.kyokaiPrefCode || undefined,
+      kyokaiPrefName: formValue.kyokaiPrefName || undefined,
+      unionName: formValue.unionName || undefined,
+      unionCode: formValue.unionCode || undefined,
+      officeSymbol: formValue.officeSymbol || undefined,
+      officeNumber: formValue.officeNumber || undefined,
+      officeCityCode: formValue.officeCityCode || undefined,
+      officePostalCode: formValue.officePostalCode || undefined,
+      officePhone: formValue.officePhone || undefined,
+      officeOwnerName: formValue.officeOwnerName || undefined
+    };
 
     try {
       this.loading.set(true);

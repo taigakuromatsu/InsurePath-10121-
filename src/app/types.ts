@@ -7,6 +7,21 @@ export type YearMonthString = string;
 export type PaymentStatus = 'unpaid' | 'paid' | 'partially_paid' | 'not_required';
 export type PaymentMethod = 'bank_transfer' | 'account_transfer' | 'cash' | 'other';
 
+/**
+ * 性別コード
+ */
+export type Sex = 'male' | 'female' | 'other' | null;
+
+/**
+ * 同居／別居フラグ
+ */
+export type CohabitationFlag = 'cohabiting' | 'separate' | null;
+
+/**
+ * 個人番号（マイナンバー）
+ */
+export type MyNumber = string;
+
 export interface SocialInsurancePayment {
   id: string;
   officeId: string;
@@ -90,6 +105,12 @@ export interface Office {
   kyokaiPrefName?: string;
   unionName?: string;
   unionCode?: string;
+  officeSymbol?: string;
+  officeNumber?: string;
+  officeCityCode?: string;
+  officePostalCode?: string;
+  officePhone?: string;
+  officeOwnerName?: string;
   createdAt?: IsoDateString;
   updatedAt?: IsoDateString;
 }
@@ -144,8 +165,14 @@ export type DependentRelationship =
 export interface Dependent {
   id: string;
   name: string;
+  kana?: string;
+  sex?: Sex;
+  postalCode?: string;
+  address?: string;
+  cohabitationFlag?: CohabitationFlag;
   relationship: DependentRelationship;
   dateOfBirth: IsoDateString;
+  myNumber?: MyNumber;
   qualificationAcquiredDate?: IsoDateString;
   qualificationLossDate?: IsoDateString;
   createdAt?: IsoDateString;
@@ -212,6 +239,10 @@ export interface Employee {
   address?: string;
   phone?: string;
   contactEmail?: string;
+  employeeCodeInOffice?: string;
+  sex?: Sex;
+  postalCode?: string;
+  addressKana?: string;
 
   /** 所定労働条件 */
   weeklyWorkingHours?: number;
@@ -229,6 +260,7 @@ export interface Employee {
   healthInsuredSymbol?: string;
   healthInsuredNumber?: string;
   pensionNumber?: string;
+  myNumber?: MyNumber;
 
   /** 健康保険の資格情報 */
   healthQualificationDate?: IsoDateString;

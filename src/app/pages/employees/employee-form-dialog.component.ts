@@ -12,9 +12,10 @@ import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialo
 
 import { EmployeesService } from '../../services/employees.service';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
-import { Employee, YearMonthString } from '../../types';
+import { Employee, Sex, YearMonthString } from '../../types';
 import { CurrentUserService } from '../../services/current-user.service';
 import { firstValueFrom, map } from 'rxjs';
+import { MyNumberService } from '../../services/mynumber.service';
 
 export interface EmployeeDialogData {
   employee?: Employee;
@@ -90,6 +91,55 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>連絡先メール</mat-label>
         <input matInput formControlName="contactEmail" type="email" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>被保険者整理番号</mat-label>
+        <input matInput formControlName="employeeCodeInOffice" />
+        <mat-hint>社内従業員番号としても使用できます</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>性別</mat-label>
+        <mat-select formControlName="sex">
+          <mat-option [value]="null">未選択</mat-option>
+          <mat-option value="male">男</mat-option>
+          <mat-option value="female">女</mat-option>
+          <mat-option value="other">その他</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>郵便番号</mat-label>
+        <input matInput formControlName="postalCode" placeholder="1234567" maxlength="7" />
+        <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
+        <mat-error *ngIf="form.get('postalCode')?.hasError('pattern')">
+          7桁の数字を入力してください
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>住所カナ</mat-label>
+        <textarea matInput formControlName="addressKana" rows="2"></textarea>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-row">
+        <mat-label>マイナンバー</mat-label>
+        <input
+          matInput
+          formControlName="myNumber"
+          placeholder="123456789012"
+          maxlength="12"
+          type="password"
+        />
+        <mat-hint>12桁の数字（入力時は非表示）</mat-hint>
+        <mat-error *ngIf="form.get('myNumber')?.hasError('pattern')">
+          12桁の数字を入力してください
+        </mat-error>
+        <mat-error *ngIf="form.get('myNumber')?.hasError('invalidMyNumber')">
+          正しい形式のマイナンバーを入力してください
+        </mat-error>
+        <mat-hint *ngIf="maskedMyNumber">登録済み: {{ maskedMyNumber }}</mat-hint>
       </mat-form-field>
         </div>
       </div>
@@ -419,7 +469,10 @@ export class EmployeeFormDialogComponent {
   private readonly employeesService = inject(EmployeesService);
   private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
   private readonly currentUser = inject(CurrentUserService);
+  private readonly myNumberService = inject(MyNumberService);
   private readonly originalMonthlyWage?: number;
+
+  protected maskedMyNumber: string | null = null;
 
   readonly form = inject(FormBuilder).group({
     id: [''],
@@ -433,6 +486,22 @@ export class EmployeeFormDialogComponent {
     address: [''],
     phone: [''],
     contactEmail: [''],
+    employeeCodeInOffice: [''],
+    sex: [null as Sex | null],
+    postalCode: ['', [Validators.pattern(/^\d{7}$/)]],
+    addressKana: [''],
+    myNumber: [
+      '',
+      [
+        Validators.pattern(/^\d{12}$/),
+        (control) => {
+          if (control.value && !this.myNumberService.isValid(control.value)) {
+            return { invalidMyNumber: true };
+          }
+          return null;
+        }
+      ]
+    ],
     weeklyWorkingHours: [null],
     weeklyWorkingDays: [null],
     contractPeriodNote: [''],
@@ -467,6 +536,10 @@ export class EmployeeFormDialogComponent {
       const employee = data.employee;
       this.form.patchValue({
         ...employee,
+        employeeCodeInOffice: employee.employeeCodeInOffice ?? '',
+        sex: employee.sex ?? null,
+        postalCode: employee.postalCode ?? '',
+        addressKana: employee.addressKana ?? '',
         healthGrade: employee.healthGrade ?? null,
         pensionGrade: employee.pensionGrade ?? null,
         weeklyWorkingHours: employee.weeklyWorkingHours ?? null,
@@ -485,6 +558,10 @@ export class EmployeeFormDialogComponent {
         premiumTreatment: employee.premiumTreatment ?? 'normal',
         workingStatusNote: employee.workingStatusNote ?? ''
       } as any);
+
+      if (employee.myNumber) {
+        void this.setMaskedMyNumber(employee.myNumber);
+      }
     }
   }
 
@@ -500,6 +577,11 @@ export class EmployeeFormDialogComponent {
     });
   }
 
+  private async setMaskedMyNumber(encrypted: string): Promise<void> {
+    const decrypted = await this.myNumberService.decrypt(encrypted);
+    this.maskedMyNumber = this.myNumberService.mask(decrypted);
+  }
+
   async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -510,7 +592,11 @@ export class EmployeeFormDialogComponent {
     const currentUserId = await firstValueFrom(
       this.currentUser.profile$.pipe(map((profile) => profile?.id ?? null))
     );
-    const payload: Partial<Employee> & { id?: string } = this.data.employee
+    const encryptedMyNumber = formValue.myNumber
+      ? await this.myNumberService.encrypt(formValue.myNumber)
+      : undefined;
+
+    const basePayload: Partial<Employee> & { id?: string } = this.data.employee
       ? ({
           ...this.data.employee,
           ...formValue,
@@ -520,6 +606,22 @@ export class EmployeeFormDialogComponent {
           ...formValue,
           updatedByUserId: currentUserId ?? undefined
         } as unknown as Partial<Employee> & { id?: string });
+
+    const payload: Partial<Employee> & { id?: string } = {
+      ...basePayload,
+      employeeCodeInOffice: formValue.employeeCodeInOffice?.trim() || undefined,
+      sex: formValue.sex ?? undefined,
+      postalCode: formValue.postalCode || undefined,
+      addressKana: formValue.addressKana?.trim() || undefined,
+      myNumber: encryptedMyNumber ?? basePayload.myNumber,
+      address: formValue.address || undefined,
+      phone: formValue.phone || undefined,
+      contactEmail: formValue.contactEmail || undefined,
+      department: formValue.department || undefined,
+      retireDate: formValue.retireDate || undefined,
+      contractPeriodNote: formValue.contractPeriodNote || undefined,
+      workingStatusNote: formValue.workingStatusNote || undefined
+    };
 
     try {
       await this.employeesService.save(this.data.officeId, payload);

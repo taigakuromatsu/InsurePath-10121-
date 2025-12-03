@@ -513,19 +513,47 @@ service cloud.firestore {
     // ---- InsurePath 用: offices 以下 ----
     match /offices/{officeId} {
       // 事業所情報へのアクセス制御
+      function validOfficeExtendedFields(data) {
+        return (!('officeSymbol' in data) || data.officeSymbol == null || data.officeSymbol is string)
+          && (!('officeNumber' in data) || data.officeNumber == null || data.officeNumber is string)
+          && (!('officeCityCode' in data) || data.officeCityCode == null || data.officeCityCode is string)
+          && (!('officePostalCode' in data) || data.officePostalCode == null || (data.officePostalCode is string && data.officePostalCode.matches('^[0-9]{7}$')))
+          && (!('officePhone' in data) || data.officePhone == null || data.officePhone is string)
+          && (!('officeOwnerName' in data) || data.officeOwnerName == null || data.officeOwnerName is string);
+      }
+
       allow read: if belongsToOffice(officeId);
-      allow create: if isSignedIn();
-      allow update, delete: if isInsureAdmin(officeId);
+      allow create: if isSignedIn() && validOfficeExtendedFields(request.resource.data);
+      allow update, delete: if isInsureAdmin(officeId) && validOfficeExtendedFields(request.resource.data);
 
       // 従業員情報
       match /employees/{employeeId} {
+        function validEmployeeExtendedFields(data) {
+          return (!('employeeCodeInOffice' in data) || data.employeeCodeInOffice == null || data.employeeCodeInOffice is string)
+            && (!('sex' in data) || data.sex == null || data.sex in ['male', 'female', 'other'])
+            && (!('postalCode' in data) || data.postalCode == null || (data.postalCode is string && data.postalCode.matches('^[0-9]{7}$')))
+            && (!('addressKana' in data) || data.addressKana == null || data.addressKana is string)
+            && (!('myNumber' in data) || data.myNumber == null || (data.myNumber is string && data.myNumber.size() == 12 && data.myNumber.matches('^[0-9]{12}$')));
+        }
+
         allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId));
-        allow create, update, delete: if isAdminOrHr(officeId);
+        allow create, update: if isAdminOrHr(officeId) && validEmployeeExtendedFields(request.resource.data);
+        allow delete: if isAdminOrHr(officeId);
 
         // 扶養家族情報
         match /dependents/{dependentId} {
-          allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId));
-          allow create, update, delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+          function validDependentExtendedFields(data) {
+            return (!('kana' in data) || data.kana == null || data.kana is string)
+              && (!('sex' in data) || data.sex == null || data.sex in ['male', 'female', 'other'])
+              && (!('postalCode' in data) || data.postalCode == null || (data.postalCode is string && data.postalCode.matches('^[0-9]{7}$')))
+              && (!('address' in data) || data.address == null || data.address is string)
+              && (!('cohabitationFlag' in data) || data.cohabitationFlag == null || data.cohabitationFlag in ['cohabiting', 'separate'])
+              && (!('myNumber' in data) || data.myNumber == null || (data.myNumber is string && data.myNumber.size() == 12 && data.myNumber.matches('^[0-9]{12}$')));
+          }
+
+          allow read: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+          allow create, update: if belongsToOffice(officeId) && isAdminOrHr(officeId) && validDependentExtendedFields(request.resource.data);
+          allow delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
         }
 
         match /standardRewardHistories/{historyId} {
