@@ -33,7 +33,7 @@ export class ChangeRequestsService {
       employeeId: string;
       requestedByUserId: string;
       kind: ChangeRequestKind;
-      field?: 'address' | 'phone' | 'email';
+      field?: ChangeRequest['field'];
       currentValue?: string;
       requestedValue?: string;
       targetDependentId?: string;
@@ -132,8 +132,14 @@ export class ChangeRequestsService {
   }
 
   private normalizeRequest(data: ChangeRequest): ChangeRequest {
+    const normalizedField =
+      data.field === 'email'
+        ? 'contactEmail'
+        : data.field;
+
     return {
       ...data,
+      field: normalizedField,
       kind: data.kind ?? 'profile'
     };
   }

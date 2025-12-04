@@ -15,7 +15,11 @@ import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeesService } from '../../services/employees.service';
 import { ChangeRequest, ChangeRequestStatus, Employee } from '../../types';
 import { RejectReasonDialogComponent } from './reject-reason-dialog.component';
-import { getChangeRequestKindLabel, getChangeRequestStatusLabel } from '../../utils/label-utils';
+import {
+  getChangeRequestKindLabel,
+  getChangeRequestStatusLabel,
+  getDependentRelationshipLabel
+} from '../../utils/label-utils';
 
 @Component({
   selector: 'ip-requests-page',
@@ -86,7 +90,14 @@ import { getChangeRequestKindLabel, getChangeRequestStatusLabel } from '../../ut
 
               <ng-container matColumnDef="field">
                 <th mat-header-cell *matHeaderCellDef>変更項目</th>
-                <td mat-cell *matCellDef="let row">{{ getFieldLabel(row.field) }}</td>
+                <td mat-cell *matCellDef="let row">
+                  {{ row.kind === 'profile' ? getFieldLabel(row.field) : '-' }}
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="target">
+                <th mat-header-cell *matHeaderCellDef>対象被扶養者</th>
+                <td mat-cell *matCellDef="let row">{{ getTargetDependentLabel(row) }}</td>
               </ng-container>
 
               <ng-container matColumnDef="currentValue">
@@ -301,6 +312,7 @@ export class RequestsPage {
     'employee',
     'kind',
     'field',
+    'target',
     'currentValue',
     'requestedValue',
     'status',
@@ -344,12 +356,18 @@ export class RequestsPage {
 
   getFieldLabel(field: ChangeRequest['field']): string {
     switch (field) {
+      case 'postalCode':
+        return '郵便番号';
       case 'address':
         return '住所';
       case 'phone':
         return '電話番号';
-      case 'email':
-        return 'メールアドレス';
+      case 'contactEmail':
+        return '連絡先メール';
+      case 'kana':
+        return 'カナ';
+      case 'other':
+        return 'その他';
       default:
         return field || '-';
     }
@@ -363,20 +381,46 @@ export class RequestsPage {
     return getChangeRequestStatusLabel(status);
   }
 
+  getTargetDependentLabel(request: ChangeRequest): string {
+    if (request.kind === 'profile') {
+      return '-';
+    }
+
+    const payload = request.payload as
+      | { name?: string; relationship?: string }
+      | { dependentName?: string; relationship?: string }
+      | undefined;
+
+    const name = (payload as any)?.name ?? (payload as any)?.dependentName;
+    const relationship = (payload as any)?.relationship;
+
+    if (!name) {
+      return '-';
+    }
+
+    const relationshipLabel = relationship
+      ? `（${getDependentRelationshipLabel(relationship as any)}）`
+      : '';
+
+    return `${name}${relationshipLabel}`;
+  }
+
   private buildUpdateData(request: ChangeRequest): Partial<Employee> {
-    if (request.field === 'address') {
-      return { address: request.requestedValue };
+    switch (request.field) {
+      case 'postalCode':
+        return { postalCode: request.requestedValue };
+      case 'address':
+        return { address: request.requestedValue };
+      case 'phone':
+        return { phone: request.requestedValue };
+      case 'contactEmail':
+      case 'email':
+        return { contactEmail: request.requestedValue };
+      case 'kana':
+        return { kana: request.requestedValue };
+      default:
+        return {};
     }
-
-    if (request.field === 'phone') {
-      return { phone: request.requestedValue };
-    }
-
-    if (request.field === 'email') {
-      return { contactEmail: request.requestedValue };
-    }
-
-    return {};
   }
 
   async approve(request: ChangeRequest): Promise<void> {
