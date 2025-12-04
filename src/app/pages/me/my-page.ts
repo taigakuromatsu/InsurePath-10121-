@@ -3,9 +3,10 @@ import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
+import { combineLatest, firstValueFrom, of, switchMap } from 'rxjs';
 
 import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
@@ -24,7 +25,15 @@ import { DependentsService } from '../../services/dependents.service';
 import {
   getChangeRequestKindLabel,
   getChangeRequestStatusLabel,
-  getDependentRelationshipLabel
+  getDependentRelationshipLabel,
+  getEmploymentTypeLabel,
+  getInsuranceLossReasonKindLabel,
+  getInsuranceQualificationKindLabel,
+  getPremiumTreatmentLabel,
+  getSexLabel,
+  getWorkingStatusLabel,
+  maskMyNumber,
+  calculateAge
 } from '../../utils/label-utils';
 import { ChangeRequestFormDialogComponent } from '../requests/change-request-form-dialog.component';
 
@@ -36,6 +45,7 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
     MatCardModule,
     MatDialogModule,
     MatIconModule,
+    MatExpansionModule,
     MatTableModule,
     AsyncPipe,
     NgIf,
@@ -66,40 +76,258 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
         </div>
 
         <ng-container *ngIf="employee$ | async as employee; else noEmployee">
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="label">氏名</span>
-              <span class="value">{{ employee.name }}</span>
+          <!-- 1. 基本プロフィールカード -->
+          <mat-card class="sub-card">
+            <div class="sub-card-header">
+              <h3>
+                <mat-icon>person</mat-icon>
+                基本プロフィール
+              </h3>
             </div>
-            <div class="info-item">
-              <span class="label">所属部署</span>
-              <span class="value">{{ employee.department || '未設定' }}</span>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">氏名</span>
+                <span class="value">{{ employee.name }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.kana">
+                <span class="label">カナ</span>
+                <span class="value">{{ employee.kana }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">所属</span>
+                <span class="value">{{ employee.department || '未設定' }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.birthDate">
+                <span class="label">生年月日</span>
+                <span class="value">
+                  {{ employee.birthDate | date: 'yyyy年MM月dd日' }}
+                  <span class="age-badge">（{{ calculateAge(employee.birthDate) }}歳）</span>
+                </span>
+              </div>
+              <div class="info-item" *ngIf="employee.sex">
+                <span class="label">性別</span>
+                <span class="value">{{ getSexLabel(employee.sex) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">入社日</span>
+                <span class="value">{{ employee.hireDate | date: 'yyyy-MM-dd' }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.retireDate">
+                <span class="label">退社日</span>
+                <span class="value">{{ employee.retireDate | date: 'yyyy-MM-dd' }}</span>
+              </div>
             </div>
-            <div class="info-item">
-              <span class="label">入社日</span>
-              <span class="value">{{ employee.hireDate | date: 'yyyy-MM-dd' }}</span>
+          </mat-card>
+
+          <!-- 2. 住所・連絡先カード -->
+          <mat-card class="sub-card">
+            <div class="sub-card-header">
+              <h3>
+                <mat-icon>home</mat-icon>
+                住所・連絡先
+              </h3>
             </div>
-            <div class="info-item">
-              <span class="label">健康保険 等級 / 標準報酬月額</span>
-              <span class="value">
-                {{ employee.healthGrade ? '等級 ' + employee.healthGrade : '未設定' }}
-                <ng-container *ngIf="employee.healthStandardMonthly != null">/ {{ employee.healthStandardMonthly | number }} 円</ng-container>
-              </span>
+            <div class="info-grid">
+              <div class="info-item" *ngIf="employee.postalCode">
+                <span class="label">郵便番号</span>
+                <span class="value">{{ employee.postalCode }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.address">
+                <span class="label">住所</span>
+                <span class="value">{{ employee.address }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.phone">
+                <span class="label">電話番号</span>
+                <span class="value">{{ employee.phone }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.contactEmail">
+                <span class="label">連絡先メール</span>
+                <span class="value">{{ employee.contactEmail }}</span>
+              </div>
+              <div
+                class="info-item"
+                *ngIf="
+                  !employee.postalCode &&
+                  !employee.address &&
+                  !employee.phone &&
+                  !employee.contactEmail
+                "
+              >
+                <span class="value" style="color: #6b7280;">住所・連絡先情報が未設定です</span>
+              </div>
             </div>
-            <div class="info-item">
-              <span class="label">厚生年金 等級 / 標準報酬月額</span>
-              <span class="value">
-                {{ employee.pensionGrade ? '等級 ' + employee.pensionGrade : '未設定' }}
-                <ng-container *ngIf="employee.pensionStandardMonthly != null">/ {{ employee.pensionStandardMonthly | number }} 円</ng-container>
-              </span>
+          </mat-card>
+
+          <!-- 3. 就労条件カード -->
+          <mat-card class="sub-card">
+            <div class="sub-card-header">
+              <h3>
+                <mat-icon>work</mat-icon>
+                就労条件
+              </h3>
             </div>
-            <div class="info-item">
-              <span class="label">社会保険加入状況</span>
-              <span class="value" [class.inactive]="!employee.isInsured">
-                {{ employee.isInsured ? '加入中' : '未加入' }}
-              </span>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">雇用形態</span>
+                <span class="value">{{ getEmploymentTypeLabel(employee.employmentType) }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.weeklyWorkingHours != null">
+                <span class="label">所定労働時間（週）</span>
+                <span class="value">{{ employee.weeklyWorkingHours }}時間</span>
+              </div>
+              <div class="info-item" *ngIf="employee.weeklyWorkingDays != null">
+                <span class="label">所定労働日数（週）</span>
+                <span class="value">{{ employee.weeklyWorkingDays }}日</span>
+              </div>
+              <div class="info-item" *ngIf="employee.contractPeriodNote">
+                <span class="label">契約期間の見込み</span>
+                <span class="value">{{ employee.contractPeriodNote }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.isStudent">
+                <span class="label">学生フラグ</span>
+                <span class="value">学生アルバイト</span>
+              </div>
             </div>
-          </div>
+          </mat-card>
+
+          <!-- 4. 社会保険・資格情報（サマリ）カード -->
+          <mat-card class="sub-card">
+            <div class="sub-card-header">
+              <h3>
+                <mat-icon>health_and_safety</mat-icon>
+                社会保険・資格情報
+              </h3>
+            </div>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">社会保険加入状況</span>
+                <span class="value" [class.inactive]="!employee.isInsured">
+                  {{ employee.isInsured ? '加入中' : '未加入' }}
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="label">健康保険 等級 / 標準報酬月額</span>
+                <span class="value">
+                  {{ employee.healthGrade ? '等級 ' + employee.healthGrade : '未設定' }}
+                  <ng-container *ngIf="employee.healthStandardMonthly != null">
+                    / {{ employee.healthStandardMonthly | number }} 円
+                  </ng-container>
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="label">厚生年金 等級 / 標準報酬月額</span>
+                <span class="value">
+                  {{ employee.pensionGrade ? '等級 ' + employee.pensionGrade : '未設定' }}
+                  <ng-container *ngIf="employee.pensionStandardMonthly != null">
+                    / {{ employee.pensionStandardMonthly | number }} 円
+                  </ng-container>
+                </span>
+              </div>
+              <div class="info-item" *ngIf="employee.healthQualificationDate">
+                <span class="label">資格取得日（健保）</span>
+                <span class="value">{{ employee.healthQualificationDate | date: 'yyyy-MM-dd' }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.pensionQualificationDate">
+                <span class="label">資格取得日（厚年）</span>
+                <span class="value">{{ employee.pensionQualificationDate | date: 'yyyy-MM-dd' }}</span>
+              </div>
+            </div>
+          </mat-card>
+
+          <!-- 5. 就業状態カード -->
+          <mat-card class="sub-card" *ngIf="employee.workingStatus">
+            <div class="sub-card-header">
+              <h3>
+                <mat-icon>event</mat-icon>
+                就業状態
+              </h3>
+            </div>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">現在の就業状態</span>
+                <span class="value">{{ getWorkingStatusLabel(employee.workingStatus) }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.workingStatusStartDate">
+                <span class="label">状態開始日</span>
+                <span class="value">{{ employee.workingStatusStartDate | date: 'yyyy-MM-dd' }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.premiumTreatment">
+                <span class="label">保険料の扱い</span>
+                <span class="value">{{ getPremiumTreatmentLabel(employee.premiumTreatment) }}</span>
+              </div>
+            </div>
+          </mat-card>
+
+          <!-- 6. 詳細情報（折りたたみセクション） -->
+          <mat-expansion-panel class="detail-panel">
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <mat-icon>info_outline</mat-icon>
+                詳細情報
+              </mat-panel-title>
+              <mat-panel-description>
+                被保険者番号、資格情報の詳細など
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+            <div class="info-grid">
+              <div class="info-item" *ngIf="employee.healthInsuredSymbol">
+                <span class="label">被保険者記号</span>
+                <span class="value">{{ employee.healthInsuredSymbol }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.healthInsuredNumber">
+                <span class="label">被保険者番号</span>
+                <span class="value">{{ employee.healthInsuredNumber }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.pensionNumber">
+                <span class="label">厚生年金番号</span>
+                <span class="value">{{ employee.pensionNumber }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.healthQualificationKind">
+                <span class="label">資格取得区分（健保）</span>
+                <span class="value">{{ getInsuranceQualificationKindLabel(employee.healthQualificationKind) }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.pensionQualificationKind">
+                <span class="label">資格取得区分（厚年）</span>
+                <span class="value">{{ getInsuranceQualificationKindLabel(employee.pensionQualificationKind) }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.healthLossDate">
+                <span class="label">資格喪失日（健保）</span>
+                <span class="value">{{ employee.healthLossDate | date: 'yyyy-MM-dd' }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.pensionLossDate">
+                <span class="label">資格喪失日（厚年）</span>
+                <span class="value">{{ employee.pensionLossDate | date: 'yyyy-MM-dd' }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.healthLossReasonKind">
+                <span class="label">喪失理由区分（健保）</span>
+                <span class="value">{{ getInsuranceLossReasonKindLabel(employee.healthLossReasonKind) }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.pensionLossReasonKind">
+                <span class="label">喪失理由区分（厚年）</span>
+                <span class="value">{{ getInsuranceLossReasonKindLabel(employee.pensionLossReasonKind) }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.workingStatusEndDate">
+                <span class="label">状態終了日</span>
+                <span class="value">{{ employee.workingStatusEndDate | date: 'yyyy-MM-dd' }}</span>
+              </div>
+            </div>
+          </mat-expansion-panel>
+
+          <!-- 7. マイナンバー（マスク表示） -->
+          <mat-card class="sub-card" *ngIf="maskMyNumber(employee.myNumber)">
+            <div class="sub-card-header">
+              <h3>
+                <mat-icon>lock</mat-icon>
+                マイナンバー
+              </h3>
+            </div>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">個人番号</span>
+                <span class="value">{{ maskMyNumber(employee.myNumber) }}</span>
+              </div>
+            </div>
+          </mat-card>
         </ng-container>
 
         <ng-template #noEmployee>
@@ -457,6 +685,56 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
         color: #333;
       }
 
+      .sub-card {
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .sub-card-header {
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .sub-card-header h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #374151;
+      }
+
+      .sub-card-header mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #6b7280;
+      }
+
+      .age-badge {
+        color: #6b7280;
+        font-size: 0.9rem;
+        font-weight: normal;
+        margin-left: 0.5rem;
+      }
+
+      .detail-panel {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .detail-panel mat-expansion-panel-header {
+        padding: 1rem;
+      }
+
+      .detail-panel mat-panel-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
       .empty-state {
         text-align: center;
         padding: 2rem 1rem;
@@ -773,4 +1051,12 @@ export class MyPage {
   }
 
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
+  protected readonly getEmploymentTypeLabel = getEmploymentTypeLabel;
+  protected readonly getInsuranceQualificationKindLabel = getInsuranceQualificationKindLabel;
+  protected readonly getInsuranceLossReasonKindLabel = getInsuranceLossReasonKindLabel;
+  protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
+  protected readonly getPremiumTreatmentLabel = getPremiumTreatmentLabel;
+  protected readonly getSexLabel = getSexLabel;
+  protected readonly maskMyNumber = maskMyNumber;
+  protected readonly calculateAge = calculateAge;
 }
