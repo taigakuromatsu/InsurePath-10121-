@@ -172,7 +172,10 @@ export function getSexLabel(sex?: Sex): string {
   }
 }
 
-export function calculateAge(birthDate: IsoDateString): number {
+export function calculateAge(birthDate?: IsoDateString | null): number | null {
+  if (!birthDate) {
+    return null;
+  }
   const today = new Date();
   const birth = new Date(birthDate);
   let age = today.getFullYear() - birth.getFullYear();

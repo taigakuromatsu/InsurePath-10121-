@@ -984,3 +984,794 @@ Phase3-9完了判定のためのテスト観点チェックリスト：
 
 以上でPhase3-9の実装指示書は完了です。実装時は、この指示書に従って段階的に実装を進めてください。
 
+---
+
+# Phase3-9（追加） 実装指示書: 申請対象項目のポリシー明確化とMyPage UI整理
+
+**作成日**: 2025年12月3日（Phase3-9実装完了後）  
+**対象フェーズ**: Phase3-9（追加）  
+**優先度**: 🟡 中（既存機能の整理・改善）  
+**依存関係**: Phase3-9（従業員セルフ入力・申請フロー機能）が実装完了していること  
+**目標完了日**: Phase3-9完了後、順次実施
+
+---
+
+## 📋 概要
+
+Phase3-9で実装された従業員セルフ入力・申請フロー機能に対して、**申請できる項目の範囲を明確化**し、MyPage UIと型定義を整理するための追加フェーズです。
+
+マイページ（`/me`）に表示されている項目のうち、従業員本人が申請できる項目と閲覧専用の項目を明確に切り分け、UI・型定義・ラベル変換を統一的な方針で整理します。
+
+**重要な位置づけ**:
+- Phase3-9で実装済みのセルフ申請機能に対して、申請対象項目のポリシーを明確化する
+- 既存のPhase3-9実装を全面的に書き直すのではなく、「申請対象項目の範囲を整理し、UIと型定義を調整する」という追加フェーズとして位置付ける
+- マイページの表示項目整理（Phase1-7追加実装）と連携し、一貫したUXを提供する
+
+**前提条件（実装状況）**:
+- **Phase3-9の基本機能は実装済み**: プロフィール変更申請のワークフロー（申請登録、申請一覧、承認・却下、取り下げ）は実装済み
+- **扶養家族申請フォームは未実装**: 扶養家族追加・変更・削除申請フォーム（`dependent-add-request-form-dialog.component.ts`、`dependent-update-request-form-dialog.component.ts`、`dependent-remove-request-form-dialog.component.ts`）は未実装
+- **申請種別選択ダイアログは未実装**: マイページの「新しい申請を作成」ボタンから申請種別を選択する導線が未実装
+- **Phase3-9（追加）のスコープ**: 本フェーズでは、扶養家族申請フォームの実装も含めて、申請フロー全体を完成させる
+
+---
+
+## 🎯 目的・このフェーズで達成したいこと
+
+### 主な目的
+
+1. **申請対象項目の明確化**: 従業員が申請できる項目を「生活情報（住所・連絡先）＋必要ならカナ」に限定し、その他の項目（氏名、所属、生年月日、就労条件、社会保険情報など）は閲覧専用とする方針を明文化する
+2. **自動反映の統一**: 申請できる項目はすべて、承認されたらどこかの本体データ（`employees`または`dependents`）に自動反映される設計に統一する（プロフィール変更申請も扶養家族申請も「承認＝台帳更新」という挙動で統一）
+3. **UI/UXの整理**: マイページの各カードから申請導線を適切に配置し、申請できる項目と閲覧専用の項目を視覚的に区別できるようにする
+4. **型定義の整理**: `ChangeRequest.field`の型を新しい申請対象項目に合わせて整理し、後方互換性を保ちつつ明確化する
+5. **ラベル変換の統一**: 申請種別・変更項目のラベル表示を統一的な方針で整理する
+
+### このフェーズで達成する具体的な成果
+
+- `/me`画面から申請できる項目が「郵便番号・住所・電話番号・連絡先メール（＋必要ならカナ）」のみであることが明確になる
+- マイページの「住所・連絡先」カードから直接プロフィール変更申請を起票できる導線が整備される（必須かオプションかは実装リソースに応じて判断）
+- 扶養家族カードのタイトルとボタンが整理され、「追加・変更・削除は申請フローから行う」ことが明確になる
+- 新規のプロフィール変更申請で選べる`field`の集合が`'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana'`に整理される（型としてはレガシー値`'other'`も許容する）
+- 申請履歴テーブルの「変更項目」列が新しい`field`集合に対応する
+- **プロフィール変更申請と扶養家族申請の両方について、承認時に自動反映が実装され、「申請できるすべての項目が、承認された時点で必ずどこかの台帳データに反映される」という設計になっている**
+
+---
+
+## 📎 対象範囲・非対象（スコープ / アウトオブスコープ）
+
+### 対象範囲（Phase3-9（追加）で実装する内容）
+
+#### 0. Phase3-9の未実装部分の実装（前提として必要）
+
+**扶養家族申請フォームの実装**（Phase3-9で未実装のため、本フェーズで実装）:
+
+1. **扶養家族追加申請フォーム**（`src/app/pages/requests/dependent-add-request-form-dialog.component.ts`）
+   - 新規作成
+   - フォーム項目: 氏名（漢字・カナ）、続柄、生年月日、性別、郵便番号、住所、同居／別居、就労状況フラグ
+   - `kind: 'dependent_add'`、`payload: DependentAddPayload`で申請を登録
+
+2. **扶養家族変更申請フォーム**（`src/app/pages/requests/dependent-update-request-form-dialog.component.ts`）
+   - 新規作成
+   - 既存の被扶養者情報を読み取り専用で表示
+   - 変更したい項目の入力フォーム
+   - `kind: 'dependent_update'`、`targetDependentId`、`payload: DependentUpdatePayload`で申請を登録
+
+3. **扶養家族削除申請フォーム**（`src/app/pages/requests/dependent-remove-request-form-dialog.component.ts`）
+   - 新規作成
+   - 既存の被扶養者情報を読み取り専用で表示
+   - 削除理由の入力フォーム（任意）
+   - `kind: 'dependent_remove'`、`targetDependentId`、`payload: DependentRemovePayload`で申請を登録
+
+4. **申請種別選択ダイアログ**（`src/app/pages/requests/request-kind-selection-dialog.component.ts`）
+   - 新規作成
+   - マイページの「新しい申請を作成」ボタンから開く
+   - 4つの選択肢（プロフィール変更、扶養家族追加、扶養家族変更、扶養家族削除）を表示
+   - 選択に応じて適切な申請フォームダイアログを開く
+
+**詳細仕様**: Phase3-9実装指示書の「4.1.2 扶養家族追加申請フォーム」「4.1.3 扶養家族変更申請フォーム」「4.1.4 扶養家族削除申請フォーム」「4.1.1 `/me`画面の拡張」セクションを参照してください。
+
+#### 1. 申請対象項目の明確化
+
+**従業員が申請できるプロフィール項目**（`kind: 'profile'`の場合）:
+
+- **必須で扱いたいフィールド**:
+  - `postalCode`（郵便番号）
+  - `address`（住所）
+  - `phone`（電話番号）
+  - `contactEmail`（連絡先メールアドレス）
+
+- **オプション（時間とコストに余裕があれば対応）**:
+  - `kana`（氏名カナ）
+
+→ この4〜5項目が**プロフィール変更申請で選べる`field`の全集合**とする。
+
+**申請不可（閲覧専用）とするプロフィール項目**:
+
+以下は**マイページで確認のみ**とし、ChangeRequestの対象外とする：
+
+- **基本プロフィール系**: `name`（氏名）、`department`（所属）、`birthDate`（生年月日）、`sex`（性別）、`hireDate`（入社日）、`retireDate`（退社日）
+- **就労条件系**: `employmentType`、`weeklyWorkingHours`、`weeklyWorkingDays`、`contractPeriodNote`、`isStudent`など
+- **社会保険資格・就業状態・マイナンバー・保険料**: 保険加入状況・等級・標準報酬月額・資格取得日/喪失日・喪失理由区分（健康保険/厚生年金）、`workingStatus`、`workingStatusStartDate`/`workingStatusEndDate`、`premiumTreatment`、`myNumber`（マスク表示）、月次保険料・賞与保険料の各金額
+
+→ これらは**高度に事務側の責任に属する情報**のため、`/me`では閲覧のみ。変更はadmin/hrや事務担当者が別経路で行う。
+
+#### 2. 扶養家族申請の対象フィールド整理
+
+**扶養家族追加／変更申請で扱うフィールド**（`DependentAddPayload` / `DependentUpdatePayload`）:
+
+従業員が入力・修正を提案してよい項目は以下とする：
+
+- `name`（氏名）
+- `kana`（カナ）※あれば
+- `relationship`（続柄）
+- `dateOfBirth`（生年月日）
+- `sex`
+- `postalCode`
+- `address`
+- `cohabitationFlag`（同居／別居）
+- `isWorking`（就労しているかフラグ）
+
+一方で、以下は**セルフ申請の対象外**として扱い、管理側が後で決定する情報とする：
+
+- 資格取得日（`qualificationAcquiredDate`）
+- 資格喪失日（`qualificationLossDate`）
+- 資格喪失理由区分（`lossReasonKind`）等
+
+→ これらは健保／年金事務に強く紐づくため、セルフ申請の対象外。
+
+**扶養家族削除申請で扱うフィールド**（`DependentRemovePayload`）:
+
+- `dependentName`（削除対象の被扶養者名）
+- `relationship`（任意）
+- `dateOfBirth`（任意）
+- `reason`（削除理由、任意テキスト）
+
+→ 既存Phase3-9指示書の`DependentRemovePayload`とほぼ同じ思想で、このPhase3-9（追加）で改めて再確認したポリシーとして整理。
+
+**自動反映について**:
+
+**基本方針**: **申請できる項目はすべて、承認されたらどこかの本体データ（`employees`または`dependents`）に自動反映される**。つまり、プロフィール変更申請（`kind: 'profile'`）も扶養家族申請（`kind: 'dependent_add' | 'dependent_update' | 'dependent_remove'`）も、「承認＝台帳更新」という挙動で統一する。
+
+**実装方法のイメージ**:
+
+- 申請一覧画面（`requests.page.ts`）などの「承認」ボタンの処理の中で、1つのバッチまたはトランザクションで以下を行う（フロント側で完結する実装でOK）:
+  1. `ChangeRequest`ドキュメントの`status`を`'approved'`に更新
+  2. `kind`に応じて、対象のコレクション（`employees`または`dependents`）を更新
+
+**反映ルール**:
+
+#### プロフィール変更申請（`kind: 'profile'`）の自動反映
+
+- **対象コレクション**: `offices/{officeId}/employees/{employeeId}`
+
+- **`field`ごとの反映先マッピング**:
+  - `field === 'postalCode'` → `employee.postalCode`を更新
+  - `field === 'address'` → `employee.address`を更新
+  - `field === 'phone'` → `employee.phone`を更新
+  - `field === 'contactEmail'` → `employee.contactEmail`を更新
+  - `field === 'kana'` → `employee.kana`を更新
+
+- **既存データとの互換性**:
+  - 既存の`ChangeRequest`で`field === 'email'`となっているものは、読み込み時に`'contactEmail'`として扱う（正規化処理）
+  - 承認時も`field === 'email'`の場合は`employee.contactEmail`に反映する
+
+- **実装イメージ**:
+  ```typescript
+  // requests.page.ts の approve() メソッド内
+  if (request.kind === 'profile') {
+    const updateData: Partial<Employee> = {};
+    const field = request.field === 'email' ? 'contactEmail' : request.field;
+    if (field === 'postalCode') updateData.postalCode = request.requestedValue;
+    if (field === 'address') updateData.address = request.requestedValue;
+    if (field === 'phone') updateData.phone = request.requestedValue;
+    if (field === 'contactEmail') updateData.contactEmail = request.requestedValue;
+    if (field === 'kana') updateData.kana = request.requestedValue;
+    
+    // 1つのバッチ or トランザクションで
+    // 1. employees を更新
+    await this.employeesService.save(officeId, { ...employee, ...updateData });
+    // 2. ChangeRequest の status を更新（既存の ChangeRequestsService.approve() を使用）
+    await this.changeRequestsService.approve(officeId, request.id, currentUserId);
+  }
+  ```
+
+**実装時の注意（責務の分割）**:
+- 既存の`ChangeRequestsService.approve()`は`ChangeRequest`ドキュメントの`status`を`'approved'`に更新する責務のみを持っている
+- `requests.page.ts`の`approve()`メソッドでは、以下の順序で処理する:
+  1. `kind`に応じて`employees`または`dependents`コレクションを更新（台帳データの反映）
+  2. `ChangeRequestsService.approve()`を呼び出して`ChangeRequest`の`status`を更新（申請ステータスの更新）
+- 「UI → service → 実際の書き込み」という責務分けを崩し過ぎないように注意する
+- 可能であれば、1つのバッチまたはトランザクションで両方の更新を行う（フロント側で完結する実装でOK）
+
+#### 扶養家族申請（`kind: 'dependent_add' | 'dependent_update' | 'dependent_remove'`）の自動反映
+
+- **対象コレクション**: `offices/{officeId}/employees/{employeeId}/dependents`
+
+1. **`kind: 'dependent_add'`の場合**:
+   - 対象従業員の`offices/{officeId}/employees/{employeeId}/dependents/{autoId}`に新規ドキュメントを作成
+   - フィールドは`DependentAddPayload`の内容をベースにセット（`name`, `kana`, `relationship`, `dateOfBirth`, `sex`, `postalCode`, `address`, `cohabitationFlag`, `isWorking`など）
+   - 必要であれば`sourceChangeRequestId`のようなフィールドで、どの申請から作られたか分かるようにしておく
+
+2. **`kind: 'dependent_update'`の場合**:
+   - `ChangeRequest.targetDependentId`をキーに、既存の`dependents/{targetDependentId}`ドキュメントを`update`する
+   - `DependentUpdatePayload`内に値が入っているフィールドだけを上書きし、それ以外は既存値を維持する
+
+3. **`kind: 'dependent_remove'`の場合**:
+   - **今回はシンプルにハードデリートで実装する**:
+     - `dependents/{targetDependentId}`ドキュメントを`delete`する
+     - `DependentsService.delete()`メソッドを使用する
+   - ソフトデリート（`isDeleted: true`をセット）は将来の拡張として検討可能だが、今回は実装しない
+
+- **実装イメージ**:
+  ```typescript
+  // requests.page.ts の approve() メソッド内
+  if (request.kind === 'dependent_add') {
+    // 1. dependents に新規ドキュメントを作成
+    // 注意: DependentAddPayload には isWorking が含まれるが、Dependent 型には存在しないため、
+    // DependentsService.save() では isWorking は無視される（申請時に収集する情報として扱う）
+    const payload = request.payload as DependentAddPayload;
+    await this.dependentsService.save(officeId, request.employeeId, {
+      name: payload.name,
+      kana: payload.kana,
+      relationship: payload.relationship,
+      dateOfBirth: payload.dateOfBirth,
+      sex: payload.sex,
+      postalCode: payload.postalCode,
+      address: payload.address,
+      cohabitationFlag: payload.cohabitationFlag
+      // isWorking は Dependent 型に存在しないため、ここでは含めない
+    });
+    // 2. ChangeRequest の status を更新（既存の ChangeRequestsService.approve() を使用）
+    await this.changeRequestsService.approve(officeId, request.id, currentUserId);
+  } else if (request.kind === 'dependent_update') {
+    // 1. dependents を更新
+    const payload = request.payload as DependentUpdatePayload;
+    await this.dependentsService.save(officeId, request.employeeId, {
+      id: request.targetDependentId,
+      name: payload.name,
+      kana: payload.kana,
+      relationship: payload.relationship,
+      dateOfBirth: payload.dateOfBirth,
+      sex: payload.sex,
+      postalCode: payload.postalCode,
+      address: payload.address,
+      cohabitationFlag: payload.cohabitationFlag
+      // isWorking は Dependent 型に存在しないため、ここでは含めない
+    });
+    // 2. ChangeRequest の status を更新
+    await this.changeRequestsService.approve(officeId, request.id, currentUserId);
+  } else if (request.kind === 'dependent_remove') {
+    // 1. dependents を削除（ハードデリート）
+    await this.dependentsService.delete(officeId, request.employeeId, request.targetDependentId!);
+    // 2. ChangeRequest の status を更新
+    await this.changeRequestsService.approve(officeId, request.id, currentUserId);
+  }
+  ```
+
+**実装時の注意（責務の分割）**:
+- 既存の`ChangeRequestsService.approve()`は`ChangeRequest`ドキュメントの`status`を`'approved'`に更新する責務のみを持っている
+- `requests.page.ts`の`approve()`メソッドでは、以下の順序で処理する:
+  1. `kind`に応じて`dependents`コレクションを更新（追加・更新・削除）
+  2. `ChangeRequestsService.approve()`を呼び出して`ChangeRequest`の`status`を更新（申請ステータスの更新）
+- 「UI → service → 実際の書き込み」という責務分けを崩し過ぎないように注意する
+- 可能であれば、1つのバッチまたはトランザクションで両方の更新を行う（フロント側で完結する実装でOK）
+
+#### 3. MyPage UIの整理
+
+**「申請・手続き」セクション**:
+
+- テーブルの「申請種別」列:
+  - `profile` → 「プロフィール変更」
+  - `dependent_add` → 「扶養家族追加」
+  - `dependent_update` → 「扶養家族変更」
+  - `dependent_remove` → 「扶養家族削除」
+
+- 「変更項目」列（`field`）:
+  - `kind === 'profile'`のときのみ使用し、表記は以下のいずれかに限定:
+    - `postalCode` → 「郵便番号」
+    - `address` → 「住所」
+    - `phone` → 「電話番号」
+    - `contactEmail` → 「連絡先メール」
+    - `kana` → 「カナ」（扱う場合）
+  - 扶養家族申請の場合は`field`ではなく`payload`側の情報（対象者名など）を表示する方針を明示
+
+- 「対象被扶養者」的な列（または内容欄）:
+  - 扶養家族関連の申請については、申請一覧から対象が分かるように「山田花子（子）」のような表示を行う
+
+- 「取り下げ」ボタン:
+  - `status === 'pending'`の自身の申請のみ表示・有効
+  - この挙動がPhase3-9（追加）後も維持されることをテスト観点に含める
+
+**「住所・連絡先」カードとの連携**（必須まではいかないが、仕様として整理）:
+
+- `postalCode`, `address`, `phone`, `contactEmail`が表示されているカードに対し、どこからプロフィール変更申請フォームを開く導線を置くかを仕様の中で整理
+- 例:
+  - カード右上に「この情報の変更を申請」ボタン
+  - 各行右端に小さな「変更申請」アイコンボタンなど
+- 「必須実装」か「時間があれば実装」かも指示書で明示
+
+**「扶養家族」カードの文言とボタン**:
+
+- 現行のタイトル「扶養家族（閲覧のみ）」は、Phase3-9（追加）の仕様としては以下に整理:
+  - タイトルは「扶養家族（被扶養者）」にする
+  - サブテキストで「追加・変更・削除は申請フローから行います」などと案内
+  - 各被扶養者行に「情報変更を申請」「削除を申請」ボタンを置く
+
+### 非対象範囲（Phase3-9（追加）では実装しない内容）
+
+以下の機能はPhase3-9（追加）のスコープ外とします：
+
+- **申請対象項目の追加**: 郵便番号・住所・電話番号・連絡先メール・カナ以外の項目を申請対象に追加することは対象外
+- **申請フォームの大幅な変更**: 既存の申請フォームダイアログの基本構造は変更せず、`field`の選択肢を調整する程度に留める
+
+---
+
+## 🗂 型定義・ラベル・ルールへの影響
+
+### 1. 型定義（types.ts）
+
+#### 1.1 ChangeRequest.fieldの型整理
+
+**現状**: `ChangeRequest.field`は`'address' | 'phone' | 'email' | 'other'`となっている可能性がある
+
+**Phase3-9（追加）での整理**:
+
+TypeScriptの型としては、`ChangeRequest.field`を次のunionにします：
+
+```typescript
+// ChangeRequest型のfieldフィールド
+field?: 'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana' | 'other';
+```
+
+**重要な方針**:
+
+- **`'other'`は「既存データ専用のレガシー値」として扱い、新規作成時にはUIで選択肢として出さない**
+- **新規のプロフィール変更申請で選べる`field`の候補は`'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana'`のみとする**
+- **`'other'`は過去の`ChangeRequest`で使われていた値が残っている場合にのみ現れる**
+
+**後方互換性への配慮**:
+
+- **既存の`ChangeRequest`ドキュメントで`field`が`'email'`となっているものについて**:
+  - アプリ側ではFirestoreから取得した生の値を正規化する処理で`'email' → 'contactEmail'`にマッピングする
+  - 読み込み時に`'contactEmail'`として扱うことを明示
+  - 新規作成時には`'email'`は使わず、`'contactEmail'`に統一する方針であることも明示
+
+- **既存の`ChangeRequest`ドキュメントで`field`が`'other'`になっているものについて**:
+  - アプリ側では`'other'`として扱い、表示上は「その他」というラベルで出す方針であることを明記
+  - この値はレガシーな申請のためのものであり、新規作成では使用しない
+
+- 既存の`ChangeRequest`ドキュメントで`kind`が未設定のものは、アプリ側で`'profile'`とみなすフォールバックを維持（既存Phase3-9の方針を踏襲）
+
+**実装時の注意**:
+
+- `field`は`kind === 'profile'`の場合のみ使用し、扶養家族申請では使わない想定
+- UI上の新規作成フォームでは、`'postalCode'`/`'address'`/`'phone'`/`'contactEmail'`/`'kana'`だけを選択肢として表示する
+- `'other'`は選択肢に含めない（レガシー値のため）
+
+#### 1.2 DependentRequestPayloadの最終確認
+
+既存Phase3-9で定義された`DependentAddPayload`、`DependentUpdatePayload`、`DependentRemovePayload`は、Phase3-9（追加）の方針と整合していることを確認：
+
+- ✅ `DependentAddPayload` / `DependentUpdatePayload`には、資格取得日・資格喪失日・喪失理由区分が含まれていない（セルフ申請の対象外）
+- ✅ `DependentRemovePayload`には`dependentName`、`relationship`、`dateOfBirth`、`reason`が含まれている
+
+→ 既存の型定義で問題ないため、変更不要。
+
+### 2. ラベルユーティリティ（label-utils.ts）
+
+#### 2.1 getChangeRequestKindLabelの確認
+
+既存の`getChangeRequestKindLabel`関数は以下のラベルを返すことを確認：
+
+- `'profile'` → 「プロフィール変更」
+- `'dependent_add'` → 「扶養家族追加」
+- `'dependent_update'` → 「扶養家族変更」
+- `'dependent_remove'` → 「扶養家族削除」
+
+→ 既存実装で問題ないため、変更不要。ただし、Phase3-9（追加）後もこのラベルが申請履歴テーブルと整合するようにしておくことをテスト観点に入れる。
+
+#### 2.2 getChangeRequestStatusLabelの確認
+
+既存の`getChangeRequestStatusLabel`関数は`'canceled' → 「取り下げ」`に対応済みであることを確認。
+
+→ Phase3-9（追加）後もこのラベルが申請履歴テーブルと整合するようにしておくことをテスト観点に入れる。
+
+#### 2.3 my-page.ts内のgetFieldLabelの整理
+
+`my-page.ts`内の`getFieldLabel`関数を、新しい`field`集合に対応するよう整理：
+
+```typescript
+getFieldLabel(field: ChangeRequest['field']): string {
+  switch (field) {
+    case 'postalCode':
+      return '郵便番号';
+    case 'address':
+      return '住所';
+    case 'phone':
+      return '電話番号';
+    case 'contactEmail':
+      return '連絡先メール';
+    case 'kana':
+      return 'カナ';
+    case 'other':
+      return 'その他'; // レガシー値用
+    default:
+      return field ?? '-';
+  }
+}
+```
+
+**後方互換性への配慮**:
+
+- 既存の`ChangeRequest`で`field`が`'email'`となっている場合は、読み込み時に`'contactEmail'`として扱うマッピング処理を実装（上記「1.1 ChangeRequest.fieldの型整理」を参照）
+- `field`が`'other'`の場合は「その他」として表示する（この値はレガシーな申請のためのものであり、新規作成では使用しない）
+
+### 3. Firestoreルール（firestore.rules）
+
+#### 3.1 changeRequestsのcreateルール
+
+**現状確認**: `changeRequests`の`create`ルールで`field`の具体的な値まではチェックしていない前提なら、今回の追加で大きな変更は不要。
+
+**もし`field in ['address', 'phone', 'email']`のようなチェックがあれば**:
+
+- `'postalCode'`, `'contactEmail'`, `'kana'`を許可するようルールを広げる必要がある旨を指示書に記載
+- 例:
+  ```javascript
+  // fieldが存在する場合、許可される値のリストに追加
+  (!('field' in request.resource.data) || 
+   request.resource.data.field in ['postalCode', 'address', 'phone', 'contactEmail', 'kana'])
+  ```
+
+#### 3.2 changeRequestsのupdateルール
+
+申請者による`pending → canceled`の取り下げルールは既存どおりでよく、Phase3-9（追加）としては「この挙動が維持されること」をテスト項目に含める程度でOK。
+
+---
+
+## 🧭 MyPage UIのゴールイメージ
+
+### 1. 「申請・手続き」セクション（/me下部）
+
+**テーブル構成**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 申請・手続き                                                │
+├─────────────────────────────────────────────────────────────┤
+│ [新しい申請を作成]                                          │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ 申請日時 │ 種別 │ 変更項目 │ 対象被扶養者 │ ステータス │ │
+│ ├─────────────────────────────────────────────────────────┤ │
+│ │ 12/03   │ 扶養家族追加 │ - │ 山田花子（子） │ 承認待ち │ │
+│ │         │              │   │              │ [取り下げ]│ │
+│ ├─────────────────────────────────────────────────────────┤ │
+│ │ 12/01   │ プロフィール変更 │ 住所 │ - │ 承認済み │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**表示ロジック**:
+
+- 「申請種別」列: `getChangeRequestKindLabel(kind)`を使用
+- 「変更項目」列: `kind === 'profile'`の場合のみ`getFieldLabel(field)`を表示、扶養家族申請の場合は`-`または空
+- 「対象被扶養者」列: 扶養家族関連申請の場合、`payload.name`（または`payload.dependentName`）と`payload.relationship`を組み合わせて「山田花子（子）」のように表示
+- 「取り下げ」ボタン: `status === 'pending'`かつ`requestedByUserId === currentUser.id`の場合のみ表示
+
+### 2. 「住所・連絡先」カードとの連携
+
+**オプション実装（時間があれば）**:
+
+- カード右上に「この情報の変更を申請」ボタンを追加
+- または、各行右端に小さな「変更申請」アイコンボタンを追加
+- クリックで`ChangeRequestFormDialogComponent`を開き、該当する`field`を事前選択した状態で表示
+
+**必須実装ではないが、UX向上のため推奨**:
+
+- ユーザーが「住所・連絡先」カードを見て「変更したい」と思ったときに、すぐに申請フォームを開ける導線があると便利
+
+### 3. 「扶養家族」カードの文言とボタン
+
+**タイトル変更**:
+
+- 「扶養家族（閲覧のみ）」→「扶養家族（被扶養者）」
+
+**サブテキスト追加**:
+
+- 「追加・変更・削除は申請フローから行います」などの案内文を追加（オプション）
+
+**ボタン追加**:
+
+- 各被扶養者行に「情報変更を申請」「削除を申請」ボタンを追加
+- 既存Phase3-9で実装済みの場合は、そのまま維持
+
+---
+
+## 🛠 実装タスク一覧
+
+### 0. Phase3-9の未実装部分の実装（前提として必要）
+
+**対象ファイル**: 
+- `src/app/pages/requests/dependent-add-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/dependent-update-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/dependent-remove-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/request-kind-selection-dialog.component.ts`（新規作成）
+- `src/app/pages/me/my-page.ts`（申請種別選択ダイアログを開く導線の追加）
+
+**タスク**:
+
+1. **扶養家族追加申請フォームの実装**:
+   - ダイアログコンポーネントを新規作成
+   - フォーム項目: 氏名（漢字・必須）、氏名（カナ・任意）、続柄（必須）、生年月日（必須）、性別（任意）、郵便番号（任意）、住所（任意）、同居／別居（任意）、就労状況フラグ（任意）
+   - バリデーション: 氏名（漢字）は必須・最大50文字、続柄は必須、生年月日は必須・YYYY-MM-DD形式、郵便番号は7桁数字
+   - `ChangeRequestsService.create()`を呼び出して`kind: 'dependent_add'`、`payload: DependentAddPayload`で申請を登録
+
+2. **扶養家族変更申請フォームの実装**:
+   - ダイアログコンポーネントを新規作成
+   - 既存の被扶養者情報を読み取り専用で表示（`targetDependentId`で取得）
+   - 変更したい項目の入力フォーム（扶養家族追加申請フォームと同じ項目）
+   - `ChangeRequestsService.create()`を呼び出して`kind: 'dependent_update'`、`targetDependentId`、`payload: DependentUpdatePayload`で申請を登録
+
+3. **扶養家族削除申請フォームの実装**:
+   - ダイアログコンポーネントを新規作成
+   - 既存の被扶養者情報を読み取り専用で表示（`targetDependentId`で取得）
+   - 削除理由の入力フォーム（任意、最大500文字）
+   - `ChangeRequestsService.create()`を呼び出して`kind: 'dependent_remove'`、`targetDependentId`、`payload: DependentRemovePayload`で申請を登録
+
+4. **申請種別選択ダイアログの実装**:
+   - ダイアログコンポーネントを新規作成
+   - 4つの選択肢を表示:
+     - 「プロフィール変更」→ `ChangeRequestFormDialogComponent`を開く
+     - 「扶養家族を追加」→ `DependentAddRequestFormDialogComponent`を開く
+     - 「扶養家族を変更」→ 既存の被扶養者選択ダイアログを開き、選択後に`DependentUpdateRequestFormDialogComponent`を開く
+     - 「扶養家族を削除」→ 既存の被扶養者選択ダイアログを開き、選択後に`DependentRemoveRequestFormDialogComponent`を開く
+
+5. **マイページの「新しい申請を作成」ボタンの修正**:
+   - `openChangeRequestDialog()`メソッドを修正し、`RequestKindSelectionDialogComponent`を開くように変更
+   - 既存の`ChangeRequestFormDialogComponent`を直接開く処理は削除
+
+**詳細仕様**: Phase3-9実装指示書の「4.1.2 扶養家族追加申請フォーム」「4.1.3 扶養家族変更申請フォーム」「4.1.4 扶養家族削除申請フォーム」「9.3.2 扶養家族追加申請フォーム」「9.3.3 扶養家族変更申請フォーム」「9.3.4 扶養家族削除申請フォーム」「9.3.5 申請種別選択ダイアログ」セクションを参照してください。
+
+### 1. 型定義の整理
+
+**対象ファイル**: `src/app/types.ts`
+
+**タスク**:
+
+1. `ChangeRequest.field`の型を`'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana' | 'other'`に整理（`'other'`はレガシー値のため型には含めるが、新規作成時にはUIで選択肢として出さない）
+2. 既存の`'email'`を`'contactEmail'`にマッピングする処理を実装（Firestoreから取得した生の値を正規化する処理で`'email' → 'contactEmail'`にマッピング）
+3. `DependentRequestPayload`の型定義を最終確認（変更不要の見込み）
+
+### 2. ラベルユーティリティの整理
+
+**対象ファイル**: `src/app/utils/label-utils.ts`
+
+**タスク**:
+
+1. `getChangeRequestKindLabel`の確認（変更不要の見込み）
+2. `getChangeRequestStatusLabel`の確認（`'canceled' → 「取り下げ」`対応済みか確認）
+3. 必要に応じて、`getFieldLabel`のようなヘルパー関数を`label-utils.ts`に追加（既に`my-page.ts`内にある場合は、そこを修正）
+
+### 3. MyPage UIの調整
+
+**対象ファイル**: `src/app/pages/me/my-page.ts`
+
+**タスク**:
+
+1. **申請種別選択ダイアログを開く導線の追加**（上記「0. Phase3-9の未実装部分の実装」で実装）
+2. `getFieldLabel`メソッドを新しい`field`集合（`postalCode`/`address`/`phone`/`contactEmail`/`kana`）に対応するよう修正
+3. 申請履歴テーブルの「変更項目」列の表示ロジックを調整（`kind === 'profile'`の場合のみ`field`を表示）
+4. 申請履歴テーブルに「対象被扶養者」列を追加（扶養家族関連申請の場合、`payload.name`または`payload.dependentName`と`payload.relationship`を組み合わせて表示）
+5. 「扶養家族」カードの各行に「情報変更を申請」「削除を申請」ボタンを追加（既存Phase3-9で実装済みの場合はそのまま維持）
+6. 「住所・連絡先」カードからの申請導線を追加（オプション、時間があれば実装）
+   - カード右上に「この情報の変更を申請」ボタン
+   - または、各行右端に「変更申請」アイコンボタン
+7. 「扶養家族」カードのタイトルを「扶養家族（被扶養者）」に変更
+8. 「扶養家族」カードにサブテキスト「追加・変更・削除は申請フローから行います」を追加（オプション）
+
+### 4. 申請フォームダイアログの調整
+
+**対象ファイル**: `src/app/pages/requests/change-request-form-dialog.component.ts`
+
+**タスク**:
+
+1. 「変更項目」の選択肢を`'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana'`に更新
+2. `getCurrentValue`メソッドを新しい`field`集合に対応するよう修正
+3. `field === 'email'`の既存データとの互換性を考慮（`'contactEmail'`として扱うマッピング処理）
+
+### 5. Firestoreルールの確認・調整
+
+**対象ファイル**: `firestore.rules`
+
+**タスク**:
+
+1. `changeRequests`の`create`ルールで`field`の具体的な値チェックがあるか確認
+2. もし`field in ['address', 'phone', 'email']`のようなチェックがあれば、`'postalCode'`, `'contactEmail'`, `'kana'`を許可するようルールを広げる
+3. `update`ルール（申請者による取り下げ）は既存のまま維持
+
+### 6. 申請一覧画面の調整と自動反映処理の実装
+
+**対象ファイル**: `src/app/pages/requests/requests.page.ts`、`src/app/services/change-requests.service.ts`（または関連サービス）
+
+**タスク**:
+
+1. 申請一覧テーブルの「変更項目」列の表示ロジックを調整（`kind === 'profile'`の場合のみ`field`を表示）（オプション）
+2. 申請一覧テーブルに「対象被扶養者」列を追加（扶養家族関連申請の場合）（オプション）
+3. **申請承認時の自動反映処理を実装**:
+   - 「承認」ボタンの処理内で、`kind`に応じて以下の自動反映を実装:
+     - **`kind: 'profile'`の場合**: `employees/{employeeId}`ドキュメントを`field`と`requestedValue`に基づいて更新（`postalCode`, `address`, `phone`, `contactEmail`, `kana`の各フィールドに対応）
+     - **`kind: 'dependent_add' | 'dependent_update' | 'dependent_remove'`の場合**: `dependents`サブコレクションを自動更新
+   - **実装時の注意（責務の分割）**:
+     - 既存の`ChangeRequestsService.approve()`は`ChangeRequest`ドキュメントの`status`を`'approved'`に更新する責務のみを持っている
+     - `requests.page.ts`の`approve()`メソッドでは、以下の順序で処理する:
+       1. `kind`に応じて`employees`または`dependents`コレクションを更新（台帳データの反映）
+       2. `ChangeRequestsService.approve()`を呼び出して`ChangeRequest`の`status`を更新（申請ステータスの更新）
+     - 「UI → service → 実際の書き込み」という責務分けを崩し過ぎないように注意する
+     - 可能であれば、1つのバッチまたはトランザクションで両方の更新を行う（フロント側で完結する実装でOK）
+   - **プロフィール変更申請の反映**:
+     - `field === 'postalCode'` → `employee.postalCode`を更新
+     - `field === 'address'` → `employee.address`を更新
+     - `field === 'phone'` → `employee.phone`を更新
+     - `field === 'contactEmail'` → `employee.contactEmail`を更新
+     - `field === 'kana'` → `employee.kana`を更新
+     - `field === 'email'`（既存データ） → `employee.contactEmail`を更新（正規化処理）
+   - **扶養家族申請の反映**:
+     - `kind: 'dependent_add'`の場合: `offices/{officeId}/employees/{employeeId}/dependents/{autoId}`に新規ドキュメントを作成（`DependentsService.save()`を使用）
+     - `kind: 'dependent_update'`の場合: `dependents/{targetDependentId}`ドキュメントを`DependentUpdatePayload`の内容で更新（`DependentsService.save()`を使用）
+     - `kind: 'dependent_remove'`の場合: **ハードデリートで実装**（`DependentsService.delete()`を使用して`dependents/{targetDependentId}`ドキュメントを削除）
+
+---
+
+## ✅ テスト観点・完了条件
+
+### テスト観点
+
+Phase3-9（追加）完了判定のためのテスト観点チェックリスト：
+
+#### 1. 申請対象項目の確認
+
+- [ ] **扶養家族申請フォームが実装され、申請を登録できること**
+  - テスト手順:
+    1. employeeロールでログイン
+    2. `/me`画面の「申請・手続き」セクションから「新しい申請を作成」をクリック
+    3. 申請種別選択ダイアログが開き、「プロフィール変更」「扶養家族を追加」「扶養家族を変更」「扶養家族を削除」の4つの選択肢が表示されることを確認
+    4. 「扶養家族を追加」を選択し、扶養家族追加申請フォームが開くことを確認
+    5. フォーム項目を入力して申請を登録し、`kind: 'dependent_add'`で正しく保存されることを確認
+    6. 同様に「扶養家族を変更」「扶養家族を削除」も動作することを確認
+
+- [ ] **`/me`からプロフィール変更申請できる項目は、郵便番号／住所／電話番号／連絡先メール（＋必要ならカナ）のみであること**
+  - テスト手順:
+    1. employeeロールでログイン
+    2. `/me`画面の「申請・手続き」セクションから「新しい申請を作成」→「プロフィール変更」を選択
+    3. 「変更項目」の選択肢を確認
+    4. 選択肢が「郵便番号」「住所」「電話番号」「連絡先メール」（＋必要なら「カナ」）のみであることを確認
+
+- [ ] **MyPageで表示されているその他の項目（氏名、所属、生年月日、性別、就労条件、社会保険資格情報、就業状態、マイナンバー、保険料など）はChangeRequestフローの対象になっていないこと**
+  - テスト手順:
+    1. `/me`画面の「申請・手続き」セクションから「新しい申請を作成」→「プロフィール変更」を選択
+    2. 「変更項目」の選択肢に、氏名・所属・生年月日・性別・就労条件・社会保険情報などが含まれていないことを確認
+
+- [ ] **admin/hrロールでプロフィール変更申請を「承認」したとき、対象従業員の`employees/{employeeId}`ドキュメントが`field`と`requestedValue`に基づいて更新されること**
+  - テスト手順:
+    1. employeeロールでプロフィール変更申請を作成（各`field`ごとにテスト）
+    2. admin/hrロールで申請を承認
+    3. 対象従業員の`employees/{employeeId}`ドキュメントが更新されることを確認
+    4. 各`field`ごとに以下の反映を確認:
+       - `field === 'postalCode'` → `employee.postalCode`が更新される
+       - `field === 'address'` → `employee.address`が更新される
+       - `field === 'phone'` → `employee.phone`が更新される
+       - `field === 'contactEmail'` → `employee.contactEmail`が更新される
+       - `field === 'kana'` → `employee.kana`が更新される
+    5. 既存データで`field === 'email'`の申請がある場合、`employee.contactEmail`として正しく更新されることを確認
+
+#### 2. 扶養家族申請の確認
+
+- [ ] **`/me`の「扶養家族」カードや「申請・手続き」セクションから、追加／変更／削除の申請を起票できること**
+  - テスト手順:
+    1. employeeロールでログイン
+    2. `/me`画面の「扶養家族」セクションから「扶養家族を追加申請する」ボタンをクリック
+    3. 扶養家族追加申請フォームが開くことを確認
+    4. 申請を登録し、`kind: 'dependent_add'`で正しく保存されることを確認
+
+- [ ] **扶養家族申請の承認／却下／取り下げがこれまで通り動作すること**
+  - テスト手順:
+    1. 扶養家族追加申請を作成
+    2. admin/hrロールで申請を承認
+    3. 申請ステータスが「承認済み」になることを確認
+    4. employeeロールで`pending`状態の申請を取り下げ
+    5. 申請ステータスが「取り下げ」になることを確認
+
+- [ ] **admin/hrロールで扶養家族追加申請を「承認」したとき、対象従業員の`dependents`サブコレクションに新しい被扶養者ドキュメントが自動で作成されること**
+  - テスト手順:
+    1. employeeロールで扶養家族追加申請を作成
+    2. admin/hrロールで申請を承認
+    3. 対象従業員の`dependents`サブコレクションに新しい被扶養者ドキュメントが作成されることを確認
+    4. 作成されたドキュメントのフィールドが`DependentAddPayload`の内容と一致することを確認
+
+- [ ] **admin/hrロールで扶養家族変更申請を「承認」したとき、対象の被扶養者ドキュメントが`payload`の内容で更新されること**
+  - テスト手順:
+    1. employeeロールで扶養家族変更申請を作成（既存の被扶養者情報を変更）
+    2. admin/hrロールで申請を承認
+    3. 対象の被扶養者ドキュメントが`DependentUpdatePayload`の内容で更新されることを確認
+    4. `payload`内に値が入っているフィールドだけが更新され、それ以外は既存値が維持されることを確認
+
+- [ ] **admin/hrロールで扶養家族削除申請を「承認」したとき、`dependents/{targetDependentId}`ドキュメントが削除されること（ハードデリート）**
+  - テスト手順:
+    1. employeeロールで扶養家族削除申請を作成
+    2. admin/hrロールで申請を承認
+    3. 対象の`dependents/{targetDependentId}`ドキュメントが削除されることを確認
+    4. 従業員台帳の扶養家族一覧から該当の被扶養者が消えていることを確認
+
+#### 3. 申請履歴テーブルの表示確認
+
+- [ ] **申請履歴テーブルの「申請種別」列が正しく表示されること**
+  - テスト手順:
+    1. `/me`画面の「申請・手続き」セクションを確認
+    2. 「申請種別」列に「プロフィール変更」「扶養家族追加」「扶養家族変更」「扶養家族削除」が正しく表示されることを確認
+
+- [ ] **申請履歴テーブルの「変更項目」列が、プロフィール変更申請の場合のみ表示されること**
+  - テスト手順:
+    1. `/me`画面の「申請・手続き」セクションを確認
+    2. プロフィール変更申請の行で「変更項目」列に「郵便番号」「住所」「電話番号」「連絡先メール」などが表示されることを確認
+    3. 扶養家族関連申請の行で「変更項目」列が`-`または空であることを確認
+
+- [ ] **申請履歴テーブルの「対象被扶養者」列が、扶養家族関連申請の場合に正しく表示されること**
+  - テスト手順:
+    1. `/me`画面の「申請・手続き」セクションを確認
+    2. 扶養家族関連申請の行で「対象被扶養者」列に「山田花子（子）」のような表示がされることを確認
+
+- [ ] **申請履歴テーブルの「取り下げ」ボタンが、`pending`状態の自身の申請のみ表示されること**
+  - テスト手順:
+    1. `/me`画面の「申請・手続き」セクションを確認
+    2. `pending`状態の自身の申請に「取り下げ」ボタンが表示されることを確認
+    3. `approved`/`rejected`/`canceled`状態の申請に「取り下げ」ボタンが表示されないことを確認
+    4. 他の従業員の申請に「取り下げ」ボタンが表示されないことを確認
+
+#### 4. 既存Phase3-9機能の動作確認
+
+- [ ] **申請履歴の表示が正常に動作すること**
+- [ ] **ステータス表示（pending/approved/rejected/canceled）が正常に動作すること**
+- [ ] **申請者による取り下げが正常に動作すること**
+- [ ] **admin/hrによる承認・却下が正常に動作すること**
+
+### Phase3-9（追加）としての完了条件
+
+以下の条件をすべて満たした場合、Phase3-9（追加）は完了とみなします：
+
+1. ✅ 扶養家族申請フォーム（追加・変更・削除）が実装され、申請を登録できること
+2. ✅ 申請種別選択ダイアログが実装され、マイページの「新しい申請を作成」ボタンから開けること
+3. ✅ `src/app/types.ts`で`ChangeRequest.field`の型が`'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana' | 'other'`になっており、`'other'`はレガシー値としてのみ使われる（新規作成では選択肢に出さない）
+4. ✅ `src/app/pages/me/my-page.ts`の`getFieldLabel`メソッドが新しい`field`集合に対応している
+5. ✅ 申請履歴テーブルの「変更項目」列が、プロフィール変更申請の場合のみ表示される
+6. ✅ 申請履歴テーブルに「対象被扶養者」列が追加され、扶養家族関連申請の場合に正しく表示される
+7. ✅ 「扶養家族」カードのタイトルが「扶養家族（被扶養者）」に変更されている（オプション実装の場合は実装状況を確認）
+8. ✅ 「扶養家族」カードの各行に「情報変更を申請」「削除を申請」ボタンが追加されている
+9. ✅ `src/app/pages/requests/change-request-form-dialog.component.ts`の「変更項目」選択肢が新しい`field`集合に対応している
+10. ✅ `firestore.rules`の`changeRequests`コレクションの`create`ルールが、新しい`field`値を許可するよう調整されている（必要に応じて）
+11. ✅ `kind: 'profile'`の申請についても、「承認」時に`employees`コレクションへ自動反映されること
+12. ✅ `kind: 'dependent_add' | 'dependent_update' | 'dependent_remove'`の申請については、「承認」時に`dependents`サブコレクションへ自動反映されること
+13. ✅ 「申請できるすべての項目（プロフィール＋扶養家族）が、承認された時点で必ずどこかの台帳データに反映される」という設計になっていること
+14. ✅ 既存のPhase3-9機能（申請履歴の表示、ステータス表示、取り下げ、承認・却下）が正常に動作する
+15. ✅ テスト観点のチェックリストの主要項目がすべてクリアされている
+
+**完了ライン**: 扶養家族申請フォームが実装され、`/me`からプロフィール変更申請と扶養家族申請の両方を起票できる状態になり、申請できる項目が「郵便番号・住所・電話番号・連絡先メール（＋必要ならカナ）」のみであることが明確になり、申請履歴テーブルが新しい`field`集合に対応し、プロフィール変更申請と扶養家族申請の両方について承認時に自動反映が実装され、既存のPhase3-9機能が正常に動作する状態。
+
+---
+
+## 📌 注意事項・既存実装との整合性
+
+### 既存機能を壊さないための注意点
+
+- **後方互換性**: 既存の`ChangeRequest`ドキュメントで`field`が`'email'`となっている場合は、アプリ側で`'contactEmail'`として扱うマッピング処理を実装
+- **既存Phase3-9機能の維持**: 申請履歴の表示、ステータス表示、取り下げ、承認・却下などの既存機能が正常に動作することを確認
+- **セキュリティルール**: `changeRequests`コレクションのルールを調整する際、既存のルールを壊さないように注意
+
+### 実装時の優先順位
+
+1. **必須実装**: 型定義の整理、`getFieldLabel`の修正、申請履歴テーブルの表示ロジック調整
+2. **推奨実装**: 「住所・連絡先」カードからの申請導線、「扶養家族」カードのタイトル変更
+3. **オプション実装**: 「扶養家族」カードのサブテキスト追加、申請一覧画面（`/requests`）の調整
+
+---
+
+以上でPhase3-9（追加）の実装指示書は完了です。実装時は、この指示書に従って段階的に実装を進めてください。
+

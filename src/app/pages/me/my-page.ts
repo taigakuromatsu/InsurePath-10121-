@@ -101,7 +101,9 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
                 <span class="label">生年月日</span>
                 <span class="value">
                   {{ employee.birthDate | date: 'yyyy年MM月dd日' }}
-                  <span class="age-badge">（{{ calculateAge(employee.birthDate) }}歳）</span>
+                  <span class="age-badge" *ngIf="calculateAge(employee.birthDate) !== null">
+                    （{{ calculateAge(employee.birthDate) }}歳）
+                  </span>
                 </span>
               </div>
               <div class="info-item" *ngIf="employee.sex">
@@ -314,7 +316,7 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
           </mat-expansion-panel>
 
           <!-- 7. マイナンバー（マスク表示） -->
-          <mat-card class="sub-card" *ngIf="maskMyNumber(employee.myNumber)">
+          <mat-card class="sub-card" *ngIf="maskMyNumber(employee.myNumber) as maskedMyNumber">
             <div class="sub-card-header">
               <h3>
                 <mat-icon>lock</mat-icon>
@@ -324,7 +326,7 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
             <div class="info-grid">
               <div class="info-item">
                 <span class="label">個人番号</span>
-                <span class="value">{{ maskMyNumber(employee.myNumber) }}</span>
+                <span class="value">{{ maskedMyNumber }}</span>
               </div>
             </div>
           </mat-card>
@@ -362,15 +364,25 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
               </div>
               <div class="dependent-row">
                 <span class="label">生年月日</span>
-                <span class="value">{{ dependent.dateOfBirth }}</span>
+                <span class="value">{{ dependent.dateOfBirth | date: 'yyyy-MM-dd' }}</span>
               </div>
               <div class="dependent-row">
                 <span class="label">資格取得日</span>
-                <span class="value">{{ dependent.qualificationAcquiredDate || '-' }}</span>
+                <span class="value">
+                  <ng-container *ngIf="dependent.qualificationAcquiredDate; else noQualificationAcquired">
+                    {{ dependent.qualificationAcquiredDate | date: 'yyyy-MM-dd' }}
+                  </ng-container>
+                  <ng-template #noQualificationAcquired>-</ng-template>
+                </span>
               </div>
               <div class="dependent-row">
                 <span class="label">資格喪失日</span>
-                <span class="value">{{ dependent.qualificationLossDate || '-' }}</span>
+                <span class="value">
+                  <ng-container *ngIf="dependent.qualificationLossDate; else noQualificationLoss">
+                    {{ dependent.qualificationLossDate | date: 'yyyy-MM-dd' }}
+                  </ng-container>
+                  <ng-template #noQualificationLoss>-</ng-template>
+                </span>
               </div>
             </div>
           </div>
