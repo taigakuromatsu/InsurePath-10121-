@@ -628,3 +628,835 @@ listByOfficeAndEmployee(
 
 以上で実装指示書は完了です。不明点があれば確認してください。
 
+
+
+
+---
+
+# Phase1-7 実装指示書（追加）: マイページ基本情報セクションの拡張・改良
+
+## 📋 概要
+
+マイページの基本情報セクションを拡張し、従業員が自分の契約条件・住所連絡先・保険の状態を一通り確認できるようにします。
+
+**目的**: マイページに表示する項目を整理・拡張し、従業員本人が自分の情報を包括的に確認できるようにする
+
+**前提条件**:
+- `Employee` 型に必要なフィールドが定義済み（`types.ts` を参照）
+- `label-utils.ts` に一部のラベル変換関数が実装済み（既存関数を再利用）
+- 既存のマイページ実装（`my-page.ts`）が存在する
+
+**重要**: 実装前に必ず `types.ts` の `Employee` 型定義を確認し、フィールド名が完全一致していることを確認してください。詳細は「0. フィールド名の確認」セクションを参照してください。
+
+---
+
+## 🎯 実装対象ファイル
+
+### 編集対象
+- `src/app/pages/me/my-page.ts` - 基本情報セクションの拡張
+
+### 拡張が必要な可能性があるファイル
+- `src/app/utils/label-utils.ts` - ラベル変換関数の追加（必要に応じて）
+
+---
+
+## 📐 UI要件
+
+### レイアウト構成（基本情報セクション内）
+
+```
+┌─────────────────────────────────────────┐
+│  [1. 基本プロフィールカード]              │
+│  - 氏名、カナ、所属、生年月日、性別       │
+│  - 入社日、退社日（ある場合のみ）         │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  [2. 住所・連絡先カード]                  │
+│  - 郵便番号、住所、電話番号、連絡先メール │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  [3. 就労条件カード]                      │
+│  - 雇用形態、所定労働時間、所定労働日数   │
+│  - 契約期間の見込み、学生フラグ           │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  [4. 社会保険・資格情報（サマリ）カード]  │
+│  - 社会保険対象、健康保険等級/標準報酬    │
+│  - 厚生年金等級/標準報酬                 │
+│  - 資格取得日（健保）、資格取得日（厚年） │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  [5. 就業状態カード]                      │
+│  - 現在の就業状態、状態開始日             │
+│  - 保険料の扱い                           │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  [6. 詳細情報（折りたたみセクション）]    │
+│  - 被保険者整理番号、被保険者記号         │
+│  - 被保険者番号、厚生年金番号             │
+│  - 資格取得区分、資格喪失日、喪失理由区分 │
+│  - 状態終了日、研修                       │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│  [7. マイナンバー（マスク表示）]          │
+│  - ***-****-1234（登録済）形式           │
+└─────────────────────────────────────────┘
+```
+
+### UIデザイン要件
+
+1. **各カード**
+   - `mat-card` を使用
+   - カードタイトルにアイコンを配置
+   - `info-grid` レイアウトで項目を表示
+
+2. **折りたたみセクション**
+   - `mat-expansion-panel` を使用して詳細情報を折りたたみ可能にする
+   - デフォルトは閉じた状態
+
+3. **マイナンバーのマスク表示**
+   - 末尾4桁のみ表示し、それ以外は `***-****-` でマスク
+   - 「（登録済）」のラベルを表示
+
+4. **空データ時の表示**
+   - 未設定の項目は「未設定」と表示
+   - 退社日など、条件によって表示しない項目は非表示
+
+---
+
+## 🔧 機能要件
+
+### 0. フィールド名の確認（重要）
+
+**実装前に必ず確認**: 以下のフィールド名は `types.ts` の `Employee` 型定義と完全一致していることを確認済みです。
+
+- ✅ `healthStandardMonthly` - 健康保険の標準報酬月額（既存実装と一致）
+- ✅ `pensionStandardMonthly` - 厚生年金の標準報酬月額（既存実装と一致）
+- ✅ `employmentType` - 雇用形態（`EmploymentType` 型）
+- ✅ `workingStatus` - 就業状態（`WorkingStatus` 型）
+- ✅ `premiumTreatment` - 保険料の扱い（`PremiumTreatment` 型）
+- ✅ `healthInsuredSymbol` - 被保険者記号（**注意**: 「被保険者整理番号」というフィールドは存在しません）
+- ✅ `healthInsuredNumber` - 被保険者番号
+- ✅ `pensionNumber` - 厚生年金番号
+
+**EmploymentType の値**: `'regular' | 'contract' | 'part' | 'アルバイト' | 'other'`
+- 型の値自体が `'アルバイト'` となっているため、ラベル変換関数でも `case 'アルバイト':` を使用します。
+
+### 1. 表示項目の分類
+
+#### 1.1 「必ず載せたい」項目（基本表示）
+
+**基本プロフィール系**
+- 氏名（既に表示済）
+- カナ（`employee.kana`）
+- 所属（`employee.department`、既に表示済）
+- 生年月日（`employee.birthDate`）または年齢表示
+- 性別（`employee.sex`）
+- 入社日（`employee.hireDate`、既に表示済）
+- 退社日（`employee.retireDate`、ある場合のみ表示）
+
+**住所・連絡先**
+- 郵便番号（`employee.postalCode`）
+- 住所（`employee.address`）
+- 電話番号（`employee.phone`）
+- 連絡先メール（`employee.contactEmail`）
+
+**就労条件**
+- 雇用形態（`employee.employmentType`）
+- 所定労働時間（週）（`employee.weeklyWorkingHours`）
+- 所定労働日数（週）（`employee.weeklyWorkingDays`）
+- 契約期間の見込み（`employee.contractPeriodNote`）
+- 学生フラグ（`employee.isStudent`）
+
+**社会保険・資格情報（サマリ）**
+- 社会保険対象（`employee.isInsured`、既に表示済）
+- 健康保険 等級／標準報酬月額（既に表示済）
+- 厚生年金 等級／標準報酬月額（既に表示済）
+- 資格取得日（健保）（`employee.healthQualificationDate`）
+- 資格取得日（厚年）（`employee.pensionQualificationDate`）
+
+**就業状態**
+- 現在の就業状態（`employee.workingStatus`）
+- 状態開始日（`employee.workingStatusStartDate`）
+- 保険料の扱い（`employee.premiumTreatment`）
+
+#### 1.2 「詳細情報としてならアリ」項目（折りたたみセクション）
+
+- 被保険者記号（`employee.healthInsuredSymbol`）
+- 被保険者番号（`employee.healthInsuredNumber`）
+- 厚生年金番号（`employee.pensionNumber`）
+- 資格取得区分（健保）（`employee.healthQualificationKind`）
+- 資格取得区分（厚年）（`employee.pensionQualificationKind`）
+- 資格喪失日（健保）（`employee.healthLossDate`）
+- 資格喪失日（厚年）（`employee.pensionLossDate`）
+- 喪失理由区分（健保）（`employee.healthLossReasonKind`）
+- 喪失理由区分（厚年）（`employee.pensionLossReasonKind`）
+- 状態終了日（`employee.workingStatusEndDate`）
+- 研修（該当する場合、`Employee` 型にフィールドがない場合は実装不要）
+
+#### 1.3 「マイページには基本出さない／マスクしたい」項目
+
+**マイナンバー**
+- 末尾4桁のみ表示（例: `***-****-1234（登録済）`）
+- `employee.myNumber` が存在する場合のみ表示
+
+**備考**
+- マイページには表示しない（`employee` 型に `memo` や `note` フィールドがあっても非表示）
+
+### 2. ラベル変換関数の追加
+
+**既存関数の確認**: `label-utils.ts` には以下の関数が既に存在します。これらは**既存関数を再利用**します：
+- ✅ `getInsuranceQualificationKindLabel` - 資格取得区分のラベル変換
+- ✅ `getInsuranceLossReasonKindLabel` - 喪失理由区分のラベル変換
+- ✅ `getWorkingStatusLabel` - 就業状態のラベル変換
+- ✅ `getPremiumTreatmentLabel` - 保険料の扱いのラベル変換
+
+**新規追加が必要な関数**: `label-utils.ts` に以下の関数を**新規追加**します：
+
+```typescript
+// 雇用形態のラベル変換
+// 注意: EmploymentType の型定義は 'regular' | 'contract' | 'part' | 'アルバイト' | 'other'
+// 型の値自体が 'アルバイト' となっているため、case も 'アルバイト' を使用
+export function getEmploymentTypeLabel(type?: EmploymentType): string {
+  switch (type) {
+    case 'regular':
+      return '正社員';
+    case 'contract':
+      return '契約社員';
+    case 'part':
+      return 'パート';
+    case 'アルバイト':  // 型の値が 'アルバイト' のため、そのまま使用
+      return 'アルバイト';
+    case 'other':
+      return 'その他';
+    default:
+      return '未設定';
+  }
+}
+
+// 性別のラベル変換
+export function getSexLabel(sex?: Sex): string {
+  switch (sex) {
+    case 'male':
+      return '男性';
+    case 'female':
+      return '女性';
+    case 'other':
+      return 'その他';
+    default:
+      return '未設定';
+  }
+}
+```
+
+### 3. 年齢計算関数の追加
+
+生年月日から年齢を計算する関数を追加（オプション）：
+
+```typescript
+// 年齢計算（生年月日から現在の年齢を計算）
+export function calculateAge(birthDate: IsoDateString): number {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+```
+
+### 4. マイナンバーのマスク表示関数
+
+```typescript
+// マイナンバーのマスク表示（末尾4桁のみ表示）
+export function maskMyNumber(myNumber?: MyNumber): string | null {
+  if (!myNumber) {
+    return null;
+  }
+  // ハイフンやスペースを除去
+  const cleaned = myNumber.replace(/[-\s]/g, '');
+  if (cleaned.length < 4) {
+    return null;
+  }
+  const last4 = cleaned.slice(-4);
+  return `***-****-${last4}（登録済）`;
+}
+```
+
+---
+
+## 💻 実装詳細
+
+### Step 1: ラベル変換関数の追加
+
+**重要**: 以下の関数は既に `label-utils.ts` に存在します。これらは**新規追加せず、既存関数をインポートして再利用**してください：
+- `getInsuranceQualificationKindLabel`
+- `getInsuranceLossReasonKindLabel`
+- `getWorkingStatusLabel`
+- `getPremiumTreatmentLabel`
+
+`src/app/utils/label-utils.ts` に以下の関数を**新規追加**します：
+
+```typescript
+import { EmploymentType, Sex, MyNumber, IsoDateString } from '../types';
+
+export function getEmploymentTypeLabel(type?: EmploymentType): string {
+  switch (type) {
+    case 'regular':
+      return '正社員';
+    case 'contract':
+      return '契約社員';
+    case 'part':
+      return 'パート';
+    case 'アルバイト':
+      return 'アルバイト';
+    case 'other':
+      return 'その他';
+    default:
+      return '未設定';
+  }
+}
+
+export function getSexLabel(sex?: Sex): string {
+  switch (sex) {
+    case 'male':
+      return '男性';
+    case 'female':
+      return '女性';
+    case 'other':
+      return 'その他';
+    default:
+      return '未設定';
+  }
+}
+
+export function calculateAge(birthDate: IsoDateString): number {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+export function maskMyNumber(myNumber?: MyNumber): string | null {
+  if (!myNumber) {
+    return null;
+  }
+  const cleaned = myNumber.replace(/[-\s]/g, '');
+  if (cleaned.length < 4) {
+    return null;
+  }
+  const last4 = cleaned.slice(-4);
+  return `***-****-${last4}（登録済）`;
+}
+```
+
+### Step 2: コンポーネントの拡張
+
+`src/app/pages/me/my-page.ts` を拡張：
+
+#### 2.1 インポートの追加
+
+```typescript
+import { MatExpansionModule } from '@angular/material/expansion';
+import {
+  getEmploymentTypeLabel,
+  getSexLabel,
+  calculateAge,
+  maskMyNumber,
+  // 以下は既存関数を再利用
+  getInsuranceQualificationKindLabel,
+  getInsuranceLossReasonKindLabel,
+  getWorkingStatusLabel,
+  getPremiumTreatmentLabel
+} from '../../utils/label-utils';
+```
+
+**重要**: `@Component` の `imports` 配列に `MatExpansionModule` を追加する必要があります。
+
+```typescript
+@Component({
+  selector: 'ip-my-page',
+  standalone: true,
+  imports: [
+    // ... 既存のインポート ...
+    MatExpansionModule,  // ← 追加
+    // ... 既存のインポート ...
+  ],
+  // ...
+})
+```
+
+#### 2.2 コンポーネントクラスにヘルパーメソッドを追加
+
+```typescript
+export class MyPage {
+  // ... 既存のコード ...
+
+  // ヘルパーメソッド
+  protected readonly getEmploymentTypeLabel = getEmploymentTypeLabel;
+  protected readonly getSexLabel = getSexLabel;
+  protected readonly calculateAge = calculateAge;
+  protected readonly maskMyNumber = maskMyNumber;
+  protected readonly getInsuranceQualificationKindLabel = getInsuranceQualificationKindLabel;
+  protected readonly getInsuranceLossReasonKindLabel = getInsuranceLossReasonKindLabel;
+  protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
+  protected readonly getPremiumTreatmentLabel = getPremiumTreatmentLabel;
+}
+```
+
+#### 2.3 テンプレートの拡張
+
+既存の「基本情報」セクションを以下のように拡張：
+
+```html
+<mat-card class="content-card">
+  <div class="page-header">
+    <h2>
+      <mat-icon>info</mat-icon>
+      基本情報
+    </h2>
+  </div>
+
+  <ng-container *ngIf="employee$ | async as employee; else noEmployee">
+    <!-- 1. 基本プロフィールカード -->
+    <mat-card class="sub-card">
+      <div class="sub-card-header">
+        <h3>
+          <mat-icon>person</mat-icon>
+          基本プロフィール
+        </h3>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">氏名</span>
+          <span class="value">{{ employee.name }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.kana">
+          <span class="label">カナ</span>
+          <span class="value">{{ employee.kana }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">所属</span>
+          <span class="value">{{ employee.department || '未設定' }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.birthDate">
+          <span class="label">生年月日</span>
+          <span class="value">
+            {{ employee.birthDate | date: 'yyyy年MM月dd日' }}
+            <span class="age-badge">（{{ calculateAge(employee.birthDate) }}歳）</span>
+          </span>
+        </div>
+        <div class="info-item" *ngIf="employee.sex">
+          <span class="label">性別</span>
+          <span class="value">{{ getSexLabel(employee.sex) }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">入社日</span>
+          <span class="value">{{ employee.hireDate | date: 'yyyy-MM-dd' }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.retireDate">
+          <span class="label">退社日</span>
+          <span class="value">{{ employee.retireDate | date: 'yyyy-MM-dd' }}</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- 2. 住所・連絡先カード -->
+    <mat-card class="sub-card">
+      <div class="sub-card-header">
+        <h3>
+          <mat-icon>home</mat-icon>
+          住所・連絡先
+        </h3>
+      </div>
+      <div class="info-grid">
+        <div class="info-item" *ngIf="employee.postalCode">
+          <span class="label">郵便番号</span>
+          <span class="value">{{ employee.postalCode }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.address">
+          <span class="label">住所</span>
+          <span class="value">{{ employee.address }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.phone">
+          <span class="label">電話番号</span>
+          <span class="value">{{ employee.phone }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.contactEmail">
+          <span class="label">連絡先メール</span>
+          <span class="value">{{ employee.contactEmail }}</span>
+        </div>
+        <div class="info-item" *ngIf="!employee.postalCode && !employee.address && !employee.phone && !employee.contactEmail">
+          <span class="value" style="color: #6b7280;">住所・連絡先情報が未設定です</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- 3. 就労条件カード -->
+    <mat-card class="sub-card">
+      <div class="sub-card-header">
+        <h3>
+          <mat-icon>work</mat-icon>
+          就労条件
+        </h3>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">雇用形態</span>
+          <span class="value">{{ getEmploymentTypeLabel(employee.employmentType) }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.weeklyWorkingHours != null">
+          <span class="label">所定労働時間（週）</span>
+          <span class="value">{{ employee.weeklyWorkingHours }}時間</span>
+        </div>
+        <div class="info-item" *ngIf="employee.weeklyWorkingDays != null">
+          <span class="label">所定労働日数（週）</span>
+          <span class="value">{{ employee.weeklyWorkingDays }}日</span>
+        </div>
+        <div class="info-item" *ngIf="employee.contractPeriodNote">
+          <span class="label">契約期間の見込み</span>
+          <span class="value">{{ employee.contractPeriodNote }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.isStudent">
+          <span class="label">学生フラグ</span>
+          <span class="value">学生アルバイト</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- 4. 社会保険・資格情報（サマリ）カード -->
+    <mat-card class="sub-card">
+      <div class="sub-card-header">
+        <h3>
+          <mat-icon>health_and_safety</mat-icon>
+          社会保険・資格情報
+        </h3>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">社会保険加入状況</span>
+          <span class="value" [class.inactive]="!employee.isInsured">
+            {{ employee.isInsured ? '加入中' : '未加入' }}
+          </span>
+        </div>
+        <div class="info-item">
+          <span class="label">健康保険 等級 / 標準報酬月額</span>
+          <span class="value">
+            {{ employee.healthGrade ? '等級 ' + employee.healthGrade : '未設定' }}
+            <ng-container *ngIf="employee.healthStandardMonthly != null">
+              / {{ employee.healthStandardMonthly | number }} 円
+            </ng-container>
+          </span>
+        </div>
+        <div class="info-item">
+          <span class="label">厚生年金 等級 / 標準報酬月額</span>
+          <span class="value">
+            {{ employee.pensionGrade ? '等級 ' + employee.pensionGrade : '未設定' }}
+            <ng-container *ngIf="employee.pensionStandardMonthly != null">
+              / {{ employee.pensionStandardMonthly | number }} 円
+            </ng-container>
+          </span>
+        </div>
+        <div class="info-item" *ngIf="employee.healthQualificationDate">
+          <span class="label">資格取得日（健保）</span>
+          <span class="value">{{ employee.healthQualificationDate | date: 'yyyy-MM-dd' }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.pensionQualificationDate">
+          <span class="label">資格取得日（厚年）</span>
+          <span class="value">{{ employee.pensionQualificationDate | date: 'yyyy-MM-dd' }}</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- 5. 就業状態カード -->
+    <mat-card class="sub-card" *ngIf="employee.workingStatus">
+      <div class="sub-card-header">
+        <h3>
+          <mat-icon>event</mat-icon>
+          就業状態
+        </h3>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">現在の就業状態</span>
+          <span class="value">{{ getWorkingStatusLabel(employee.workingStatus) }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.workingStatusStartDate">
+          <span class="label">状態開始日</span>
+          <span class="value">{{ employee.workingStatusStartDate | date: 'yyyy-MM-dd' }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.premiumTreatment">
+          <span class="label">保険料の扱い</span>
+          <span class="value">{{ getPremiumTreatmentLabel(employee.premiumTreatment) }}</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- 6. 詳細情報（折りたたみセクション） -->
+    <mat-expansion-panel class="detail-panel">
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          <mat-icon>info_outline</mat-icon>
+          詳細情報
+        </mat-panel-title>
+        <mat-panel-description>
+          被保険者番号、資格情報の詳細など
+        </mat-panel-description>
+      </mat-expansion-panel-header>
+      <div class="info-grid">
+        <div class="info-item" *ngIf="employee.healthInsuredSymbol">
+          <span class="label">被保険者記号</span>
+          <span class="value">{{ employee.healthInsuredSymbol }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.healthInsuredNumber">
+          <span class="label">被保険者番号</span>
+          <span class="value">{{ employee.healthInsuredNumber }}</span>
+        </div>
+        <!-- 注意: 「被保険者整理番号」というフィールドは Employee 型に存在しません -->
+        <div class="info-item" *ngIf="employee.pensionNumber">
+          <span class="label">厚生年金番号</span>
+          <span class="value">{{ employee.pensionNumber }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.healthQualificationKind">
+          <span class="label">資格取得区分（健保）</span>
+          <span class="value">{{ getInsuranceQualificationKindLabel(employee.healthQualificationKind) }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.pensionQualificationKind">
+          <span class="label">資格取得区分（厚年）</span>
+          <span class="value">{{ getInsuranceQualificationKindLabel(employee.pensionQualificationKind) }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.healthLossDate">
+          <span class="label">資格喪失日（健保）</span>
+          <span class="value">{{ employee.healthLossDate | date: 'yyyy-MM-dd' }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.pensionLossDate">
+          <span class="label">資格喪失日（厚年）</span>
+          <span class="value">{{ employee.pensionLossDate | date: 'yyyy-MM-dd' }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.healthLossReasonKind">
+          <span class="label">喪失理由区分（健保）</span>
+          <span class="value">{{ getInsuranceLossReasonKindLabel(employee.healthLossReasonKind) }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.pensionLossReasonKind">
+          <span class="label">喪失理由区分（厚年）</span>
+          <span class="value">{{ getInsuranceLossReasonKindLabel(employee.pensionLossReasonKind) }}</span>
+        </div>
+        <div class="info-item" *ngIf="employee.workingStatusEndDate">
+          <span class="label">状態終了日</span>
+          <span class="value">{{ employee.workingStatusEndDate | date: 'yyyy-MM-dd' }}</span>
+        </div>
+      </div>
+    </mat-expansion-panel>
+
+    <!-- 7. マイナンバー（マスク表示） -->
+    <!-- 注意: maskMyNumber() を *ngIf と {{ }} の両方で呼び出しているため、2回評価されます。
+         パフォーマンス上の問題はありませんが、認識しておいてください。
+         必要に応じて、コンポーネント側で一度だけ評価して変数に格納する方法も検討できます。 -->
+    <mat-card class="sub-card" *ngIf="maskMyNumber(employee.myNumber)">
+      <div class="sub-card-header">
+        <h3>
+          <mat-icon>lock</mat-icon>
+          マイナンバー
+        </h3>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">個人番号</span>
+          <span class="value">{{ maskMyNumber(employee.myNumber) }}</span>
+        </div>
+      </div>
+    </mat-card>
+  </ng-container>
+
+  <ng-template #noEmployee>
+    <div class="empty-state">
+      <mat-icon>person_off</mat-icon>
+      <p>従業員として登録されていないため、マイページ情報は表示されません。</p>
+    </div>
+  </ng-template>
+</mat-card>
+```
+
+#### 2.4 スタイルの追加
+
+```scss
+.sub-card {
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sub-card-header {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sub-card-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.sub-card-header mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  color: #6b7280;
+}
+
+.age-badge {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: normal;
+  margin-left: 0.5rem;
+}
+
+.detail-panel {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.detail-panel mat-expansion-panel-header {
+  padding: 1rem;
+}
+
+.detail-panel mat-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+```
+
+---
+
+## ✅ 受け入れ条件
+
+### 機能要件
+1. ✅ 基本プロフィール、住所・連絡先、就労条件、社会保険・資格情報、就業状態が正しく表示される
+2. ✅ 詳細情報は折りたたみセクションで表示され、デフォルトは閉じた状態
+3. ✅ マイナンバーは末尾4桁のみマスク表示される
+4. ✅ 未設定の項目は「未設定」と表示されるか、非表示になる
+5. ✅ 退社日は退社している場合のみ表示される
+
+### UI/UX要件
+1. ✅ 各カードが適切にレイアウトされている
+2. ✅ 既存のマイページデザインと統一されている
+3. ✅ レスポンシブ対応（モバイルでも見やすい）
+4. ✅ ラベル変換関数が正しく動作している
+
+### セキュリティ要件
+1. ✅ マイナンバーはマスク表示され、フル表示されない
+2. ✅ 備考などの事務側メモは表示されない
+
+---
+
+## 🔍 実装時の注意点
+
+### 1. データの存在確認
+- 各項目は `*ngIf` で存在確認を行い、存在しない場合は適切に処理する
+- 退社日など、条件によって表示しない項目は `*ngIf` で制御
+- **フィールド名の確認**: `types.ts` の `Employee` 型定義と完全一致していることを確認（上記「0. フィールド名の確認」を参照）
+
+### 2. 日付フォーマット
+- 生年月日: `yyyy年MM月dd日` 形式（年齢も併記）
+- その他の日付: `yyyy-MM-dd` 形式
+
+### 3. 数値フォーマット
+- 標準報酬月額などは `DecimalPipe` で3桁区切り表示
+
+### 4. ラベル変換関数
+- `label-utils.ts` に追加する関数は、既存の関数と統一されたスタイルで実装
+- 未設定の場合は「未設定」を返す
+
+### 5. マイナンバーのマスク表示
+- ハイフンやスペースを除去してから末尾4桁を抽出
+- 4桁未満の場合は表示しない
+- **パフォーマンス注意**: テンプレート内で `maskMyNumber(employee.myNumber)` を `*ngIf` と `{{ }}` の両方で呼び出すと2回評価されます。パフォーマンス上の問題はありませんが、認識しておいてください。必要に応じて、コンポーネント側で一度だけ評価して変数に格納する方法も検討できます。
+
+### 6. Angular Material モジュールのインポート
+- `MatExpansionModule` は `import` 文だけでなく、`@Component` の `imports` 配列にも追加する必要があります
+- `DecimalPipe` は既存実装で `imports` 配列に含まれているため、追加不要です
+
+---
+
+## 📝 実装チェックリスト
+
+- [ ] **types.ts の Employee 型定義を確認**（フィールド名の整合性確認）
+- [ ] `label-utils.ts` に `getEmploymentTypeLabel` 関数を追加（新規）
+- [ ] `label-utils.ts` に `getSexLabel` 関数を追加（新規）
+- [ ] `label-utils.ts` に `calculateAge` 関数を追加（新規）
+- [ ] `label-utils.ts` に `maskMyNumber` 関数を追加（新規）
+- [ ] 既存関数（`getInsuranceQualificationKindLabel` など）をインポートして再利用
+- [ ] `my-page.ts` に `MatExpansionModule` をインポート
+- [ ] `@Component` の `imports` 配列に `MatExpansionModule` を追加（重要）
+- [ ] `my-page.ts` にラベル変換関数をインポート
+- [ ] `DecimalPipe` が `imports` 配列に含まれているか確認（既存実装で確認済み）
+- [ ] 基本プロフィールカードを実装
+- [ ] 住所・連絡先カードを実装
+- [ ] 就労条件カードを実装
+- [ ] 社会保険・資格情報（サマリ）カードを実装
+- [ ] 就業状態カードを実装
+- [ ] 詳細情報の折りたたみセクションを実装
+- [ ] マイナンバーのマスク表示を実装
+- [ ] スタイルを追加・調整
+- [ ] レスポンシブ対応を確認
+- [ ] 空データ時の表示を確認
+- [ ] セキュリティ要件を確認（マイナンバーのマスク表示）
+
+---
+
+## 🎨 参考実装
+
+以下のファイルを参考にしてください：
+
+- `src/app/pages/me/my-page.ts` - 既存のマイページ実装
+- `src/app/utils/label-utils.ts` - ラベル変換関数の実装パターン
+- `src/app/types.ts` - `Employee` 型の定義
+
+---
+
+## 📌 補足事項
+
+1. **既存実装との統合**: 既存の「基本情報」セクションを拡張する形で実装します。既存の表示項目は維持しつつ、新しいカードを追加します。
+
+2. **パフォーマンス**: データ取得は既存の `employee$` Observable を使用するため、追加のクエリは不要です。
+
+3. **将来の拡張**: 詳細情報セクションは、必要に応じて項目を追加できるように拡張可能な構造にしています。
+
+4. **アクセシビリティ**: `mat-expansion-panel` を使用することで、キーボード操作にも対応しています。
+
+5. **フィールド名の整合性**: 実装前に必ず `types.ts` の `Employee` 型定義を確認し、フィールド名が完全一致していることを確認してください。特に以下の点に注意：
+   - `healthStandardMonthly`, `pensionStandardMonthly` は既存実装と一致
+   - 「被保険者整理番号」というフィールドは存在しない（`healthInsuredSymbol` は「被保険者記号」のみ）
+   - `EmploymentType` の値は `'regular' | 'contract' | 'part' | 'アルバイト' | 'other'`（型の値自体が `'アルバイト'`）
+
+6. **既存関数の再利用**: `label-utils.ts` には既に以下の関数が存在します。これらは新規追加せず、既存関数をインポートして再利用してください：
+   - `getInsuranceQualificationKindLabel`
+   - `getInsuranceLossReasonKindLabel`
+   - `getWorkingStatusLabel`
+   - `getPremiumTreatmentLabel`
+
+7. **Angular Material モジュール**: `MatExpansionModule` は `import` 文だけでなく、`@Component` の `imports` 配列にも追加する必要があります。`DecimalPipe` は既存実装で `imports` 配列に含まれているため、追加不要です。
+
+8. **マイナンバーのマスク表示**: テンプレート内で `maskMyNumber()` を `*ngIf` と `{{ }}` の両方で呼び出すと2回評価されます。パフォーマンス上の問題はありませんが、認識しておいてください。
+
+---
+
+以上で実装指示書は完了です。不明点があれば確認してください。
+
