@@ -32,7 +32,7 @@ import { Employee } from '../../types';
      <div mat-dialog-content>
        <mat-form-field appearance="outline" class="full-width">
          <mat-label>変更項目</mat-label>
-         <mat-select formControlName="field" (selectionChange)="onFieldChange()">
+        <mat-select formControlName="field">
            <mat-option value="postalCode">郵便番号</mat-option>
            <mat-option value="address">住所</mat-option>
            <mat-option value="phone">電話番号</mat-option>
@@ -158,7 +158,7 @@ export class ChangeRequestFormDialogComponent implements OnDestroy {
       employeeId: this.data.employee.id,
       requestedByUserId: currentUserId,
       kind: 'profile',
-      field: formValue.field as typeof formValue.field,
+      field: (formValue.field as 'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana') || undefined,
       currentValue,
       requestedValue: formValue.requestedValue ?? ''
     });

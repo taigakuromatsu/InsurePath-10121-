@@ -1,7 +1,7 @@
 # InsurePath 実装状況レポート
 
 **作成日**: 2025年1月  
-**最終更新**: 2025年12月3日（Phase3-8 MVP完了後）
+**最終更新**: 2025年12月（Phase3-9（追加）完了後）
 
 ## 概要
 
@@ -612,14 +612,100 @@
 
 **注意**: 本機能は「参考様式」として位置づけられており、公的機関が正式に認めた様式ではありません。生成されたPDFは印刷して手書き修正や、e-Gov入力時の参照用として利用することを想定しています。
 
-### (24) 従業員セルフ入力・手続き申請フロー機能
+### (24) 従業員セルフ入力・手続き申請フロー機能 ✅ 実装済み
 
-**実装状況**: 完全に未実装
+**実装状況**: Phase3-9完了により、従業員セルフ入力・手続き申請フロー機能が完全実装済み
 
-- ❌ セルフ入力フォーム
-- ❌ 手続き申請の一時保存機能
-- ❌ 申請内容の承認・却下機能
-- ❌ 申請履歴の管理
+**実装完了内容**:
+1. ✅ **プロフィール変更申請機能**（Phase3-3で実装済み）
+   - 従業員本人がマイページからプロフィール変更を申請できる
+   - 申請可能な項目：郵便番号、住所、電話番号、連絡先メールアドレス、カナ（オプション）
+   - 申請登録ダイアログ（`change-request-form-dialog.component.ts`）
+   - 申請履歴の表示と取り下げ機能
+
+2. ✅ **扶養家族申請機能**（Phase3-9（追加）で実装）
+   - **扶養家族追加申請フォーム**（`dependent-add-request-form-dialog.component.ts`）
+     - 新規被扶養者の追加を申請
+     - フォーム項目：氏名、カナ、続柄、生年月日、性別、郵便番号、住所、同居／別居、就労状況フラグ
+     - `kind: 'dependent_add'`、`payload: DependentAddPayload`で申請を登録
+   - **扶養家族変更申請フォーム**（`dependent-update-request-form-dialog.component.ts`）
+     - 既存の被扶養者情報の変更を申請
+     - 既存情報を読み取り専用で表示し、変更したい項目を入力
+     - `kind: 'dependent_update'`、`targetDependentId`、`payload: DependentUpdatePayload`で申請を登録
+   - **扶養家族削除申請フォーム**（`dependent-remove-request-form-dialog.component.ts`）
+     - 被扶養者の削除を申請
+     - 既存の被扶養者情報を読み取り専用で表示し、削除理由を入力（任意）
+     - `kind: 'dependent_remove'`、`targetDependentId`、`payload: DependentRemovePayload`で申請を登録
+
+3. ✅ **申請種別選択ダイアログ**（`request-kind-selection-dialog.component.ts`）
+   - マイページの「新しい申請を作成」ボタンから開く
+   - 4つの選択肢（プロフィール変更、扶養家族追加、扶養家族変更、扶養家族削除）を表示
+   - 選択に応じて適切な申請フォームダイアログを開く
+   - 複数の被扶養者がいる場合、`DependentSelectDialogComponent`で対象を選択
+
+4. ✅ **被扶養者選択ダイアログ**（`dependent-select-dialog.component.ts`）
+   - 複数の被扶養者がいる場合に、変更・削除対象を選択するダイアログ
+   - 氏名、続柄、生年月日を表示して選択可能
+
+5. ✅ **申請一覧画面の拡張**（`requests.page.ts`）
+   - プロフィール変更申請と扶養家族申請の両方を扱う
+   - 申請種別、変更項目、対象被扶養者の表示
+   - 承認・却下機能
+   - ヘッダー文言を「従業員からのプロフィール・扶養家族変更申請を承認・却下できます。」に更新
+
+6. ✅ **自動反映機能**
+   - **プロフィール変更申請の承認時**: `employees`コレクションへ自動反映
+     - `field === 'postalCode'` → `employee.postalCode`
+     - `field === 'address'` → `employee.address`
+     - `field === 'phone'` → `employee.phone`
+     - `field === 'contactEmail'` → `employee.contactEmail`
+     - `field === 'kana'` → `employee.kana`
+   - **扶養家族追加申請の承認時**: `dependents`サブコレクションに新規ドキュメントを作成
+   - **扶養家族変更申請の承認時**: 対象の`dependents/{dependentId}`ドキュメントを更新（`merge: true`で部分更新）
+   - **扶養家族削除申請の承認時**: 対象の`dependents/{dependentId}`ドキュメントをハードデリート
+
+7. ✅ **マイページの拡張**（`my-page.ts`）
+   - 「申請・手続き」セクションの追加
+   - 申請履歴テーブル（申請日時、申請種別、変更項目、現在値、申請値、ステータス、却下理由、取り下げボタン）
+   - 「新しい申請を作成」ボタンから申請種別選択ダイアログを開く
+   - 扶養家族カードの改善（タイトルを「扶養家族（被扶養者）」に変更、サブテキスト追加、各被扶養者に「情報変更を申請」「削除を申請」ボタン追加）
+   - 申請履歴のリアルタイム表示（`listForUser()`を使用）
+
+8. ✅ **型定義の整理**（`types.ts`）
+   - `ChangeRequest.field`の型を`'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana' | 'other'`に整理
+   - `'other'`はレガシー値としてのみ許容（新規作成では選択不可）
+   - 既存の`'email'`値は読み込み時に`'contactEmail'`に正規化
+   - `ChangeRequestKind`に`'dependent_add' | 'dependent_update' | 'dependent_remove'`を追加
+   - `DependentAddPayload`、`DependentUpdatePayload`、`DependentRemovePayload`型の定義
+
+9. ✅ **ラベル変換の統一**（`label-utils.ts`）
+   - `getChangeRequestKindLabel()`で申請種別のラベルを統一
+   - `getFieldLabel()`で変更項目のラベルを統一（`'other'`は「その他」として表示）
+
+10. ✅ **Firestoreセキュリティルール**
+    - 従業員本人は自分の申請のみ作成・閲覧可能
+    - 管理者・担当者は全申請を閲覧・承認・却下可能
+    - 申請者による`pending → canceled`の取り下げは許可
+
+11. ✅ **UX改善**
+    - `window.alert`を`MatSnackBar`に統一
+    - `window.confirm`を`ConfirmDialogComponent`（Angular Material）に統一
+    - `ChangeRequestsService.create()`で`undefined`フィールドを再帰的に除去（`removeUndefinedDeep()`メソッド）
+
+**関連ファイル**:
+- `src/app/types.ts`（`ChangeRequest`型、`ChangeRequestKind`型、`DependentAddPayload`型、`DependentUpdatePayload`型、`DependentRemovePayload`型）
+- `src/app/services/change-requests.service.ts`（`removeUndefinedDeep()`メソッド追加、`undefined`フィールドの除去処理）
+- `src/app/pages/requests/change-request-form-dialog.component.ts`（プロフィール変更申請フォーム）
+- `src/app/pages/requests/dependent-add-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/dependent-update-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/dependent-remove-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/request-kind-selection-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/dependent-select-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/confirm-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/requests.page.ts`（承認時の自動反映ロジック追加、ヘッダー文言更新）
+- `src/app/pages/me/my-page.ts`（申請履歴セクション追加、扶養家族カード改善）
+- `src/app/utils/label-utils.ts`（`getChangeRequestKindLabel()`、`getFieldLabel()`の拡張）
+- `firestore.rules`（`changeRequests`コレクションのルール）
 
 ### (25) 社会保険手続き用添付書類管理機能（ファイル添付機能）
 
@@ -704,12 +790,12 @@
 | 基本機能 | 3 | 0 | 0 | 3 |
 | 管理機能 | 12 | 0 | 0 | 12 |
 | 計算・表示機能 | 8 | 0 | 0 | 8 |
-| その他機能 | 2 | 0 | 10 | 12 |
-| **合計** | **25** | **0** | **10** | **35** |
+| その他機能 | 3 | 0 | 9 | 12 |
+| **合計** | **26** | **0** | **9** | **35** |
 
-**実装率**: 約71%（完全実装のみ）
+**実装率**: 約74%（完全実装のみ）
 
-**注**: Phase3-8 MVPまで完了し、実装済み機能は25件（(1)～(23), (27), (35)）です。残り10機能（(24)～(26), (28)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。
+**注**: Phase3-9（追加）まで完了し、実装済み機能は26件（(1)～(24), (27), (35)）です。残り9機能（(25)～(26), (28)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。
 
 **最新更新**: 
 - Phase1-2完了により、従業員台帳機能の資格情報・就業状態管理が追加実装されました。
@@ -739,6 +825,7 @@
 - Phase3-6完了により、社会保険料納付状況管理機能が完全実装されました。納付状況の型定義（`PaymentStatus`型、`PaymentMethod`型、`SocialInsurancePayment`型）、納付状況サービス（CRUD操作、予定額自動計算、リアルタイム購読）、BonusPremiumsServiceの拡張（`listByOfficeAndYearMonth`メソッド追加）、納付状況一覧画面、納付状況フォームダイアログ（バリデーション強化、ヘルプテキスト追加）、ダッシュボード連携（「今月納付予定の社会保険料」カード、「最近の納付状況（最大12件）」セクション）、Firestoreセキュリティルール、ルーティングとサイドメニュー追加が実装されました。事業所ごと・対象年月ごとの社会保険料の納付状況を記録・管理し、納付漏れや金額確認漏れを防止できる機能が完成しました。
 - Phase3-7完了により、e-Gov届出対応マスタ管理機能が完全実装されました。事業所マスタの拡張（事業所記号・事業所番号・郡市区符号・事業主氏名・所在地・郵便番号・電話番号）、従業員マスタの拡張（被保険者整理番号・性別・郵便番号・住所カナ・マイナンバー）、被扶養者マスタの拡張（氏名カナ・性別・郵便番号・住所・同居／別居区分・マイナンバー）、マイナンバー管理サービス（MyNumberService）の実装、型エイリアスの追加（Sex型、CohabitationFlag型）、空文字フィールドのnull化処理、Firestoreルールの拡張が実装されました。本システムは e-Gov への直接送信や CSV 出力は行わず、「e-Gov届出に必要な基礎情報を漏れなく整備しておけるマスタ管理機能」として位置づけられています。担当者は InsurePath のマスタ画面を参照しながら e-Gov の入力画面へ転記することで、届出作成作業を効率化できます。
 - Phase3-8 MVP完了により、公的帳票（届出書）自動作成・PDF出力機能が実装されました。PDF生成サービス（DocumentGeneratorService）、帳票テンプレート（資格取得届・資格喪失届・賞与支払届の3種類）、日本語フォント対応（Noto Sans JP）、帳票生成ダイアログコンポーネント、従業員詳細ダイアログからの帳票生成ボタン、賞与保険料画面からの帳票生成ボタン、バリデーション機能（致命的必須項目・通常必須項目・任意項目の3段階分類）が実装されました。本機能は「参考様式」として位置づけられており、生成されたPDFは印刷して手書き修正や、e-Gov入力時の参照用として利用することを想定しています。算定基礎届・月額変更届・被扶養者異動届、一括PDF生成、帳票履歴管理機能は将来拡張（Phase4以降）として設計のみ行っています。
+- Phase3-9（追加）完了により、従業員セルフ入力・手続き申請フロー機能が完全実装されました。プロフィール変更申請機能（Phase3-3で実装済み）、扶養家族申請機能（追加・変更・削除の3種類のフォーム）、申請種別選択ダイアログ、被扶養者選択ダイアログ、申請一覧画面の拡張、自動反映機能（プロフィール変更申請と扶養家族申請の両方で承認時に台帳データへ自動反映）、マイページの拡張（申請履歴セクション、扶養家族カードの改善）、型定義の整理（`ChangeRequest.field`の型整理、レガシー値`'other'`の扱い明確化）、ラベル変換の統一、Firestoreセキュリティルール、UX改善（`window.alert`/`window.confirm`をAngular Materialに統一、`undefined`フィールドの除去処理）が実装されました。従業員本人がマイページからプロフィール変更や扶養家族の追加・変更・削除を申請し、管理者・担当者が承認・却下できるワークフローが完成しました。
 
 ---
 

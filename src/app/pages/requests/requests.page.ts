@@ -13,7 +13,14 @@ import { ChangeRequestsService } from '../../services/change-requests.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeesService } from '../../services/employees.service';
-import { ChangeRequest, ChangeRequestStatus, Employee } from '../../types';
+import { DependentsService } from '../../services/dependents.service';
+import {
+  ChangeRequest,
+  ChangeRequestStatus,
+  DependentAddPayload,
+  DependentUpdatePayload,
+  Employee
+} from '../../types';
 import { RejectReasonDialogComponent } from './reject-reason-dialog.component';
 import {
   getChangeRequestKindLabel,
@@ -45,7 +52,7 @@ import {
           </div>
           <div class="header-text">
             <h1>変更申請一覧</h1>
-            <p>従業員からのプロフィール変更申請を承認・却下できます。</p>
+            <p>従業員からのプロフィール・扶養家族変更申請を承認・却下できます。</p>
           </div>
         </div>
       </mat-card>
@@ -303,6 +310,7 @@ import {
 export class RequestsPage {
   private readonly changeRequestsService = inject(ChangeRequestsService);
   private readonly employeesService = inject(EmployeesService);
+  private readonly dependentsService = inject(DependentsService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly dialog = inject(MatDialog);
@@ -354,7 +362,7 @@ export class RequestsPage {
     )
   );
 
-  getFieldLabel(field: ChangeRequest['field']): string {
+  getFieldLabel(field: ChangeRequest['field'] | undefined): string {
     switch (field) {
       case 'postalCode':
         return '郵便番号';
@@ -406,7 +414,11 @@ export class RequestsPage {
   }
 
   private buildUpdateData(request: ChangeRequest): Partial<Employee> {
-    switch (request.field) {
+    // 既存データとの互換性: 'email' を 'contactEmail' に正規化
+    // request.field が 'email' の場合（レガシーデータ）も 'contactEmail' として扱う
+    const field = (request.field as string) === 'email' ? 'contactEmail' : request.field;
+
+    switch (field) {
       case 'postalCode':
         return { postalCode: request.requestedValue };
       case 'address':
@@ -414,7 +426,6 @@ export class RequestsPage {
       case 'phone':
         return { phone: request.requestedValue };
       case 'contactEmail':
-      case 'email':
         return { contactEmail: request.requestedValue };
       case 'kana':
         return { kana: request.requestedValue };
@@ -435,7 +446,11 @@ export class RequestsPage {
     const officeId = await firstValueFrom(this.currentOffice.officeId$);
     if (!officeId) return;
 
-    const employee = await firstValueFrom(this.employeesService.get(officeId, request.employeeId));
+    // プロフィール変更申請の場合
+    if (request.kind === 'profile') {
+      const employee = await firstValueFrom(
+        this.employeesService.get(officeId, request.employeeId)
+      );
     if (!employee) {
       throw new Error('従業員が見つかりませんでした');
     }
@@ -447,7 +462,59 @@ export class RequestsPage {
       ...updateData,
       updatedByUserId: currentUserId
     });
+    }
+    // 扶養家族追加申請の場合
+    else if (request.kind === 'dependent_add') {
+      const payload = request.payload as DependentAddPayload;
+      if (!payload) {
+        throw new Error('申請データが見つかりませんでした');
+      }
 
+      // 注意: DependentAddPayload には isWorking が含まれるが、Dependent 型には存在しないため、
+      // DependentsService.save() では isWorking は無視される（申請時に収集する情報として扱う）
+      await this.dependentsService.save(officeId, request.employeeId, {
+        name: payload.name,
+        kana: payload.kana,
+        relationship: payload.relationship,
+        dateOfBirth: payload.dateOfBirth,
+        sex: payload.sex,
+        postalCode: payload.postalCode,
+        address: payload.address,
+        cohabitationFlag: payload.cohabitationFlag
+        // isWorking は Dependent 型に存在しないため、ここでは含めない
+      });
+    }
+    // 扶養家族変更申請の場合
+    else if (request.kind === 'dependent_update') {
+      const payload = request.payload as DependentUpdatePayload;
+      if (!payload || !request.targetDependentId) {
+        throw new Error('申請データが見つかりませんでした');
+      }
+
+      await this.dependentsService.save(officeId, request.employeeId, {
+        id: request.targetDependentId,
+        name: payload.name,
+        kana: payload.kana,
+        relationship: payload.relationship,
+        dateOfBirth: payload.dateOfBirth,
+        sex: payload.sex,
+        postalCode: payload.postalCode,
+        address: payload.address,
+        cohabitationFlag: payload.cohabitationFlag
+        // isWorking は Dependent 型に存在しないため、ここでは含めない
+      });
+    }
+    // 扶養家族削除申請の場合
+    else if (request.kind === 'dependent_remove') {
+      if (!request.targetDependentId) {
+        throw new Error('削除対象の被扶養者IDが見つかりませんでした');
+      }
+
+      // ハードデリートで実装
+      await this.dependentsService.delete(officeId, request.employeeId, request.targetDependentId);
+    }
+
+    // ChangeRequest の status を更新（既存の ChangeRequestsService.approve() を使用）
     await this.changeRequestsService.approve(officeId, request.id, currentUserId);
   }
 

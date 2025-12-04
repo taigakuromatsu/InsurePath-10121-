@@ -27,6 +27,35 @@ export class ChangeRequestsService {
     return collection(this.firestore, 'offices', officeId, 'changeRequests');
   }
 
+  /**
+   * オブジェクトから再帰的に undefined フィールドを除去する
+   * Firestore は undefined 値をサポートしていないため、保存前にクリーンアップが必要
+   * @param value クリーンアップ対象の値
+   * @returns undefined が除去された値
+   */
+  private removeUndefinedDeep<T>(value: T): T {
+    // null やプリミティブ型はそのまま返す
+    if (value === null || typeof value !== 'object') {
+      return value;
+    }
+
+    // 配列の場合は各要素を再帰的に処理
+    if (Array.isArray(value)) {
+      return value.map((v) => this.removeUndefinedDeep(v)) as unknown as T;
+    }
+
+    // オブジェクトの場合は各プロパティを再帰的に処理し、undefined は除外
+    const result: any = {};
+    for (const [key, v] of Object.entries(value as any)) {
+      if (v === undefined) {
+        // undefined はフィールドごと削除
+        continue;
+      }
+      result[key] = this.removeUndefinedDeep(v);
+    }
+    return result;
+  }
+
   async create(
     officeId: string,
     request: {
@@ -59,7 +88,11 @@ export class ChangeRequestsService {
       requestedAt: now
     };
 
-    await setDoc(docRef, payload);
+    // 再帰的に undefined フィールドを除外してから Firestore に書き込む
+    // Firestore は undefined 値をサポートしていないため（ネストされたオブジェクト内も含む）
+    const cleaned = this.removeUndefinedDeep(payload);
+
+    await setDoc(docRef, cleaned);
   }
 
   list(officeId: string, status?: ChangeRequestStatus): Observable<ChangeRequest[]> {
@@ -132,8 +165,10 @@ export class ChangeRequestsService {
   }
 
   private normalizeRequest(data: ChangeRequest): ChangeRequest {
+    // 既存データとの互換性: 'email' を 'contactEmail' に正規化
+    // data.field が 'email' の場合（レガシーデータ）も 'contactEmail' として扱う
     const normalizedField =
-      data.field === 'email'
+      (data.field as string) === 'email'
         ? 'contactEmail'
         : data.field;
 

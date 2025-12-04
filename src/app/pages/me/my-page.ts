@@ -35,7 +35,11 @@ import {
   maskMyNumber,
   calculateAge
 } from '../../utils/label-utils';
-import { ChangeRequestFormDialogComponent } from '../requests/change-request-form-dialog.component';
+import { RequestKindSelectionDialogComponent } from '../requests/request-kind-selection-dialog.component';
+import { DependentAddRequestFormDialogComponent } from '../requests/dependent-add-request-form-dialog.component';
+import { DependentUpdateRequestFormDialogComponent } from '../requests/dependent-update-request-form-dialog.component';
+import { DependentRemoveRequestFormDialogComponent } from '../requests/dependent-remove-request-form-dialog.component';
+import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
 
 @Component({
   selector: 'ip-my-page',
@@ -342,10 +346,17 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
 
       <mat-card class="content-card">
         <div class="page-header">
+          <div>
           <h2>
             <mat-icon>family_restroom</mat-icon>
-            扶養家族（閲覧のみ）
+              扶養家族（被扶養者）
           </h2>
+            <p class="sub-text">追加・変更・削除は申請フローから行います</p>
+          </div>
+          <button mat-stroked-button color="primary" (click)="openDependentAddForm()">
+            <mat-icon>person_add</mat-icon>
+            扶養家族を追加申請する
+          </button>
         </div>
 
         <ng-container *ngIf="dependents$ | async as dependents">
@@ -383,6 +394,24 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
                   </ng-container>
                   <ng-template #noQualificationLoss>-</ng-template>
                 </span>
+              </div>
+              <div class="dependent-actions">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  (click)="openDependentUpdateForm(dependent.id)"
+                >
+                  <mat-icon>edit</mat-icon>
+                  情報変更を申請
+                </button>
+                <button
+                  mat-stroked-button
+                  color="warn"
+                  (click)="openDependentRemoveForm(dependent.id)"
+                >
+                  <mat-icon>delete</mat-icon>
+                  削除を申請
+                </button>
               </div>
             </div>
           </div>
@@ -692,6 +721,10 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
         border-bottom: 2px solid #e0e0e0;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
       }
 
       .page-header h2 {
@@ -702,6 +735,12 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
         font-size: 1.5rem;
         font-weight: 600;
         color: #333;
+      }
+
+      .sub-text {
+        margin: 0.25rem 0 0 0;
+        font-size: 0.875rem;
+        color: #666;
       }
 
       .sub-card {
@@ -832,6 +871,20 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
         padding: 1rem;
         background: #fff;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        position: relative;
+      }
+
+      .dependent-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        justify-content: flex-end;
+      }
+
+      .dependent-actions button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
       }
 
       .dependent-header {
@@ -1019,22 +1072,77 @@ export class MyPage {
   );
 
   async openChangeRequestDialog(): Promise<void> {
-    const [employee, officeId] = await Promise.all([
-      firstValueFrom(this.employee$),
-      firstValueFrom(this.currentOffice.officeId$)
-    ]);
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
 
-    if (!employee || !officeId) {
+    if (!officeId) {
       return;
     }
 
-    this.dialog.open(ChangeRequestFormDialogComponent, {
-      width: '600px',
-      data: { employee, officeId }
+    this.dialog.open(RequestKindSelectionDialogComponent, {
+      width: '500px'
     });
   }
 
-  getFieldLabel(field: ChangeRequest['field']): string {
+  async openDependentAddForm(): Promise<void> {
+    const [profile, officeId] = await Promise.all([
+      firstValueFrom(this.currentUser.profile$),
+      firstValueFrom(this.currentOffice.officeId$)
+    ]);
+
+    if (!profile?.employeeId || !officeId) {
+      return;
+    }
+
+    this.dialog.open(DependentAddRequestFormDialogComponent, {
+      width: '600px',
+      data: {
+        officeId,
+        employeeId: profile.employeeId
+      }
+    });
+  }
+
+  async openDependentUpdateForm(dependentId: string): Promise<void> {
+    const [profile, officeId] = await Promise.all([
+      firstValueFrom(this.currentUser.profile$),
+      firstValueFrom(this.currentOffice.officeId$)
+    ]);
+
+    if (!profile?.employeeId || !officeId) {
+      return;
+    }
+
+    this.dialog.open(DependentUpdateRequestFormDialogComponent, {
+      width: '600px',
+      data: {
+        officeId,
+        employeeId: profile.employeeId,
+        dependentId
+      }
+    });
+  }
+
+  async openDependentRemoveForm(dependentId: string): Promise<void> {
+    const [profile, officeId] = await Promise.all([
+      firstValueFrom(this.currentUser.profile$),
+      firstValueFrom(this.currentOffice.officeId$)
+    ]);
+
+    if (!profile?.employeeId || !officeId) {
+      return;
+    }
+
+    this.dialog.open(DependentRemoveRequestFormDialogComponent, {
+      width: '600px',
+      data: {
+        officeId,
+        employeeId: profile.employeeId,
+        dependentId
+      }
+    });
+  }
+
+  getFieldLabel(field: ChangeRequest['field'] | undefined): string {
     switch (field) {
       case 'postalCode':
         return '郵便番号';
@@ -1092,7 +1200,18 @@ export class MyPage {
       return;
     }
 
-    const confirmed = window.confirm('この申請を取り下げますか？');
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: '申請の取り下げ',
+        message: 'この申請を取り下げますか？',
+        confirmText: '取り下げる',
+        cancelText: 'キャンセル',
+        confirmColor: 'warn'
+      }
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
     if (!confirmed) {
       return;
     }

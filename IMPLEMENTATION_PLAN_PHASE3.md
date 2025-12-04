@@ -1,9 +1,9 @@
 # Phase3 実装計画
 
 **作成日**: 2025年11月28日  
-**最終更新**: 2025年12月3日（Phase3-8 MVP完了後）  
+**最終更新**: 2025年12月（Phase3-9（追加）完了後）  
 **目標完了日**: 2025年12月10日  
-**残り日数**: 約7日間（Phase3-1からPhase3-8 MVPまで完了済み、残り10機能）
+**残り日数**: 約7日間（Phase3-1からPhase3-9（追加）まで完了済み、残り9機能）
 
 ---
 
@@ -44,7 +44,7 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 
 ---
 
-## 📋 Phase3の実装フェーズ（残り10機能）
+## 📋 Phase3の実装フェーズ（残り9機能）
 
 ### Phase3-1: 従業員情報の最終更新者・更新日時表示機能の完成 ✅ 実装完了
 
@@ -460,25 +460,73 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 
 ---
 
-### Phase3-9: 従業員セルフ入力・手続き申請フロー機能 📋 未実装（優先度：中）
+### Phase3-9: 従業員セルフ入力・手続き申請フロー機能 ✅ 実装完了
 
 **優先度**: 🟡 中（拡張機能）  
 **依存関係**: Phase3-3  
 **目標完了日**: 2025年12月3日
+**完了日**: 2025年12月（Phase3-9（追加）完了）
 
 **目的**: 入社時や扶養異動時に、従業員本人がWeb画面から自分および家族の情報を入力・更新できるセルフ入力フォームを提供する
 
-**実装予定内容**:
-1. **セルフ入力フォーム**
-   - 入社時・扶養異動時のセルフ入力フォーム
-   - 手続き申請として一時保存
+**実装完了内容**:
+1. ✅ **プロフィール変更申請機能**（Phase3-3で実装済み）
+   - 従業員本人がマイページからプロフィール変更を申請できる
+   - 申請可能な項目：郵便番号、住所、電話番号、連絡先メールアドレス、カナ（オプション）
+   - 申請登録ダイアログ（`change-request-form-dialog.component.ts`）
+   - 申請履歴の表示と取り下げ機能
 
-2. **申請内容の承認・却下機能**
-   - 管理者・担当者が内容を確認・承認
+2. ✅ **扶養家族申請機能**（Phase3-9（追加）で実装）
+   - **扶養家族追加申請フォーム**（`dependent-add-request-form-dialog.component.ts`）
+     - 新規被扶養者の追加を申請
+     - フォーム項目：氏名、カナ、続柄、生年月日、性別、郵便番号、住所、同居／別居、就労状況フラグ
+   - **扶養家族変更申請フォーム**（`dependent-update-request-form-dialog.component.ts`）
+     - 既存の被扶養者情報の変更を申請
+     - 既存情報を読み取り専用で表示し、変更したい項目を入力
+   - **扶養家族削除申請フォーム**（`dependent-remove-request-form-dialog.component.ts`）
+     - 被扶養者の削除を申請
+     - 既存の被扶養者情報を読み取り専用で表示し、削除理由を入力（任意）
 
-**実装予定ファイル**:
-- `src/app/pages/self-input/self-input.page.ts`（新規作成）
-- `src/app/pages/self-input/self-input-form-dialog.component.ts`（新規作成）
+3. ✅ **申請種別選択ダイアログ**（`request-kind-selection-dialog.component.ts`）
+   - マイページの「新しい申請を作成」ボタンから開く
+   - 4つの選択肢（プロフィール変更、扶養家族追加、扶養家族変更、扶養家族削除）を表示
+   - 選択に応じて適切な申請フォームダイアログを開く
+   - 複数の被扶養者がいる場合、`DependentSelectDialogComponent`で対象を選択
+
+4. ✅ **被扶養者選択ダイアログ**（`dependent-select-dialog.component.ts`）
+   - 複数の被扶養者がいる場合に、変更・削除対象を選択するダイアログ
+
+5. ✅ **申請一覧画面の拡張**（`requests.page.ts`）
+   - プロフィール変更申請と扶養家族申請の両方を扱う
+   - 承認時の自動反映機能（プロフィール変更申請と扶養家族申請の両方）
+
+6. ✅ **マイページの拡張**（`my-page.ts`）
+   - 「申請・手続き」セクションの追加
+   - 申請履歴テーブル
+   - 扶養家族カードの改善
+
+7. ✅ **型定義の整理**（`types.ts`）
+   - `ChangeRequest.field`の型を`'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana' | 'other'`に整理
+   - `ChangeRequestKind`に`'dependent_add' | 'dependent_update' | 'dependent_remove'`を追加
+
+8. ✅ **自動反映機能**
+   - プロフィール変更申請の承認時：`employees`コレクションへ自動反映
+   - 扶養家族申請の承認時：`dependents`サブコレクションへ自動反映（追加・更新・削除）
+
+**実装ファイル**:
+- `src/app/types.ts`（型定義の拡張）
+- `src/app/services/change-requests.service.ts`（`removeUndefinedDeep()`メソッド追加）
+- `src/app/pages/requests/change-request-form-dialog.component.ts`（プロフィール変更申請フォーム）
+- `src/app/pages/requests/dependent-add-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/dependent-update-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/dependent-remove-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/request-kind-selection-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/dependent-select-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/confirm-dialog.component.ts`（新規作成）
+- `src/app/pages/requests/requests.page.ts`（承認時の自動反映ロジック追加）
+- `src/app/pages/me/my-page.ts`（申請履歴セクション追加）
+- `src/app/utils/label-utils.ts`（ラベル変換関数の拡張）
+- `firestore.rules`（セキュリティルール）
 
 ---
 
@@ -693,7 +741,7 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 
 ### 12月3日（水）- Day 6 ✅ 完了
 - ✅ **Phase3-8**: 公的帳票（届出書）自動作成・PDF出力機能（MVP完了）
-- **Phase3-9**: 従業員セルフ入力・手続き申請フロー機能
+- ✅ **Phase3-9**: 従業員セルフ入力・手続き申請フロー機能（Phase3-9（追加）完了）
 
 ### 12月4日（木）- Day 7
 - **Phase3-10**: 社会保険手続き用添付書類管理機能
