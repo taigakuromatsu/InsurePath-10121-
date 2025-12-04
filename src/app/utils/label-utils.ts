@@ -2,9 +2,13 @@ import {
   ChangeRequestKind,
   ChangeRequestStatus,
   DependentRelationship,
+  EmploymentType,
   InsuranceLossReasonKind,
   InsuranceQualificationKind,
+  IsoDateString,
+  MyNumber,
   PremiumTreatment,
+  Sex,
   StandardRewardDecisionKind,
   WorkingStatus
 } from '../types';
@@ -136,4 +140,57 @@ export function getStandardRewardDecisionKindLabel(
     default:
       return '-';
   }
+}
+
+export function getEmploymentTypeLabel(type?: EmploymentType): string {
+  switch (type) {
+    case 'regular':
+      return '正社員';
+    case 'contract':
+      return '契約社員';
+    case 'part':
+      return 'パート';
+    case 'アルバイト':
+      return 'アルバイト';
+    case 'other':
+      return 'その他';
+    default:
+      return '未設定';
+  }
+}
+
+export function getSexLabel(sex?: Sex): string {
+  switch (sex) {
+    case 'male':
+      return '男性';
+    case 'female':
+      return '女性';
+    case 'other':
+      return 'その他';
+    default:
+      return '未設定';
+  }
+}
+
+export function calculateAge(birthDate: IsoDateString): number {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+export function maskMyNumber(myNumber?: MyNumber): string | null {
+  if (!myNumber) {
+    return null;
+  }
+  const cleaned = myNumber.replace(/[-\s]/g, '');
+  if (cleaned.length < 4) {
+    return null;
+  }
+  const last4 = cleaned.slice(-4);
+  return `***-****-${last4}（登録済）`;
 }
