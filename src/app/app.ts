@@ -43,6 +43,7 @@ export class App {
     { label: '申請ワークフロー', path: '/requests', icon: 'assignment', roles: ['admin', 'hr', 'employee'] },
     { label: '手続き履歴', path: '/procedures', icon: 'assignment_turned_in', roles: ['admin', 'hr'] },
     { label: '扶養状況確認', path: '/dependent-reviews', icon: 'family_restroom', roles: ['admin', 'hr'] },
+    { label: '書類管理', path: '/documents', icon: 'description', roles: ['admin', 'hr'] },
     { label: 'シミュレーター', path: '/simulator', icon: 'calculate', roles: ['admin', 'hr'] },
     { label: 'マイページ', path: '/me', icon: 'person', roles: ['admin', 'hr', 'employee'] }
   ];

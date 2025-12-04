@@ -10,11 +10,15 @@
     "rewrites": [
       {
         "source": "**",
-        "destination": "/index.html"
+          "destination": "/index.html"
       }
     ]
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }
+

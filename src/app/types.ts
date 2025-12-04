@@ -484,3 +484,102 @@ export interface ImportJob {
   finishedAt?: IsoDateString;
   startedByUserId: string;
 }
+
+// Document management (Phase3-10)
+export type DocumentCategory =
+  | 'identity'           // 本人確認書類（運転免許証、マイナンバーカード、在留カード 等）
+  | 'residence'          // 住所・居住関係（住民票 等）
+  | 'incomeProof'        // 収入証明（源泉徴収票、給与明細、課税証明書 等）
+  | 'studentProof'       // 在学証明
+  | 'relationshipProof'  // 続柄・同居証明（戸籍謄本、住民票（世帯全員） 等）
+  | 'otherInsurance'     // 他健康保険・年金加入証明
+  | 'medical'            // 障害・傷病関連証明（診断書 等）
+  | 'caregiving'         // 介護関連証明（要介護・要支援認定 等）
+  | 'procedureOther'     // その他社会保険手続き用資料
+  | 'other';             // 上記いずれにも当てはまらないもの
+
+export type DocumentSource = 'adminUpload' | 'employeeUploadViaRequest';
+
+export type DocumentRequestStatus = 'pending' | 'uploaded' | 'cancelled';
+
+export interface DocumentAttachment {
+  id: string;
+  officeId: string;
+  
+  // この書類が紐づく従業員
+  employeeId: string;          // 必須。誰の書類かを一意に特定する
+  
+  // 将来的に「扶養家族ごとの書類」も扱いたいので余地を残しておく
+  dependentId?: string | null; // Phase3-10ではあってもなくてもよいが、型としては考慮したい
+  
+  // 書類種別
+  category: DocumentCategory;
+  
+  // 一覧でわかりやすくするための自由タイトル（例：「源泉徴収票（2024年度）」）
+  title: string;
+  
+  // 管理者・従業員が自由に書けるメモ
+  note?: string | null;
+  
+  // Storage 上のパス（例：offices/{officeId}/employees/{employeeId}/documents/{documentId}/{filename}）
+  storagePath: string;
+  
+  // ファイル名（元のファイル名を保持）
+  fileName: string;
+  
+  // ファイルサイズ（バイト）
+  fileSize: number;
+  
+  // MIMEタイプ（例：application/pdf、image/png）
+  mimeType: string;
+  
+  // 誰がいつアップロードしたか
+  uploadedAt: IsoDateString;  // Storage にファイルを上げたタイミング（≒ほぼ createdAt と同じでもOK）
+  uploadedByUserId: string;
+  uploadedByDisplayName: string;
+  
+  // この書類が、リクエスト経由でアップされたものかどうか
+  source: DocumentSource;
+  requestId?: string | null;  // source === 'employeeUploadViaRequest' の場合のみ設定
+  
+  // 有効期限の管理（任意）
+  expiresAt?: IsoDateString | null;
+  isExpired?: boolean;  // 将来の集計用にフラグを用意しておいてもよい
+  
+  createdAt: IsoDateString;  // Firestore ドキュメントの作成時刻（uploadedAt と基本的に同じタイミングでセット）
+  updatedAt: IsoDateString;  // メモや有効期限変更時に更新
+}
+
+export interface DocumentRequest {
+  id: string;
+  officeId: string;
+  
+  // 依頼先の従業員
+  employeeId: string;
+  
+  // 要求する書類種別
+  category: DocumentCategory;
+  
+  // タイトル（例：「運転免許証の両面コピー」）
+  title: string;
+  
+  // 注意事項や補足の長文メッセージ
+  message?: string | null;
+  
+  // 誰がいつ依頼したか
+  requestedByUserId: string;
+  requestedByDisplayName: string;
+  
+  // 依頼ステータス
+  status: DocumentRequestStatus;
+  
+  // 依頼作成タイミング
+  createdAt: IsoDateString;
+  updatedAt: IsoDateString;
+  
+  // アップロード完了やキャンセル時にセットされる
+  resolvedAt?: IsoDateString | null;  // status === 'uploaded' の場合に設定
+  
+  // 期限（任意）
+  dueDate?: IsoDateString | null;
+}

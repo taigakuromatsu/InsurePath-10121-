@@ -12,6 +12,7 @@ import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { ChangeRequestsService } from '../../services/change-requests.service';
+import { DocumentsService } from '../../services/documents.service';
 import { EmployeesService } from '../../services/employees.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
 import {
@@ -19,6 +20,7 @@ import {
   ChangeRequest,
   ChangeRequestStatus,
   Dependent,
+  DocumentRequest,
   MonthlyPremium
 } from '../../types';
 import { DependentsService } from '../../services/dependents.service';
@@ -26,6 +28,7 @@ import {
   getChangeRequestKindLabel,
   getChangeRequestStatusLabel,
   getDependentRelationshipLabel,
+  getDocumentCategoryLabel,
   getEmploymentTypeLabel,
   getInsuranceLossReasonKindLabel,
   getInsuranceQualificationKindLabel,
@@ -40,6 +43,8 @@ import { DependentAddRequestFormDialogComponent } from '../requests/dependent-ad
 import { DependentUpdateRequestFormDialogComponent } from '../requests/dependent-update-request-form-dialog.component';
 import { DependentRemoveRequestFormDialogComponent } from '../requests/dependent-remove-request-form-dialog.component';
 import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
+import { DocumentUploadDialogComponent } from '../documents/document-upload-dialog.component';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'ip-my-page',
@@ -55,7 +60,8 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
     NgIf,
     NgFor,
     DatePipe,
-    DecimalPipe
+    DecimalPipe,
+    MatSnackBarModule
   ],
   template: `
     <section class="page my-page">
@@ -663,6 +669,65 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
           </div>
         </ng-template>
       </mat-card>
+
+      <!-- 書類アップロード依頼セクション -->
+      <mat-card class="content-card" *ngIf="employee$ | async as employee">
+        <div class="page-header">
+          <h2>
+            <mat-icon>mail</mat-icon>
+            書類アップロード依頼
+          </h2>
+        </div>
+        <p class="sub-text">管理者から依頼された書類をアップロードしてください。</p>
+
+        <ng-container *ngIf="documentRequests$ | async as requests">
+          <div class="document-requests-list" *ngIf="requests.length > 0; else noDocumentRequests">
+            <div class="request-card" *ngFor="let request of requests">
+              <div class="request-header">
+                <div class="request-title-section">
+                  <span class="category-badge">{{ getDocumentCategoryLabel(request.category) }}</span>
+                  <h3>{{ request.title }}</h3>
+                </div>
+                <button
+                  mat-raised-button
+                  color="primary"
+                  (click)="openDocumentUploadDialog(request)"
+                >
+                  <mat-icon>upload</mat-icon>
+                  ファイルをアップロード
+                </button>
+              </div>
+              <div class="request-message" *ngIf="request.message">
+                <p>{{ request.message }}</p>
+              </div>
+              <div class="request-meta">
+                <span class="meta-item">
+                  <mat-icon>person</mat-icon>
+                  依頼者: {{ request.requestedByDisplayName }}
+                </span>
+                <span class="meta-item">
+                  <mat-icon>calendar_today</mat-icon>
+                  依頼日: {{ request.createdAt | date: 'yyyy-MM-dd' }}
+                </span>
+                <span class="meta-item" *ngIf="request.dueDate">
+                  <mat-icon>event</mat-icon>
+                  締め切り: {{ request.dueDate | date: 'yyyy-MM-dd' }}
+                  <span class="days-remaining" *ngIf="getDaysRemaining(request.dueDate) !== null">
+                    (残り{{ getDaysRemaining(request.dueDate) }}日)
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <ng-template #noDocumentRequests>
+            <div class="empty-state">
+              <mat-icon>inbox</mat-icon>
+              <p>現在、アップロード依頼はありません。</p>
+            </div>
+          </ng-template>
+        </ng-container>
+      </mat-card>
     </section>
   `,
   styles: [
@@ -932,6 +997,88 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
         margin: 0 auto 0.25rem;
       }
 
+      .document-requests-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .request-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.5rem;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+
+      .request-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+      }
+
+      .request-title-section {
+        flex: 1;
+      }
+
+      .category-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background-color: #e3f2fd;
+        color: #1976d2;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+
+      .request-title-section h3 {
+        margin: 0;
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #111827;
+      }
+
+      .request-message {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background-color: #f9fafb;
+        border-radius: 8px;
+      }
+
+      .request-message p {
+        margin: 0;
+        color: #374151;
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+
+      .request-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.875rem;
+        color: #6b7280;
+      }
+
+      .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+
+      .meta-item mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      .days-remaining {
+        color: #f59e0b;
+        font-weight: 600;
+      }
+
       .section-actions {
         display: flex;
         justify-content: flex-end;
@@ -979,11 +1126,13 @@ export class MyPage {
   private readonly currentUser = inject(CurrentUserService);
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly changeRequestsService = inject(ChangeRequestsService);
+  private readonly documentsService = inject(DocumentsService);
   private readonly employeesService = inject(EmployeesService);
   private readonly dependentsService = inject(DependentsService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly bonusPremiumsService = inject(BonusPremiumsService);
   private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
 
   readonly premiumDisplayedColumns = [
     'yearMonth',
@@ -1068,6 +1217,16 @@ export class MyPage {
       }
 
       return this.changeRequestsService.listForUser(officeId, profile.id);
+    })
+  );
+
+  readonly documentRequests$ = combineLatest([this.currentOffice.officeId$, this.currentUser.profile$]).pipe(
+    switchMap(([officeId, profile]) => {
+      if (!officeId || !profile?.employeeId) {
+        return of([] as DocumentRequest[]);
+      }
+
+      return this.documentsService.listRequests(officeId, profile.employeeId, 'pending');
     })
   );
 
@@ -1220,6 +1379,40 @@ export class MyPage {
   }
 
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
+
+  getDocumentCategoryLabel(category: string): string {
+    return getDocumentCategoryLabel(category as any);
+  }
+
+  getDaysRemaining(dueDate: string | null | undefined): number | null {
+    if (!dueDate) return null;
+    const now = new Date();
+    const due = new Date(dueDate);
+  
+    // 日単位でのズレを減らすために 0:00 固定にそろえるのもアリ
+    now.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+  
+    const diffTime = due.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+    return diffDays >= 0 ? diffDays : 0;
+  }
+  
+  async openDocumentUploadDialog(request: DocumentRequest): Promise<void> {
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
+    if (!officeId) return;
+
+    const dialogRef = this.dialog.open(DocumentUploadDialogComponent, {
+      width: '600px',
+      data: { officeId, request }
+    });
+
+    const result = await firstValueFrom(dialogRef.afterClosed());
+    if (result) {
+      this.snackBar.open('書類をアップロードしました', '閉じる', { duration: 3000 });
+    }
+  }
   protected readonly getEmploymentTypeLabel = getEmploymentTypeLabel;
   protected readonly getInsuranceQualificationKindLabel = getInsuranceQualificationKindLabel;
   protected readonly getInsuranceLossReasonKindLabel = getInsuranceLossReasonKindLabel;

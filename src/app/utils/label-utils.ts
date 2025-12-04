@@ -2,6 +2,8 @@ import {
   ChangeRequestKind,
   ChangeRequestStatus,
   DependentRelationship,
+  DocumentCategory,
+  DocumentRequestStatus,
   EmploymentType,
   InsuranceLossReasonKind,
   InsuranceQualificationKind,
@@ -196,4 +198,44 @@ export function maskMyNumber(myNumber?: MyNumber): string | null {
   }
   const last4 = cleaned.slice(-4);
   return `***-****-${last4}（登録済）`;
+}
+
+export function getDocumentCategoryLabel(category?: DocumentCategory): string {
+  switch (category) {
+    case 'identity':
+      return '本人確認書類';
+    case 'residence':
+      return '住所・居住関係';
+    case 'incomeProof':
+      return '収入証明';
+    case 'studentProof':
+      return '在学証明';
+    case 'relationshipProof':
+      return '続柄・同居証明';
+    case 'otherInsurance':
+      return '他健康保険・年金加入証明';
+    case 'medical':
+      return '障害・傷病関連証明';
+    case 'caregiving':
+      return '介護関連証明';
+    case 'procedureOther':
+      return 'その他社会保険手続き用資料';
+    case 'other':
+      return 'その他';
+    default:
+      return category ?? '未設定';
+  }
+}
+
+export function getDocumentRequestStatusLabel(status?: DocumentRequestStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'アップロード待ち';
+    case 'uploaded':
+      return 'アップロード済み';
+    case 'cancelled':
+      return 'キャンセル済み';
+    default:
+      return '-';
+  }
 }

@@ -765,6 +765,133 @@ service cloud.firestore {
       }
 
       // 変更申請
+      // 書類管理（Phase3-10）
+      match /documents/{documentId} {
+        // 共通バリデーション: DocumentAttachment の基本フィールド
+        function isValidDocumentAttachmentBase(data) {
+          return data.id == documentId
+            && data.officeId == officeId
+            && data.employeeId is string
+            && data.category in ['identity', 'residence', 'incomeProof', 'studentProof', 'relationshipProof', 'otherInsurance', 'medical', 'caregiving', 'procedureOther', 'other']
+            && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+            && data.storagePath is string
+            && data.fileName is string
+            && data.fileSize is int && data.fileSize > 0
+            && data.mimeType is string
+            && data.uploadedAt is string
+            && data.uploadedByUserId is string
+            && data.uploadedByDisplayName is string
+            && data.source in ['adminUpload', 'employeeUploadViaRequest']
+            && data.createdAt is string
+            && data.updatedAt is string;
+        }
+        
+        // 閲覧: admin/hr は全件、employee は自分の employeeId に紐づくもののみ
+        allow read: if belongsToOffice(officeId) && (
+          isAdminOrHr(officeId) ||
+          (isInsureEmployee(officeId) && resource.data.employeeId == currentUser().data.employeeId)
+        );
+        
+        // 作成: admin/hr は全件、employee は自分の employeeId に紐づくもののみ（リクエスト経由）
+        allow create: if belongsToOffice(officeId) && (
+          (
+            isAdminOrHr(officeId)
+              && request.resource.data.keys().hasOnly([
+                'id', 'officeId', 'employeeId', 'dependentId',
+                'category', 'title', 'note', 'storagePath', 'fileName', 'fileSize', 'mimeType',
+                'uploadedAt', 'uploadedByUserId', 'uploadedByDisplayName',
+                'source', 'requestId',
+                'expiresAt', 'isExpired',
+                'createdAt', 'updatedAt'
+              ])
+              && isValidDocumentAttachmentBase(request.resource.data)
+              && request.resource.data.uploadedByUserId == request.auth.uid
+          )
+          || (
+            isInsureEmployee(officeId)
+              && request.resource.data.employeeId == currentUser().data.employeeId
+              && request.resource.data.source == 'employeeUploadViaRequest'
+              && request.resource.data.requestId is string
+              && request.resource.data.uploadedByUserId == request.auth.uid
+              && isValidDocumentAttachmentBase(request.resource.data)
+          )
+        );
+        
+        // 更新: admin/hr のみ（メモ、有効期限の更新など）
+        allow update: if belongsToOffice(officeId)
+          && isAdminOrHr(officeId)
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'note', 'expiresAt', 'isExpired', 'updatedAt'
+          ])
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.officeId == resource.data.officeId
+          && request.resource.data.employeeId == resource.data.employeeId;
+        
+        // 削除: admin/hr のみ
+        allow delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+      }
+
+      match /documentRequests/{requestId} {
+        // 共通バリデーション: DocumentRequest の基本フィールド
+        function isValidDocumentRequestBase(data) {
+          return data.id == requestId
+            && data.officeId == officeId
+            && data.employeeId is string
+            && data.category in ['identity', 'residence', 'incomeProof', 'studentProof', 'relationshipProof', 'otherInsurance', 'medical', 'caregiving', 'procedureOther', 'other']
+            && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+            && data.status in ['pending', 'uploaded', 'cancelled']
+            && data.requestedByUserId is string
+            && data.requestedByDisplayName is string
+            && data.createdAt is string
+            && data.updatedAt is string;
+        }
+        
+        // 閲覧: admin/hr は全件、employee は自分の employeeId に紐づくもののみ
+        allow read: if belongsToOffice(officeId) && (
+          isAdminOrHr(officeId) ||
+          (isInsureEmployee(officeId) && resource.data.employeeId == currentUser().data.employeeId)
+        );
+        
+        // 作成: admin/hr のみ
+        allow create: if belongsToOffice(officeId)
+          && isAdminOrHr(officeId)
+          && request.resource.data.keys().hasOnly([
+            'id', 'officeId', 'employeeId',
+            'category', 'title', 'message',
+            'requestedByUserId', 'requestedByDisplayName',
+            'status', 'dueDate',
+            'createdAt', 'updatedAt'
+          ])
+          && isValidDocumentRequestBase(request.resource.data)
+          && request.resource.data.status == 'pending'
+          && request.resource.data.requestedByUserId == request.auth.uid;
+        
+        // 更新: admin/hr は全件、employee は自分の employeeId に紐づく pending なもののみ（status を uploaded に更新）
+        allow update: if belongsToOffice(officeId) && (
+          (
+            isAdminOrHr(officeId)
+              && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                'status', 'resolvedAt', 'updatedAt'
+              ])
+              && (
+                (request.resource.data.status == 'cancelled' && resource.data.status == 'pending')
+                || (request.resource.data.status == 'uploaded' && resource.data.status == 'pending' && request.resource.data.resolvedAt is string)
+              )
+          )
+          || (
+            isInsureEmployee(officeId)
+              && resource.data.employeeId == currentUser().data.employeeId
+              && resource.data.status == 'pending'
+              && request.resource.data.status == 'uploaded'
+              && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'resolvedAt', 'updatedAt'])
+              && request.resource.data.resolvedAt is string
+          )
+        );
+        
+        // 削除: 不可（履歴として保持）
+        allow delete: if false;
+      }
+
       match /changeRequests/{requestId} {
         allow read: if belongsToOffice(officeId) && (
           isAdminOrHr(officeId) ||
