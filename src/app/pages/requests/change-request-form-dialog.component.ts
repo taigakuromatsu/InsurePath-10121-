@@ -33,9 +33,11 @@ import { Employee } from '../../types';
        <mat-form-field appearance="outline" class="full-width">
          <mat-label>変更項目</mat-label>
          <mat-select formControlName="field" (selectionChange)="onFieldChange()">
+           <mat-option value="postalCode">郵便番号</mat-option>
            <mat-option value="address">住所</mat-option>
            <mat-option value="phone">電話番号</mat-option>
-           <mat-option value="email">メールアドレス</mat-option>
+           <mat-option value="contactEmail">連絡先メール</mat-option>
+           <mat-option value="kana">カナ</mat-option>
          </mat-select>
        </mat-form-field>
 
@@ -107,8 +109,12 @@ export class ChangeRequestFormDialogComponent implements OnDestroy {
     if (!requestedValueControl) return;
 
     const validators = [Validators.required];
-    if (this.form.value.field === 'email') {
+    if (this.form.value.field === 'contactEmail') {
       validators.push(Validators.email);
+    }
+
+    if (this.form.value.field === 'postalCode') {
+      validators.push(Validators.pattern(/^[0-9]{7}$/));
     }
 
     requestedValueControl.setValidators(validators);
@@ -117,12 +123,16 @@ export class ChangeRequestFormDialogComponent implements OnDestroy {
 
   getCurrentValue(field: string | null | undefined): string {
     switch (field) {
+      case 'postalCode':
+        return this.data.employee.postalCode ?? '';
       case 'address':
         return this.data.employee.address ?? '';
       case 'phone':
         return this.data.employee.phone ?? '';
-      case 'email':
+      case 'contactEmail':
         return this.data.employee.contactEmail ?? '';
+      case 'kana':
+        return this.data.employee.kana ?? '';
       default:
         return '';
     }
@@ -140,13 +150,15 @@ export class ChangeRequestFormDialogComponent implements OnDestroy {
       throw new Error('ユーザーIDが取得できませんでした');
     }
 
-    const currentValue = this.getCurrentValue(formValue.field as 'address' | 'phone' | 'email');
+    const currentValue = this.getCurrentValue(
+      formValue.field as typeof formValue.field
+    );
 
     await this.changeRequestsService.create(this.data.officeId, {
       employeeId: this.data.employee.id,
       requestedByUserId: currentUserId,
       kind: 'profile',
-      field: formValue.field as 'address' | 'phone' | 'email',
+      field: formValue.field as typeof formValue.field,
       currentValue,
       requestedValue: formValue.requestedValue ?? ''
     });

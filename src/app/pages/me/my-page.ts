@@ -568,7 +568,14 @@ import { ChangeRequestFormDialogComponent } from '../requests/change-request-for
 
               <ng-container matColumnDef="field">
                 <th mat-header-cell *matHeaderCellDef>変更項目</th>
-                <td mat-cell *matCellDef="let row">{{ getFieldLabel(row.field) }}</td>
+                <td mat-cell *matCellDef="let row">
+                  {{ row.kind === 'profile' ? getFieldLabel(row.field) : '-' }}
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="target">
+                <th mat-header-cell *matHeaderCellDef>対象被扶養者</th>
+                <td mat-cell *matCellDef="let row">{{ getTargetDependentLabel(row) }}</td>
               </ng-container>
 
               <ng-container matColumnDef="currentValue">
@@ -953,6 +960,7 @@ export class MyPage {
     'requestedAt',
     'kind',
     'field',
+    'target',
     'currentValue',
     'requestedValue',
     'status',
@@ -1028,12 +1036,18 @@ export class MyPage {
 
   getFieldLabel(field: ChangeRequest['field']): string {
     switch (field) {
+      case 'postalCode':
+        return '郵便番号';
       case 'address':
         return '住所';
       case 'phone':
         return '電話番号';
-      case 'email':
-        return 'メールアドレス';
+      case 'contactEmail':
+        return '連絡先メール';
+      case 'kana':
+        return 'カナ';
+      case 'other':
+        return 'その他';
       default:
         return field || '-';
     }
@@ -1045,6 +1059,30 @@ export class MyPage {
 
   getStatusLabel(status: ChangeRequestStatus): string {
     return getChangeRequestStatusLabel(status);
+  }
+
+  getTargetDependentLabel(request: ChangeRequest): string {
+    if (request.kind === 'profile') {
+      return '-';
+    }
+
+    const payload = request.payload as
+      | { name?: string; relationship?: string }
+      | { dependentName?: string; relationship?: string }
+      | undefined;
+
+    const name = (payload as any)?.name ?? (payload as any)?.dependentName;
+    const relationship = (payload as any)?.relationship;
+
+    if (!name) {
+      return '-';
+    }
+
+    const relationshipLabel = relationship
+      ? `（${this.getDependentRelationshipLabel(relationship as any)}）`
+      : '';
+
+    return `${name}${relationshipLabel}`;
   }
 
   async cancelRequest(request: ChangeRequest): Promise<void> {

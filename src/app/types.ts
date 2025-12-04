@@ -456,7 +456,7 @@ export interface ChangeRequest {
   employeeId: string;
   requestedByUserId: string;
   kind: ChangeRequestKind;
-  field?: 'address' | 'phone' | 'email' | 'other';
+  field?: 'postalCode' | 'address' | 'phone' | 'contactEmail' | 'kana' | 'other';
   currentValue?: string;
   requestedValue?: string;
   targetDependentId?: string;
