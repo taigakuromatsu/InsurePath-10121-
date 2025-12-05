@@ -1,7 +1,7 @@
 # InsurePath 実装状況レポート
 
 **作成日**: 2025年1月  
-**最終更新**: 2025年12月（Phase3-9（追加）完了後）
+**最終更新**: 2025年12月（Phase3-10完了後）
 
 ## 概要
 
@@ -707,14 +707,92 @@
 - `src/app/utils/label-utils.ts`（`getChangeRequestKindLabel()`、`getFieldLabel()`の拡張）
 - `firestore.rules`（`changeRequests`コレクションのルール）
 
-### (25) 社会保険手続き用添付書類管理機能（ファイル添付機能）
+### (25) 社会保険手続き用添付書類管理機能（ファイル添付機能） ✅ 実装済み
 
-**実装状況**: 完全に未実装
+**実装状況**: Phase3-10完了により、書類管理機能（ドキュメントセンター＆添付ファイル管理）が完全実装済み
 
-- ❌ ファイルアップロード機能
-- ❌ 添付書類のメタ情報管理
-- ❌ 閲覧権限制御
-- ❌ 有効期限管理
+**実装完了内容**:
+1. ✅ **型定義**
+   - `DocumentCategory`型の定義（10種類：本人確認書類、住所・居住関係、収入証明、在学証明、続柄・同居証明、他健康保険・年金加入証明、障害・傷病関連証明、介護関連証明、その他社会保険手続き用資料、その他）
+   - `DocumentAttachment`型の定義（書類メタ情報：カテゴリ、タイトル、メモ、有効期限、アップロード日時、アップロード者情報、ソース、依頼IDなど）
+   - `DocumentRequest`型の定義（書類アップロード依頼：依頼者、対象従業員、カテゴリ、タイトル、メッセージ、ステータス、期限など）
+   - `DocumentSource`型の定義（`adminUpload`、`employeeUploadViaRequest`）
+   - `DocumentRequestStatus`型の定義（`pending`、`uploaded`、`cancelled`）
+
+2. ✅ **StorageServiceの実装**
+   - ファイルアップロード機能（`uploadFile()`）- Firebase Storageへのアップロード、ファイル名サニタイズ、contentTypeメタデータ設定
+   - ファイルダウンロード機能（`downloadFile()`）- Blobとして取得（CORS対応のため`getDownloadURL()`経由で実装）
+   - ダウンロードURL取得機能（`getDownloadUrl()`）- プレビュー・ダウンロード用の一時URL取得
+   - ファイル削除機能（`deleteFile()`）- Storageからのファイル削除
+
+3. ✅ **DocumentsServiceの実装**
+   - 書類添付のCRUD操作（`listAttachments()`、`getAttachment()`、`createAttachment()`、`updateAttachment()`、`deleteAttachment()`）
+   - 書類アップロード依頼のCRUD操作（`listRequests()`、`getRequest()`、`createRequest()`、`updateRequest()`）
+   - `removeUndefinedDeep()`メソッドによるFirestore書き込み前の`undefined`フィールド除去処理
+
+4. ✅ **ドキュメントセンター画面**（`documents.page.ts`）
+   - 2カラムレイアウト（左：従業員一覧、右：書類・依頼一覧）
+   - 従業員検索・選択機能
+   - 書類添付一覧タブ（フィルタ：カテゴリ、有効期限、ソース、ソート：アップロード日時、有効期限）
+   - 書類アップロード依頼一覧タブ（フィルタ：ステータス、期限、ソート：作成日時、期限）
+   - アクションボタン（書類アップロード依頼作成、直接アップロード、書類ダウンロード・プレビュー・削除、依頼キャンセル）
+
+5. ✅ **書類アップロード依頼作成ダイアログ**（`document-request-form-dialog.component.ts`）
+   - 対象従業員選択、カテゴリ選択、タイトル入力、メッセージ入力（任意）、期限設定（任意）
+   - バリデーション（必須項目チェック、文字数制限）
+
+6. ✅ **管理者直接アップロードダイアログ**（`document-upload-form-dialog.component.ts`）
+   - 対象従業員選択、カテゴリ選択、タイトル入力、メモ入力（任意）、有効期限設定（任意）、ファイル選択
+   - ファイルサイズ制限（10MB）、MIMEタイプ制限（PDF、画像）
+   - バリデーション（必須項目チェック、ファイルサイズ・タイプチェック）
+
+7. ✅ **従業員アップロードダイアログ**（`document-upload-dialog.component.ts`）
+   - 依頼情報の表示（読み取り専用）、タイトル編集、メモ入力（任意）、ファイル選択
+   - ファイルサイズ制限（10MB）、MIMEタイプ制限（PDF、画像）
+   - アップロード後の依頼ステータス自動更新（`pending` → `uploaded`）
+
+8. ✅ **マイページの拡張**（`my-page.ts`）
+   - 「書類アップロード依頼」セクション追加
+   - 自分宛ての`pending`ステータスの依頼一覧表示
+   - 各依頼からアップロードダイアログを開くボタン
+   - リアルタイム更新対応（`listRequests()`を使用）
+
+9. ✅ **ラベル変換関数**（`label-utils.ts`）
+   - `getDocumentCategoryLabel()`関数（カテゴリの日本語ラベル変換）
+   - `getDocumentRequestStatusLabel()`関数（ステータスの日本語ラベル変換）
+
+10. ✅ **ルーティングとサイドメニュー**
+    - `/documents`ルートの追加（admin/hr専用）
+    - サイドメニューに「書類管理」メニュー項目を追加
+
+11. ✅ **Firestoreセキュリティルール**
+    - `documents`コレクションのルール（admin/hrは全件閲覧・作成・更新・削除可能、employeeは自分の`employeeId`に紐づくもののみ閲覧・作成可能）
+    - `documentRequests`コレクションのルール（admin/hrは全件閲覧・作成・更新可能、employeeは自分の`employeeId`に紐づくもののみ閲覧可能、依頼ステータスの更新は従業員本人も可能）
+    - データバリデーション（必須フィールドチェック、型チェック、ステータス遷移チェック）
+
+12. ✅ **Storageセキュリティルール**
+    - パスベースのアクセス制御（`offices/{officeId}/employees/{employeeId}/documents/{documentId}/{fileName}`）
+    - 認証済みユーザーは全員アップロード・閲覧可能（将来的に従業員ロールはマイページの表示のみにする予定のため、現状は緩いルールで運用）
+    - ファイルサイズ制限（10MB）、MIMEタイプ制限（PDF、画像）
+    - admin/hrのみ削除可能
+
+**関連ファイル**:
+- `src/app/types.ts`（`DocumentCategory`型、`DocumentAttachment`型、`DocumentRequest`型、`DocumentSource`型、`DocumentRequestStatus`型追加）
+- `src/app/services/storage.service.ts`（新規作成）
+- `src/app/services/documents.service.ts`（新規作成）
+- `src/app/pages/documents/documents.page.ts`（新規作成）
+- `src/app/pages/documents/document-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/documents/document-upload-form-dialog.component.ts`（新規作成）
+- `src/app/pages/documents/document-upload-dialog.component.ts`（新規作成）
+- `src/app/pages/me/my-page.ts`（書類アップロード依頼セクション追加）
+- `src/app/utils/label-utils.ts`（`getDocumentCategoryLabel()`、`getDocumentRequestStatusLabel()`関数追加）
+- `src/app/app.routes.ts`（`/documents`ルート追加）
+- `src/app/app.ts`（サイドメニューに「書類管理」追加）
+- `src/app/app.config.ts`（`provideStorage`追加）
+- `firestore.rules`（`documents`、`documentRequests`コレクションのルール追加）
+- `storage.rules`（新規作成、書類ファイルのアクセス制御ルール）
+
+**注意**: 本機能は「手続きレコードに紐づける」方式ではなく、「従業員ごとの書類ボックス（ドキュメントセンター）として整理する」方式で実装されています。将来的に手続きレコードと紐づける余地を残しています。
 
 ### (26) 保険料率・等級表クラウドマスタ・自動更新機能
 
@@ -791,11 +869,11 @@
 | 管理機能 | 12 | 0 | 0 | 12 |
 | 計算・表示機能 | 8 | 0 | 0 | 8 |
 | その他機能 | 3 | 0 | 9 | 12 |
-| **合計** | **26** | **0** | **9** | **35** |
+| **合計** | **27** | **0** | **8** | **35** |
 
-**実装率**: 約74%（完全実装のみ）
+**実装率**: 約77%（完全実装のみ）
 
-**注**: Phase3-9（追加）まで完了し、実装済み機能は26件（(1)～(24), (27), (35)）です。残り9機能（(25)～(26), (28)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。
+**注**: Phase3-10まで完了し、実装済み機能は27件（(1)～(25), (27), (35)）です。残り8機能（(26), (28)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。
 
 **最新更新**: 
 - Phase1-2完了により、従業員台帳機能の資格情報・就業状態管理が追加実装されました。
@@ -826,6 +904,7 @@
 - Phase3-7完了により、e-Gov届出対応マスタ管理機能が完全実装されました。事業所マスタの拡張（事業所記号・事業所番号・郡市区符号・事業主氏名・所在地・郵便番号・電話番号）、従業員マスタの拡張（被保険者整理番号・性別・郵便番号・住所カナ・マイナンバー）、被扶養者マスタの拡張（氏名カナ・性別・郵便番号・住所・同居／別居区分・マイナンバー）、マイナンバー管理サービス（MyNumberService）の実装、型エイリアスの追加（Sex型、CohabitationFlag型）、空文字フィールドのnull化処理、Firestoreルールの拡張が実装されました。本システムは e-Gov への直接送信や CSV 出力は行わず、「e-Gov届出に必要な基礎情報を漏れなく整備しておけるマスタ管理機能」として位置づけられています。担当者は InsurePath のマスタ画面を参照しながら e-Gov の入力画面へ転記することで、届出作成作業を効率化できます。
 - Phase3-8 MVP完了により、公的帳票（届出書）自動作成・PDF出力機能が実装されました。PDF生成サービス（DocumentGeneratorService）、帳票テンプレート（資格取得届・資格喪失届・賞与支払届の3種類）、日本語フォント対応（Noto Sans JP）、帳票生成ダイアログコンポーネント、従業員詳細ダイアログからの帳票生成ボタン、賞与保険料画面からの帳票生成ボタン、バリデーション機能（致命的必須項目・通常必須項目・任意項目の3段階分類）が実装されました。本機能は「参考様式」として位置づけられており、生成されたPDFは印刷して手書き修正や、e-Gov入力時の参照用として利用することを想定しています。算定基礎届・月額変更届・被扶養者異動届、一括PDF生成、帳票履歴管理機能は将来拡張（Phase4以降）として設計のみ行っています。
 - Phase3-9（追加）完了により、従業員セルフ入力・手続き申請フロー機能が完全実装されました。プロフィール変更申請機能（Phase3-3で実装済み）、扶養家族申請機能（追加・変更・削除の3種類のフォーム）、申請種別選択ダイアログ、被扶養者選択ダイアログ、申請一覧画面の拡張、自動反映機能（プロフィール変更申請と扶養家族申請の両方で承認時に台帳データへ自動反映）、マイページの拡張（申請履歴セクション、扶養家族カードの改善）、型定義の整理（`ChangeRequest.field`の型整理、レガシー値`'other'`の扱い明確化）、ラベル変換の統一、Firestoreセキュリティルール、UX改善（`window.alert`/`window.confirm`をAngular Materialに統一、`undefined`フィールドの除去処理）が実装されました。従業員本人がマイページからプロフィール変更や扶養家族の追加・変更・削除を申請し、管理者・担当者が承認・却下できるワークフローが完成しました。
+- Phase3-10完了により、書類管理機能（ドキュメントセンター＆添付ファイル管理）が完全実装されました。型定義（`DocumentCategory`、`DocumentAttachment`、`DocumentRequest`）、StorageService（ファイルアップロード・ダウンロード・プレビュー・削除）、DocumentsService（CRUD操作）、ドキュメントセンター画面（2カラムレイアウト、従業員ごとの書類・依頼一覧）、書類アップロード依頼作成ダイアログ、管理者直接アップロードダイアログ、従業員アップロードダイアログ、マイページの拡張（書類アップロード依頼セクション）、ラベル変換関数、ルーティングとサイドメニュー、Firestoreセキュリティルール、Storageセキュリティルールが実装されました。管理者・人事担当者が従業員に対して書類提出を依頼し、従業員本人がマイページから書類をアップロードできる機能が完成しました。本機能は「手続きレコードに紐づける」方式ではなく、「従業員ごとの書類ボックス（ドキュメントセンター）として整理する」方式で実装されています。
 
 ---
 

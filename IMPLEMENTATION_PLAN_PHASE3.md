@@ -1,7 +1,7 @@
 # Phase3 実装計画
 
 **作成日**: 2025年11月28日  
-**最終更新**: 2025年12月（Phase3-9（追加）完了後）  
+**最終更新**: 2025年12月（Phase3-10完了後）  
 **目標完了日**: 2025年12月10日  
 **残り日数**: 約7日間（Phase3-1からPhase3-9（追加）まで完了済み、残り9機能）
 
@@ -530,25 +530,96 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 
 ---
 
-### Phase3-10: 社会保険手続き用添付書類管理機能 📋 未実装（優先度：低）
+### Phase3-10: 社会保険手続き用添付書類管理機能 ✅ 実装完了
 
-**優先度**: 🟢 低（拡張機能）  
-**依存関係**: Phase3-4  
+**優先度**: 🟡 中（実務上重要な機能）  
+**依存関係**: Phase2-1（セキュリティ強化）、Phase3-3（申請フロー）  
 **目標完了日**: 2025年12月4日
+**完了日**: 2025年12月4日
 
-**目的**: 被扶養者認定用書類、本人確認書類など、社会保険手続きに必要な添付書類を、手続きレコードに紐づけてアップロード・管理できる
+**目的**: 被扶養者認定用書類、本人確認書類など、社会保険手続きに必要な添付書類を、従業員ごとの書類ボックス（ドキュメントセンター）として整理し、アップロード・管理できる
 
-**実装予定内容**:
-1. **ファイルアップロード機能**
-   - Firebase Storageへのアップロード
-   - 添付書類のメタ情報管理
+**実装完了内容**:
+1. ✅ **型定義**
+   - `DocumentCategory`型の定義（10種類）
+   - `DocumentAttachment`型の定義（書類メタ情報）
+   - `DocumentRequest`型の定義（書類アップロード依頼）
+   - `DocumentSource`型、`DocumentRequestStatus`型の定義
 
-2. **閲覧権限制御**
-   - ロール別の閲覧権限制御
+2. ✅ **StorageServiceの実装**
+   - ファイルアップロード機能（`uploadFile()`）- Firebase Storageへのアップロード、ファイル名サニタイズ、contentTypeメタデータ設定
+   - ファイルダウンロード機能（`downloadFile()`）- `getDownloadURL()`経由でBlob取得（CORS対応）
+   - ダウンロードURL取得機能（`getDownloadUrl()`）- プレビュー・ダウンロード用
+   - ファイル削除機能（`deleteFile()`）
 
-**実装予定ファイル**:
-- `src/app/services/attachments.service.ts`（新規作成、Firebase Storage使用）
-- `src/app/pages/procedures/procedures.page.ts`（添付書類アップロード機能追加）
+3. ✅ **DocumentsServiceの実装**
+   - 書類添付のCRUD操作（`listAttachments()`、`getAttachment()`、`createAttachment()`、`updateAttachment()`、`deleteAttachment()`）
+   - 書類アップロード依頼のCRUD操作（`listRequests()`、`getRequest()`、`createRequest()`、`updateRequest()`）
+   - `removeUndefinedDeep()`メソッドによるFirestore書き込み前の`undefined`フィールド除去処理
+
+4. ✅ **ドキュメントセンター画面**（`documents.page.ts`）
+   - 2カラムレイアウト（左：従業員一覧、右：書類・依頼一覧）
+   - 従業員検索・選択機能
+   - 書類添付一覧タブ（フィルタ・ソート機能）
+   - 書類アップロード依頼一覧タブ（フィルタ・ソート機能）
+   - アクションボタン（依頼作成、直接アップロード、ダウンロード・プレビュー・削除、依頼キャンセル）
+
+5. ✅ **書類アップロード依頼作成ダイアログ**（`document-request-form-dialog.component.ts`）
+   - 対象従業員選択、カテゴリ選択、タイトル入力、メッセージ入力（任意）、期限設定（任意）
+   - バリデーション（必須項目チェック、文字数制限）
+
+6. ✅ **管理者直接アップロードダイアログ**（`document-upload-form-dialog.component.ts`）
+   - 対象従業員選択、カテゴリ選択、タイトル入力、メモ入力（任意）、有効期限設定（任意）、ファイル選択
+   - ファイルサイズ制限（10MB）、MIMEタイプ制限（PDF、画像）
+   - バリデーション（必須項目チェック、ファイルサイズ・タイプチェック）
+
+7. ✅ **従業員アップロードダイアログ**（`document-upload-dialog.component.ts`）
+   - 依頼情報の表示（読み取り専用）、タイトル編集、メモ入力（任意）、ファイル選択
+   - ファイルサイズ制限（10MB）、MIMEタイプ制限（PDF、画像）
+   - アップロード後の依頼ステータス自動更新（`pending` → `uploaded`）
+
+8. ✅ **マイページの拡張**（`my-page.ts`）
+   - 「書類アップロード依頼」セクション追加
+   - 自分宛ての`pending`ステータスの依頼一覧表示
+   - 各依頼からアップロードダイアログを開くボタン
+   - リアルタイム更新対応
+
+9. ✅ **ラベル変換関数**（`label-utils.ts`）
+   - `getDocumentCategoryLabel()`関数
+   - `getDocumentRequestStatusLabel()`関数
+
+10. ✅ **ルーティングとサイドメニュー**
+    - `/documents`ルートの追加（admin/hr専用）
+    - サイドメニューに「書類管理」メニュー項目を追加
+
+11. ✅ **Firestoreセキュリティルール**
+    - `documents`コレクションのルール（admin/hrは全件閲覧・作成・更新・削除可能、employeeは自分の`employeeId`に紐づくもののみ閲覧・作成可能）
+    - `documentRequests`コレクションのルール（admin/hrは全件閲覧・作成・更新可能、employeeは自分の`employeeId`に紐づくもののみ閲覧可能、依頼ステータスの更新は従業員本人も可能）
+    - データバリデーション（必須フィールドチェック、型チェック、ステータス遷移チェック）
+
+12. ✅ **Storageセキュリティルール**
+    - パスベースのアクセス制御（`offices/{officeId}/employees/{employeeId}/documents/{documentId}/{fileName}`）
+    - 認証済みユーザーは全員アップロード・閲覧可能（将来的に従業員ロールはマイページの表示のみにする予定のため、現状は緩いルールで運用）
+    - ファイルサイズ制限（10MB）、MIMEタイプ制限（PDF、画像）
+    - admin/hrのみ削除可能
+
+**実装ファイル**:
+- `src/app/types.ts`（`DocumentCategory`型、`DocumentAttachment`型、`DocumentRequest`型、`DocumentSource`型、`DocumentRequestStatus`型追加）
+- `src/app/services/storage.service.ts`（新規作成）
+- `src/app/services/documents.service.ts`（新規作成）
+- `src/app/pages/documents/documents.page.ts`（新規作成）
+- `src/app/pages/documents/document-request-form-dialog.component.ts`（新規作成）
+- `src/app/pages/documents/document-upload-form-dialog.component.ts`（新規作成）
+- `src/app/pages/documents/document-upload-dialog.component.ts`（新規作成）
+- `src/app/pages/me/my-page.ts`（書類アップロード依頼セクション追加）
+- `src/app/utils/label-utils.ts`（`getDocumentCategoryLabel()`、`getDocumentRequestStatusLabel()`関数追加）
+- `src/app/app.routes.ts`（`/documents`ルート追加）
+- `src/app/app.ts`（サイドメニューに「書類管理」追加）
+- `src/app/app.config.ts`（`provideStorage`追加）
+- `firestore.rules`（`documents`、`documentRequests`コレクションのルール追加）
+- `storage.rules`（新規作成、書類ファイルのアクセス制御ルール）
+
+**注意**: 本機能は「手続きレコードに紐づける」方式ではなく、「従業員ごとの書類ボックス（ドキュメントセンター）として整理する」方式で実装されています。将来的に手続きレコードと紐づける余地を残しています。
 
 ---
 
@@ -558,16 +629,53 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 **依存関係**: Phase1-5  
 **目標完了日**: 2025年12月5日
 
-**目的**: 協会けんぽおよび厚生年金などの全国共通マスタについて、システム全体で共有する「クラウドマスタ」として保険料率・等級表を一元管理できるようにする
+**目的**: 協会けんぽおよび厚生年金などの全国共通マスタについて、システム全体で共有する「クラウドマスタ」として保険料率・等級表を一元管理できるようにする。システム管理者がクラウドマスタを更新すると、協会けんぽの全事務所の初期値が自動的に更新される。
 
 **実装予定内容**:
-1. **クラウドマスタの実装**
-   - システム全体で共有するマスタコレクション
-   - 事業所への自動適用機能
+
+1. **クラウドマスタのデータ構造**
+   - Firestoreコレクション: `cloudMasters/healthRateTables/{year}_{prefCode}`（年度+都道府県コードで管理）
+   - Firestoreコレクション: `cloudMasters/careRateTables/{year}`（年度で管理、全国一律）
+   - Firestoreコレクション: `cloudMasters/pensionRateTables/{year}`（年度で管理、全国一律）
+   - 都道府県別の健康保険料率も年度ごとにクラウドマスタで管理（全47都道府県分）
+
+2. **CloudMasterServiceの実装**
+   - クラウドマスタの取得メソッド（年度・都道府県コード指定）
+   - クラウドマスタの更新メソッド（システム管理者用）
+   - 事業所マスタへの初期値取得メソッド（クラウドマスタから取得）
+
+3. **マスタフォームダイアログの拡張**
+   - **新規作成時**: クラウドマスタから自動的に初期値を取得して設定（ボタン操作不要）
+     - 健康保険: 都道府県選択時（`onPrefChange()`）に自動取得
+     - 介護保険・厚生年金: フォーム初期化時（`constructor`）に自動取得
+   - **編集時**: 既存データを表示（自動更新しない）
+     - 「プリセットを読み込む」ボタンでクラウドマスタから初期値を再取得（上書き）
+
+4. **都道府県別データの実装**
+   - 全47都道府県分の健康保険料率データをクラウドマスタに登録
+   - `kyokai-presets.ts`のハードコードされたデータは、クラウドマスタ取得失敗時のフォールバック用として保持
+
+5. **クラウドマスタ管理画面（システム管理者用）**
+   - 新規ページ: `/cloud-masters`（admin専用）
+   - クラウドマスタの一覧表示・編集・削除
+   - 年度別・都道府県別の健康保険料率管理
+   - 年度別の介護保険料率・厚生年金保険料率管理
+
+6. **Firestoreセキュリティルール**
+   - クラウドマスタの読み取り: 全認証ユーザーが閲覧可能
+   - クラウドマスタの作成・更新・削除: adminロールのみ（システム管理者が更新可能）
 
 **実装予定ファイル**:
+- `src/app/types.ts`（`CloudHealthRateTable`、`CloudCareRateTable`、`CloudPensionRateTable`型追加）
 - `src/app/services/cloud-master.service.ts`（新規作成）
-- `src/app/pages/masters/masters.page.ts`（クラウドマスタ表示追加）
+- `src/app/pages/masters/health-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加）
+- `src/app/pages/masters/care-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加）
+- `src/app/pages/masters/pension-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加）
+- `src/app/pages/cloud-masters/cloud-masters.page.ts`（新規作成、システム管理者用）
+- `src/app/utils/kyokai-presets.ts`（全47都道府県データ追加、フォールバック用として保持）
+- `firestore.rules`（`cloudMasters`コレクションのルール追加）
+- `src/app/app.routes.ts`（`/cloud-masters`ルート追加）
+- `src/app/app.ts`（サイドメニューに「クラウドマスタ管理」追加、admin専用）
 
 ---
 
@@ -743,8 +851,8 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 - ✅ **Phase3-8**: 公的帳票（届出書）自動作成・PDF出力機能（MVP完了）
 - ✅ **Phase3-9**: 従業員セルフ入力・手続き申請フロー機能（Phase3-9（追加）完了）
 
-### 12月4日（木）- Day 7
-- **Phase3-10**: 社会保険手続き用添付書類管理機能
+### 12月4日（木）- Day 7 ✅ 完了
+- ✅ **Phase3-10**: 社会保険手続き用添付書類管理機能（書類管理機能（ドキュメントセンター＆添付ファイル管理）実装完了）
 - **Phase3-11**: 保険料率・等級表クラウドマスタ・自動更新機能
 
 ### 12月5日（金）- Day 8
