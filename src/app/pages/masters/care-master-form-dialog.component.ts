@@ -223,9 +223,9 @@ export class CareMasterFormDialogComponent {
     try {
       const preset = await this.cloudMasterService.getCareRatePresetFromCloud(targetYear, targetMonth);
       if (preset) {
-        this.form.patchValue({
-          careRate: preset.careRate
-        });
+    this.form.patchValue({
+      careRate: preset.careRate
+    });
       } else {
         // フォールバック: ハードコードされたデータを使用（年度ベースのフォールバック）
         const fallbackPreset = getCareRatePreset(targetYear);
