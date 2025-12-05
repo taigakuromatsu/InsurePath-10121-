@@ -1,3 +1,4 @@
+// src/app/pages/cloud-masters/cloud-pension-master-form-dialog.component.ts
 import { NgFor, NgIf } from '@angular/common';
 import { Component, Inject, inject } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -7,16 +8,15 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { PensionRateTable, StandardRewardBand } from '../../types';
-import { CloudMasterService } from '../../services/cloud-master.service';
-import { PENSION_STANDARD_REWARD_BANDS_DEFAULT, getPensionRatePreset } from '../../utils/kyokai-presets';
+import { CloudPensionRateTable, StandardRewardBand } from '../../types';
+import { PENSION_STANDARD_REWARD_BANDS_DEFAULT } from '../../utils/kyokai-presets';
 
-export interface PensionMasterDialogData {
-  table?: PensionRateTable;
+export interface CloudPensionMasterDialogData {
+  table?: CloudPensionRateTable;
 }
 
 @Component({
-  selector: 'ip-pension-master-form-dialog',
+  selector: 'ip-cloud-pension-master-form-dialog',
   standalone: true,
   imports: [
     MatDialogModule,
@@ -31,70 +31,66 @@ export interface PensionMasterDialogData {
   template: `
     <h1 mat-dialog-title>
       <mat-icon>{{ data.table ? 'edit' : 'add' }}</mat-icon>
-      {{ data.table ? '厚生年金マスタを編集' : '厚生年金マスタを作成' }}
+      {{ data.table ? '厚生年金クラウドマスタを編集' : '厚生年金クラウドマスタを作成' }}
     </h1>
     <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
       <div class="form-section">
         <h3 class="section-title">基本情報</h3>
-      <div class="form-row">
-        <mat-form-field appearance="outline">
-          <mat-label>年度</mat-label>
-          <input matInput type="number" formControlName="year" required />
-        </mat-form-field>
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>年度</mat-label>
+            <input matInput type="number" formControlName="year" required />
+          </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>厚生年金料率（合計）</mat-label>
-          <input matInput type="number" formControlName="pensionRate" step="0.0001" />
+          <mat-form-field appearance="outline">
+            <mat-label>厚生年金料率（合計）</mat-label>
+            <input matInput type="number" formControlName="pensionRate" step="0.0001" />
             <mat-hint>例: 0.183 (18.3%)</mat-hint>
-        </mat-form-field>
+          </mat-form-field>
         </div>
       </div>
 
       <div class="form-section">
-      <div class="bands-header">
+        <div class="bands-header">
           <h3 class="section-title">
             <mat-icon>list</mat-icon>
             標準報酬等級表（{{ bands.length }}件）
           </h3>
-        <div class="band-actions">
-            <button mat-stroked-button color="accent" type="button" (click)="loadPreset()">
-              <mat-icon>download</mat-icon>
-              初期値を読み込む
-            </button>
+          <div class="band-actions">
             <button mat-raised-button color="primary" type="button" (click)="addBand()">
-            <mat-icon>add</mat-icon>
-            等級を追加
-          </button>
-        </div>
-      </div>
-
-      <div class="bands" formArrayName="bands">
-        <div class="band-row" *ngFor="let band of bands.controls; let i = index" [formGroupName]="i">
-            <div class="band-number">{{ i + 1 }}</div>
-          <mat-form-field appearance="outline">
-            <mat-label>等級</mat-label>
-            <input matInput type="number" formControlName="grade" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>下限</mat-label>
-            <input matInput type="number" formControlName="lowerLimit" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>上限</mat-label>
-            <input matInput type="number" formControlName="upperLimit" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>標準報酬月額</mat-label>
-            <input matInput type="number" formControlName="standardMonthly" />
-          </mat-form-field>
-            <button mat-icon-button color="warn" type="button" (click)="removeBand(i)" title="削除">
-            <mat-icon>delete</mat-icon>
-          </button>
+              <mat-icon>add</mat-icon>
+              等級を追加
+            </button>
           </div>
         </div>
-        <div class="bands-empty" *ngIf="bands.length === 0">
-          <mat-icon>info</mat-icon>
-          <p>等級が登録されていません。「等級を追加」ボタンで追加してください。</p>
+
+        <div class="bands" formArrayName="bands">
+          <div class="band-row" *ngFor="let band of bands.controls; let i = index" [formGroupName]="i">
+            <div class="band-number">{{ i + 1 }}</div>
+            <mat-form-field appearance="outline">
+              <mat-label>等級</mat-label>
+              <input matInput type="number" formControlName="grade" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>下限</mat-label>
+              <input matInput type="number" formControlName="lowerLimit" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>上限</mat-label>
+              <input matInput type="number" formControlName="upperLimit" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>標準報酬月額</mat-label>
+              <input matInput type="number" formControlName="standardMonthly" />
+            </mat-form-field>
+            <button mat-icon-button color="warn" type="button" (click)="removeBand(i)" title="削除">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+          <div class="bands-empty" *ngIf="bands.length === 0">
+            <mat-icon>info</mat-icon>
+            <p>等級が登録されていません。「等級を追加」ボタンで追加してください。</p>
+          </div>
         </div>
       </div>
     </form>
@@ -260,14 +256,12 @@ export interface PensionMasterDialogData {
         gap: 0.5rem;
       }
 
-      button[mat-raised-button],
-      button[mat-stroked-button] {
+      button[mat-raised-button] {
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: all 0.2s ease;
       }
 
-      button[mat-raised-button]:hover:not(:disabled),
-      button[mat-stroked-button]:hover:not(:disabled) {
+      button[mat-raised-button]:hover:not(:disabled) {
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         transform: translateY(-1px);
       }
@@ -282,10 +276,9 @@ export interface PensionMasterDialogData {
     `
   ]
 })
-export class PensionMasterFormDialogComponent {
+export class CloudPensionMasterFormDialogComponent {
   private readonly fb = inject(FormBuilder);
-  private readonly dialogRef = inject(MatDialogRef<PensionMasterFormDialogComponent>);
-  private readonly cloudMasterService = inject(CloudMasterService);
+  private readonly dialogRef = inject(MatDialogRef<CloudPensionMasterFormDialogComponent>);
 
   readonly form = this.fb.group({
     year: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
@@ -293,7 +286,7 @@ export class PensionMasterFormDialogComponent {
     bands: this.fb.array([] as any[])
   });
 
-  constructor(@Inject(MAT_DIALOG_DATA) public readonly data: PensionMasterDialogData) {
+  constructor(@Inject(MAT_DIALOG_DATA) public readonly data: CloudPensionMasterDialogData) {
     if (data.table) {
       this.form.patchValue({
         year: data.table.year,
@@ -301,40 +294,8 @@ export class PensionMasterFormDialogComponent {
       });
       data.table.bands?.forEach((band) => this.addBand(band));
     } else {
-      // 新規作成時: クラウドマスタから自動取得
-      const year = new Date().getFullYear();
-      this.form.patchValue({ year });
-      this.loadPresetFromCloud(year);
-    }
-  }
-  
-  private async loadPresetFromCloud(year: number): Promise<void> {
-    try {
-      const preset = await this.cloudMasterService.getPensionRatePresetFromCloud(year);
-      if (preset) {
-        this.form.patchValue({
-          pensionRate: preset.pensionRate
-        });
-        this.bands.clear();
-        (preset.bands ?? PENSION_STANDARD_REWARD_BANDS_DEFAULT).forEach((band) => this.addBand(band));
-      } else {
-        // フォールバック: ハードコードされたデータを使用
-        const fallbackPreset = getPensionRatePreset(year);
-        this.form.patchValue({
-          pensionRate: fallbackPreset.pensionRate
-        });
-        this.bands.clear();
-        (fallbackPreset.bands ?? PENSION_STANDARD_REWARD_BANDS_DEFAULT).forEach((band) => this.addBand(band));
-      }
-    } catch (error) {
-      console.error('クラウドマスタからの取得に失敗しました', error);
-      // フォールバック: ハードコードされたデータを使用
-      const fallbackPreset = getPensionRatePreset(year);
-      this.form.patchValue({
-        pensionRate: fallbackPreset.pensionRate
-      });
-      this.bands.clear();
-      (fallbackPreset.bands ?? PENSION_STANDARD_REWARD_BANDS_DEFAULT).forEach((band) => this.addBand(band));
+      // 新規作成時: デフォルトの標準報酬等級を設定
+      PENSION_STANDARD_REWARD_BANDS_DEFAULT.forEach((band) => this.addBand(band));
     }
   }
 
@@ -356,21 +317,17 @@ export class PensionMasterFormDialogComponent {
     this.bands.removeAt(index);
   }
 
-  async loadPreset(): Promise<void> {
-    const year = this.form.get('year')?.value ?? new Date().getFullYear();
-    await this.loadPresetFromCloud(Number(year));
-  }
-
   submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
-    const payload: Partial<PensionRateTable> = {
+    const payload: Partial<CloudPensionRateTable> = {
       ...this.form.value,
       bands: this.bands.value as StandardRewardBand[],
       id: this.data.table?.id
-    } as Partial<PensionRateTable>;
+    } as Partial<CloudPensionRateTable>;
     this.dialogRef.close(payload);
   }
 }
+

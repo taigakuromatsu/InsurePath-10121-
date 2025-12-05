@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 import { HealthRateTable, Office, StandardRewardBand } from '../../types';
+import { CloudMasterService } from '../../services/cloud-master.service';
 import { PREFECTURE_CODES, getKyokaiHealthRatePreset, STANDARD_REWARD_BANDS_BASE } from '../../utils/kyokai-presets';
 
 export interface HealthMasterDialogData {
@@ -64,11 +65,6 @@ export interface HealthMasterDialogData {
               <mat-option *ngFor="let code of prefCodes" [value]="code">{{ prefectureName(code) }}</mat-option>
             </mat-select>
           </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>都道府県名</mat-label>
-            <input matInput formControlName="kyokaiPrefName" readonly />
-          </mat-form-field>
         </div>
       </ng-container>
       <ng-template #kumiaiFields>
@@ -99,9 +95,9 @@ export interface HealthMasterDialogData {
             標準報酬等級表（{{ bands.length }}件）
           </h3>
         <div class="band-actions">
-            <button mat-stroked-button color="accent" type="button" *ngIf="!data.table" (click)="loadPreset()">
+            <button mat-stroked-button color="accent" type="button" (click)="loadPreset()">
               <mat-icon>download</mat-icon>
-              プリセットを読み込む
+              {{ form.get('planType')?.value === 'kyokai' ? '協会けんぽのプリセットを読み込む' : 'プリセットを読み込む' }}
             </button>
             <button mat-raised-button color="primary" type="button" (click)="addBand()">
             <mat-icon>add</mat-icon>
@@ -330,6 +326,7 @@ export interface HealthMasterDialogData {
 export class HealthMasterFormDialogComponent {
   private readonly fb = inject(FormBuilder);
   private readonly dialogRef = inject(MatDialogRef<HealthMasterFormDialogComponent>);
+  private readonly cloudMasterService = inject(CloudMasterService);
 
   readonly prefCodes = Object.keys(PREFECTURE_CODES);
 
@@ -359,12 +356,20 @@ export class HealthMasterFormDialogComponent {
       table.bands?.forEach((band) => this.addBand(band));
     } else {
       const planType = data.office.healthPlanType ?? 'kyokai';
+      const year = new Date().getFullYear();
       this.form.patchValue({
         planType,
+        year,
         kyokaiPrefCode: data.office.kyokaiPrefCode,
         kyokaiPrefName: data.office.kyokaiPrefName
       });
+      
+      // 新規作成時: プラン種別が'kyokai'で都道府県コードが設定されている場合、クラウドマスタから自動取得
+      if (planType === 'kyokai' && data.office.kyokaiPrefCode) {
+        this.loadPresetFromCloud(year, data.office.kyokaiPrefCode);
+      } else {
       STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
+      }
     }
   }
 
@@ -390,23 +395,102 @@ export class HealthMasterFormDialogComponent {
     this.bands.removeAt(index);
   }
 
-  onPrefChange(code: string): void {
+  async onPrefChange(code: string): Promise<void> {
     this.form.patchValue({ kyokaiPrefName: this.prefectureName(code) });
+    
+    // プラン種別が'kyokai'の場合、クラウドマスタから自動取得
+    const planType = this.form.get('planType')?.value;
+    if (planType === 'kyokai' && code) {
+      const year = this.form.get('year')?.value ?? new Date().getFullYear();
+      await this.loadPresetFromCloud(year, code);
+    }
+  }
+  
+  private async loadPresetFromCloud(year: number, prefCode: string): Promise<void> {
+    try {
+      const preset = await this.cloudMasterService.getHealthRatePresetFromCloud(year, prefCode);
+      if (preset) {
+        this.form.patchValue({
+          healthRate: preset.healthRate,
+          kyokaiPrefName: preset.kyokaiPrefName
+        });
+        this.bands.clear();
+        (preset.bands ?? STANDARD_REWARD_BANDS_BASE).forEach((band) => this.addBand(band));
+      } else {
+        // フォールバック: ハードコードされたデータを使用
+        const fallbackPreset = getKyokaiHealthRatePreset(prefCode, year);
+        if (fallbackPreset) {
+          this.form.patchValue({
+            healthRate: fallbackPreset.healthRate,
+            kyokaiPrefName: fallbackPreset.kyokaiPrefName
+          });
+          this.bands.clear();
+          (fallbackPreset.bands ?? STANDARD_REWARD_BANDS_BASE).forEach((band) => this.addBand(band));
+        } else {
+          // プリセットが存在しない年度（2026以降など）は料率0で初期化
+          this.form.patchValue({
+            healthRate: 0,
+            kyokaiPrefName: this.prefectureName(prefCode)
+          });
+          this.bands.clear();
+          STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
+        }
+      }
+    } catch (error) {
+      console.error('クラウドマスタからの取得に失敗しました', error);
+      // フォールバック: ハードコードされたデータを使用
+      const fallbackPreset = getKyokaiHealthRatePreset(prefCode, year);
+      if (fallbackPreset) {
+        this.form.patchValue({
+          healthRate: fallbackPreset.healthRate,
+          kyokaiPrefName: fallbackPreset.kyokaiPrefName
+        });
+        this.bands.clear();
+        (fallbackPreset.bands ?? STANDARD_REWARD_BANDS_BASE).forEach((band) => this.addBand(band));
+      } else {
+        // プリセットが存在しない年度（2026以降など）は料率0で初期化
+        this.form.patchValue({
+          healthRate: 0,
+          kyokaiPrefName: this.prefectureName(prefCode)
+        });
+        this.bands.clear();
+        STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
+      }
+    }
   }
 
-  loadPreset(): void {
+  async loadPreset(): Promise<void> {
+    const planType = this.form.get('planType')?.value;
     const prefCode = this.form.get('kyokaiPrefCode')?.value || this.data.office.kyokaiPrefCode || '13';
     const year = this.form.get('year')?.value ?? new Date().getFullYear();
-    const preset = getKyokaiHealthRatePreset(prefCode as string, Number(year));
-    this.form.patchValue({
-      planType: 'kyokai',
-      kyokaiPrefCode: prefCode,
-      kyokaiPrefName: this.prefectureName(prefCode as string),
-      healthRate: preset.healthRate
-    });
-
-    this.bands.clear();
-    (preset.bands ?? STANDARD_REWARD_BANDS_BASE).forEach((band) => this.addBand(band));
+    
+    if (planType === 'kyokai' && prefCode) {
+      // クラウドマスタから取得を試みる
+      await this.loadPresetFromCloud(Number(year), prefCode as string);
+    } else {
+      // 組合健保の場合は既存の処理を維持
+      const preset = getKyokaiHealthRatePreset(prefCode as string, Number(year));
+      if (preset) {
+        this.form.patchValue({
+          planType: 'kyokai',
+          kyokaiPrefCode: prefCode,
+          kyokaiPrefName: this.prefectureName(prefCode as string),
+          healthRate: preset.healthRate
+        });
+        this.bands.clear();
+        (preset.bands ?? STANDARD_REWARD_BANDS_BASE).forEach((band) => this.addBand(band));
+      } else {
+        // プリセットが存在しない年度（2026以降など）は料率0で初期化
+        this.form.patchValue({
+          planType: 'kyokai',
+          kyokaiPrefCode: prefCode,
+          kyokaiPrefName: this.prefectureName(prefCode as string),
+          healthRate: 0
+        });
+        this.bands.clear();
+        STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
+      }
+    }
   }
 
   submit(): void {

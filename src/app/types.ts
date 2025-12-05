@@ -341,6 +341,42 @@ export interface PensionRateTable {
   updatedAt?: IsoDateString;
 }
 
+// Cloud Master types (Phase3-11)
+export interface CloudHealthRateTable {
+  id: string; // ドキュメントID（形式: "{year}_{prefCode}"、例: "2024_13"）
+  year: number; // 年度（年度の開始年、例: 2024年度なら2024）
+  planType: 'kyokai'; // クラウドマスタは協会けんぽのみ（組合健保は事業所ごとに異なるため）
+  kyokaiPrefCode: string; // 都道府県コード（2桁、例: "13"）
+  kyokaiPrefName: string; // 都道府県名（例: "東京都"）
+  healthRate: number; // 健康保険料率（事業主＋被保険者合計の率、小数形式、例: 0.1031 = 10.31%）
+  bands: StandardRewardBand[]; // 標準報酬等級表（全国一律）
+  createdAt: IsoDateString; // 作成日時
+  updatedAt: IsoDateString; // 更新日時
+  updatedByUserId: string; // 更新者ユーザーID
+  version?: number; // 改定履歴管理用（将来拡張、現時点では未使用）
+}
+
+export interface CloudCareRateTable {
+  id: string; // ドキュメントID（形式: "{year}"、例: "2024"）
+  year: number; // 年度（年度の開始年、例: 2024年度なら2024）
+  careRate: number; // 介護保険料率（事業主＋被保険者合計の率、全国一律、小数形式、例: 0.0159 = 1.59%）
+  createdAt: IsoDateString; // 作成日時
+  updatedAt: IsoDateString; // 更新日時
+  updatedByUserId: string; // 更新者ユーザーID
+  version?: number; // 改定履歴管理用（将来拡張、現時点では未使用）
+}
+
+export interface CloudPensionRateTable {
+  id: string; // ドキュメントID（形式: "{year}"、例: "2024"）
+  year: number; // 年度（年度の開始年、例: 2024年度なら2024）
+  pensionRate: number; // 厚生年金保険料率（事業主＋被保険者合計の率、全国一律、小数形式、例: 0.183 = 18.3%）
+  bands: StandardRewardBand[]; // 標準報酬等級表（全国一律）
+  createdAt: IsoDateString; // 作成日時
+  updatedAt: IsoDateString; // 更新日時
+  updatedByUserId: string; // 更新者ユーザーID
+  version?: number; // 改定履歴管理用（将来拡張、現時点では未使用）
+}
+
 // Monthly premiums
 export interface MonthlyPremium {
   id: string;

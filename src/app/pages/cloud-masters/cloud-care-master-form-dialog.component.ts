@@ -1,3 +1,4 @@
+// src/app/pages/cloud-masters/cloud-care-master-form-dialog.component.ts
 import { Component, Inject, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -6,45 +7,42 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { CareRateTable } from '../../types';
-import { CloudMasterService } from '../../services/cloud-master.service';
-import { getCareRatePreset } from '../../utils/kyokai-presets';
+import { CloudCareRateTable } from '../../types';
 
-
-export interface CareMasterDialogData {
-  table?: CareRateTable;
+export interface CloudCareMasterDialogData {
+  table?: CloudCareRateTable;
 }
 
 @Component({
-  selector: 'ip-care-master-form-dialog',
+  selector: 'ip-cloud-care-master-form-dialog',
   standalone: true,
-  imports: [MatDialogModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule],
+  imports: [
+    MatDialogModule,
+    ReactiveFormsModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule
+  ],
   template: `
     <h1 mat-dialog-title>
       <mat-icon>{{ data.table ? 'edit' : 'add' }}</mat-icon>
-      {{ data.table ? '介護保険マスタを編集' : '介護保険マスタを作成' }}
+      {{ data.table ? '介護保険クラウドマスタを編集' : '介護保険クラウドマスタを作成' }}
     </h1>
     <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
       <div class="form-section">
         <h3 class="section-title">基本情報</h3>
         <div class="form-row">
-      <mat-form-field appearance="outline">
-        <mat-label>年度</mat-label>
-        <input matInput type="number" formControlName="year" required />
-      </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>年度</mat-label>
+            <input matInput type="number" formControlName="year" required />
+          </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>介護保険料率（合計）</mat-label>
-        <input matInput type="number" formControlName="careRate" step="0.0001" />
+          <mat-form-field appearance="outline">
+            <mat-label>介護保険料率（合計）</mat-label>
+            <input matInput type="number" formControlName="careRate" step="0.0001" />
             <mat-hint>例: 0.0191 (1.91%)</mat-hint>
-      </mat-form-field>
-        </div>
-
-      <div class="actions">
-        <button mat-stroked-button color="accent" type="button" (click)="loadPreset()">
-            <mat-icon>download</mat-icon>
-          初期値を読み込む
-        </button>
+          </mat-form-field>
         </div>
       </div>
     </form>
@@ -102,12 +100,6 @@ export interface CareMasterDialogData {
         margin-bottom: 1rem;
       }
 
-      .actions {
-        margin-top: 1rem;
-        display: flex;
-        justify-content: flex-end;
-      }
-
       .dialog-actions {
         padding: 1rem 1.5rem;
         border-top: 1px solid #e0e0e0;
@@ -120,71 +112,34 @@ export interface CareMasterDialogData {
         gap: 0.5rem;
       }
 
-      button[mat-raised-button],
-      button[mat-stroked-button] {
+      button[mat-raised-button] {
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: all 0.2s ease;
       }
 
-      button[mat-raised-button]:hover:not(:disabled),
-      button[mat-stroked-button]:hover:not(:disabled) {
+      button[mat-raised-button]:hover:not(:disabled) {
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         transform: translateY(-1px);
       }
     `
   ]
 })
-export class CareMasterFormDialogComponent {
+export class CloudCareMasterFormDialogComponent {
   private readonly fb = inject(FormBuilder);
-  private readonly dialogRef = inject(MatDialogRef<CareMasterFormDialogComponent>);
-  private readonly cloudMasterService = inject(CloudMasterService);
+  private readonly dialogRef = inject(MatDialogRef<CloudCareMasterFormDialogComponent>);
 
   readonly form = this.fb.group({
     year: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
     careRate: [0, [Validators.required, Validators.min(0), Validators.max(1)]]
   });
 
-  constructor(@Inject(MAT_DIALOG_DATA) public readonly data: CareMasterDialogData) {
+  constructor(@Inject(MAT_DIALOG_DATA) public readonly data: CloudCareMasterDialogData) {
     if (data.table) {
       this.form.patchValue({
         year: data.table.year,
         careRate: data.table.careRate
       });
-    } else {
-      // 新規作成時: クラウドマスタから自動取得
-      const year = new Date().getFullYear();
-      this.form.patchValue({ year });
-      this.loadPresetFromCloud(year);
     }
-  }
-  
-  private async loadPresetFromCloud(year: number): Promise<void> {
-    try {
-      const preset = await this.cloudMasterService.getCareRatePresetFromCloud(year);
-      if (preset) {
-    this.form.patchValue({
-      careRate: preset.careRate
-    });
-      } else {
-        // フォールバック: ハードコードされたデータを使用
-        const fallbackPreset = getCareRatePreset(year);
-        this.form.patchValue({
-          careRate: fallbackPreset.careRate
-        });
-      }
-    } catch (error) {
-      console.error('クラウドマスタからの取得に失敗しました', error);
-      // フォールバック: ハードコードされたデータを使用
-      const fallbackPreset = getCareRatePreset(year);
-      this.form.patchValue({
-        careRate: fallbackPreset.careRate
-      });
-    }
-  }
-
-  async loadPreset(): Promise<void> {
-    const year = this.form.get('year')?.value ?? new Date().getFullYear();
-    await this.loadPresetFromCloud(Number(year));
   }
 
   submit(): void {
@@ -192,10 +147,11 @@ export class CareMasterFormDialogComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const payload: Partial<CareRateTable> = {
+    const payload: Partial<CloudCareRateTable> = {
       ...this.form.value,
       id: this.data.table?.id
-    } as Partial<CareRateTable>;
+    } as Partial<CloudCareRateTable>;
     this.dialogRef.close(payload);
   }
 }
+

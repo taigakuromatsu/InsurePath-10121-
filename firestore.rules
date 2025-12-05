@@ -967,6 +967,34 @@ service cloud.firestore {
       }
     }
 
+    // ===== クラウドマスタ（システム全体で共有）=====
+    // 健康保険クラウドマスタ（システム全体で共有）
+    match /cloudHealthRateTables/{docId} {
+      // 読み取り: 全認証ユーザーが閲覧可能
+      allow read: if isSignedIn();
+      
+      // 作成・更新・削除: adminロールのみ（システム管理者が更新可能）
+      allow create, update, delete: if isSignedIn() && getUserRole() == 'admin';
+    }
+
+    // 介護保険クラウドマスタ（システム全体で共有）
+    match /cloudCareRateTables/{docId} {
+      // 読み取り: 全認証ユーザーが閲覧可能
+      allow read: if isSignedIn();
+      
+      // 作成・更新・削除: adminロールのみ（システム管理者が更新可能）
+      allow create, update, delete: if isSignedIn() && getUserRole() == 'admin';
+    }
+
+    // 厚生年金クラウドマスタ（システム全体で共有）
+    match /cloudPensionRateTables/{docId} {
+      // 読み取り: 全認証ユーザーが閲覧可能
+      allow read: if isSignedIn();
+      
+      // 作成・更新・削除: adminロールのみ（システム管理者が更新可能）
+      allow create, update, delete: if isSignedIn() && getUserRole() == 'admin';
+    }
+
     // TODO: テスト完了後に削除 - 旧 InsurePath offices ルール
     // match /offices/{officeId} {
     //   allow read, create, update, delete: if isSignedIn();

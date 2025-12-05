@@ -90,6 +90,11 @@ export const routes: Routes = [
         path: 'documents',
         canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
         loadComponent: () => import('./pages/documents/documents.page').then((m) => m.DocumentsPage)
+      },
+      {
+        path: 'cloud-masters',
+        canActivate: [authGuard, officeGuard, roleGuard(['admin'])],
+        loadComponent: () => import('./pages/cloud-masters/cloud-masters.page').then((m) => m.CloudMastersPage)
       }
     ]
   },
