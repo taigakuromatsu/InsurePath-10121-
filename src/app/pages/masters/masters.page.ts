@@ -39,8 +39,8 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
             <mat-icon>settings</mat-icon>
           </div>
           <div class="header-text">
-        <h1>マスタ管理</h1>
-        <p>保険料率や標準報酬等級を年度別に管理します。</p>
+        <h1>保険料率管理</h1>
+        <p>保険料率や標準報酬等級を適用開始年月別に管理します。</p>
           </div>
         </div>
       </mat-card>
@@ -66,13 +66,21 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
                 新規登録
               </button>
             </div>
+            <div class="screen-rules">
+              <p>
+                この画面では、保険料率が「改定される月」ごとに1行を登録します。<br>
+                改定があった月だけ新しい行を追加してください。<br>
+                対象月の計算では、「その月より前に登録された中で一番新しい行」が自動的に使われます。<br>
+                過去の計算に使うため、過去の行は基本的に削除しないことをおすすめします。
+              </p>
+            </div>
 
               <div class="table-container">
                 <table mat-table [dataSource]="(healthTables$ | async) || []" class="master-table">
-              <ng-container matColumnDef="year">
-                <th mat-header-cell *matHeaderCellDef>年度</th>
+              <ng-container matColumnDef="effectiveYearMonth">
+                <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
                     <td mat-cell *matCellDef="let row">
-                      <span class="year-badge">{{ row.year }}</span>
+                      <span class="year-month-badge">{{ row.effectiveYear }}年{{ row.effectiveMonth }}月</span>
                     </td>
               </ng-container>
 
@@ -145,20 +153,28 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
                     <mat-icon>elderly</mat-icon>
                     介護保険マスタ
                   </h2>
-                <p>年度別の介護保険料率を管理します。</p>
+                <p>適用開始年月別の介護保険料率を管理します。</p>
               </div>
               <button mat-raised-button color="primary" (click)="openCareDialog()" [disabled]="!(office$ | async)">
                   <mat-icon>add</mat-icon>
                 新規登録
               </button>
             </div>
+            <div class="screen-rules">
+              <p>
+                この画面では、保険料率が「改定される月」ごとに1行を登録します。<br>
+                改定があった月だけ新しい行を追加してください。<br>
+                対象月の計算では、「その月より前に登録された中で一番新しい行」が自動的に使われます。<br>
+                過去の計算に使うため、過去の行は基本的に削除しないことをおすすめします。
+              </p>
+            </div>
 
               <div class="table-container">
                 <table mat-table [dataSource]="(careTables$ | async) || []" class="master-table">
-              <ng-container matColumnDef="year">
-                <th mat-header-cell *matHeaderCellDef>年度</th>
+              <ng-container matColumnDef="effectiveYearMonth">
+                <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
                     <td mat-cell *matCellDef="let row">
-                      <span class="year-badge">{{ row.year }}</span>
+                      <span class="year-month-badge">{{ row.effectiveYear }}年{{ row.effectiveMonth }}月</span>
                     </td>
               </ng-container>
 
@@ -208,20 +224,28 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
                     <mat-icon>account_balance</mat-icon>
                     厚生年金マスタ
                   </h2>
-                <p>年度別の厚生年金料率と標準報酬等級を管理します。</p>
+                <p>適用開始年月別の厚生年金料率と標準報酬等級を管理します。</p>
               </div>
               <button mat-raised-button color="primary" (click)="openPensionDialog()" [disabled]="!(office$ | async)">
                   <mat-icon>add</mat-icon>
                 新規登録
               </button>
             </div>
+            <div class="screen-rules">
+              <p>
+                この画面では、保険料率が「改定される月」ごとに1行を登録します。<br>
+                改定があった月だけ新しい行を追加してください。<br>
+                対象月の計算では、「その月より前に登録された中で一番新しい行」が自動的に使われます。<br>
+                過去の計算に使うため、過去の行は基本的に削除しないことをおすすめします。
+              </p>
+            </div>
 
               <div class="table-container">
                 <table mat-table [dataSource]="(pensionTables$ | async) || []" class="master-table">
-              <ng-container matColumnDef="year">
-                <th mat-header-cell *matHeaderCellDef>年度</th>
+              <ng-container matColumnDef="effectiveYearMonth">
+                <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
                     <td mat-cell *matCellDef="let row">
-                      <span class="year-badge">{{ row.year }}</span>
+                      <span class="year-month-badge">{{ row.effectiveYear }}年{{ row.effectiveMonth }}月</span>
                     </td>
               </ng-container>
 
@@ -416,6 +440,31 @@ import { CareRateTable, HealthRateTable, Office, PensionRateTable } from '../../
         font-size: 0.875rem;
       }
 
+      .year-month-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        background: #e3f2fd;
+        color: #1976d2;
+        border-radius: 16px;
+        font-weight: 600;
+        font-size: 0.875rem;
+      }
+
+      .screen-rules {
+        margin-bottom: 1.5rem;
+        padding: 1rem 1.5rem;
+        background: #f5f5f5;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .screen-rules p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: #666;
+        line-height: 1.8;
+      }
+
       .plan-badge {
         display: inline-block;
         padding: 4px 12px;
@@ -542,9 +591,9 @@ export class MastersPage {
     switchMap((office) => (office ? this.mastersService.listPensionRateTables(office.id) : of([] as PensionRateTable[])))
   );
 
-  readonly healthDisplayedColumns = ['year', 'plan', 'area', 'rate', 'bands', 'actions'];
-  readonly careDisplayedColumns = ['year', 'rate', 'actions'];
-  readonly pensionDisplayedColumns = ['year', 'rate', 'bands', 'actions'];
+  readonly healthDisplayedColumns = ['effectiveYearMonth', 'plan', 'area', 'rate', 'bands', 'actions'];
+  readonly careDisplayedColumns = ['effectiveYearMonth', 'rate', 'actions'];
+  readonly pensionDisplayedColumns = ['effectiveYearMonth', 'rate', 'bands', 'actions'];
 
   private async requireOffice(): Promise<Office> {
     const office = await firstValueFrom(this.office$);

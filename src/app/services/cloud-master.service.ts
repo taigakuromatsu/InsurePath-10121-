@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   setDoc,
@@ -65,10 +66,12 @@ export class CloudMasterService {
   // ========== Health Rate Table ==========
 
   getCloudHealthRateTable(
-    year: number,
+    effectiveYear: number,
+    effectiveMonth: number,
     prefCode: string
   ): Observable<CloudHealthRateTable | null> {
-    const id = `${year}_${prefCode}`;
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+    const id = `${effectiveYearMonth}_${prefCode}`;
     const ref = doc(this.firestore, 'cloudHealthRateTables', id);
 
     return from(getDoc(ref)).pipe(
@@ -85,12 +88,17 @@ export class CloudMasterService {
   }
 
   listCloudHealthRateTables(
-    year?: number
+    effectiveYear?: number
   ): Observable<CloudHealthRateTable[]> {
     const ref = this.getHealthCollectionRef();
-    const q = year
-      ? query(ref, where('year', '==', year), orderBy('kyokaiPrefCode', 'asc'))
-      : query(ref, orderBy('year', 'desc'), orderBy('kyokaiPrefCode', 'asc'));
+    const q = effectiveYear
+      ? query(
+          ref,
+          where('effectiveYear', '==', effectiveYear),
+          orderBy('effectiveYearMonth', 'desc'),
+          orderBy('kyokaiPrefCode', 'asc')
+        )
+      : query(ref, orderBy('effectiveYearMonth', 'desc'), orderBy('kyokaiPrefCode', 'asc'));
 
     return from(getDocs(q)).pipe(
       map((snapshot) =>
@@ -114,12 +122,28 @@ export class CloudMasterService {
     }
 
     const now = new Date().toISOString();
-    const id =
-      table.id ?? `${table.year}_${table.kyokaiPrefCode}`;
+
+    // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
+    const effectiveYear = Number(table.effectiveYear ?? new Date().getFullYear());
+    const effectiveMonth = Number(table.effectiveMonth ?? 3); // デフォルトは3月
+
+    // effectiveYearMonthを計算（既に計算済みの場合はそれを使用、なければ計算）
+    const effectiveYearMonth =
+      table.effectiveYearMonth ?? effectiveYear * 100 + effectiveMonth;
+
+    // kyokaiPrefCodeが必須であることを確認（Cloudマスタは協会けんぽ専用）
+    if (!table.kyokaiPrefCode) {
+      throw new Error('kyokaiPrefCodeが設定されていません');
+    }
+
+    const id = table.id ?? `${effectiveYearMonth}_${table.kyokaiPrefCode}`;
 
     const payload: Partial<CloudHealthRateTable> = {
       ...table,
       id,
+      effectiveYear,
+      effectiveMonth,
+      effectiveYearMonth, // 必ず計算して含める
       planType: 'kyokai', // クラウドマスタは協会けんぽのみを管理するため強制設定
       updatedAt: now,
       updatedByUserId: user.id,
@@ -132,10 +156,12 @@ export class CloudMasterService {
   }
 
   async deleteCloudHealthRateTable(
-    year: number,
+    effectiveYear: number,
+    effectiveMonth: number,
     prefCode: string
   ): Promise<void> {
-    const id = `${year}_${prefCode}`;
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+    const id = `${effectiveYearMonth}_${prefCode}`;
     const ref = doc(this.firestore, 'cloudHealthRateTables', id);
     await deleteDoc(ref);
   }
@@ -143,9 +169,11 @@ export class CloudMasterService {
   // ========== Care Rate Table ==========
 
   getCloudCareRateTable(
-    year: number
+    effectiveYear: number,
+    effectiveMonth: number
   ): Observable<CloudCareRateTable | null> {
-    const id = `${year}`;
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+    const id = `${effectiveYearMonth}`;
     const ref = doc(this.firestore, 'cloudCareRateTables', id);
 
     return from(getDoc(ref)).pipe(
@@ -163,7 +191,7 @@ export class CloudMasterService {
 
   listCloudCareRateTables(): Observable<CloudCareRateTable[]> {
     const ref = this.getCareCollectionRef();
-    const q = query(ref, orderBy('year', 'desc'));
+    const q = query(ref, orderBy('effectiveYearMonth', 'desc'));
 
     return from(getDocs(q)).pipe(
       map((snapshot) =>
@@ -187,11 +215,23 @@ export class CloudMasterService {
     }
 
     const now = new Date().toISOString();
-    const id = table.id ?? `${table.year}`;
+
+    // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
+    const effectiveYear = Number(table.effectiveYear ?? new Date().getFullYear());
+    const effectiveMonth = Number(table.effectiveMonth ?? 3); // デフォルトは3月
+
+    // effectiveYearMonthを計算（既に計算済みの場合はそれを使用、なければ計算）
+    const effectiveYearMonth =
+      table.effectiveYearMonth ?? effectiveYear * 100 + effectiveMonth;
+
+    const id = table.id ?? `${effectiveYearMonth}`;
 
     const payload: Partial<CloudCareRateTable> = {
       ...table,
       id,
+      effectiveYear,
+      effectiveMonth,
+      effectiveYearMonth, // 必ず計算して含める
       updatedAt: now,
       updatedByUserId: user.id,
       createdAt: table.createdAt ?? now
@@ -202,8 +242,12 @@ export class CloudMasterService {
     await setDoc(ref, cleaned, { merge: true });
   }
 
-  async deleteCloudCareRateTable(year: number): Promise<void> {
-    const id = `${year}`;
+  async deleteCloudCareRateTable(
+    effectiveYear: number,
+    effectiveMonth: number
+  ): Promise<void> {
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+    const id = `${effectiveYearMonth}`;
     const ref = doc(this.firestore, 'cloudCareRateTables', id);
     await deleteDoc(ref);
   }
@@ -211,9 +255,11 @@ export class CloudMasterService {
   // ========== Pension Rate Table ==========
 
   getCloudPensionRateTable(
-    year: number
+    effectiveYear: number,
+    effectiveMonth: number
   ): Observable<CloudPensionRateTable | null> {
-    const id = `${year}`;
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+    const id = `${effectiveYearMonth}`;
     const ref = doc(this.firestore, 'cloudPensionRateTables', id);
 
     return from(getDoc(ref)).pipe(
@@ -231,7 +277,7 @@ export class CloudMasterService {
 
   listCloudPensionRateTables(): Observable<CloudPensionRateTable[]> {
     const ref = this.getPensionCollectionRef();
-    const q = query(ref, orderBy('year', 'desc'));
+    const q = query(ref, orderBy('effectiveYearMonth', 'desc'));
 
     return from(getDocs(q)).pipe(
       map((snapshot) =>
@@ -255,11 +301,23 @@ export class CloudMasterService {
     }
 
     const now = new Date().toISOString();
-    const id = table.id ?? `${table.year}`;
+
+    // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
+    const effectiveYear = Number(table.effectiveYear ?? new Date().getFullYear());
+    const effectiveMonth = Number(table.effectiveMonth ?? 3); // デフォルトは3月
+
+    // effectiveYearMonthを計算（既に計算済みの場合はそれを使用、なければ計算）
+    const effectiveYearMonth =
+      table.effectiveYearMonth ?? effectiveYear * 100 + effectiveMonth;
+
+    const id = table.id ?? `${effectiveYearMonth}`;
 
     const payload: Partial<CloudPensionRateTable> = {
       ...table,
       id,
+      effectiveYear,
+      effectiveMonth,
+      effectiveYearMonth, // 必ず計算して含める
       updatedAt: now,
       updatedByUserId: user.id,
       createdAt: table.createdAt ?? now
@@ -270,33 +328,56 @@ export class CloudMasterService {
     await setDoc(ref, cleaned, { merge: true });
   }
 
-  async deleteCloudPensionRateTable(year: number): Promise<void> {
-    const id = `${year}`;
+  async deleteCloudPensionRateTable(
+    effectiveYear: number,
+    effectiveMonth: number
+  ): Promise<void> {
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+    const id = `${effectiveYearMonth}`;
     const ref = doc(this.firestore, 'cloudPensionRateTables', id);
     await deleteDoc(ref);
   }
 
   // ========== Preset Methods (for Office Masters) ==========
 
+  /**
+   * 対象年月に有効な最新の健康保険マスタを取得する
+   */
   async getHealthRatePresetFromCloud(
-    year: number,
+    targetYear: number | string,
+    targetMonth: number | string,
     prefCode: string
   ): Promise<Partial<HealthRateTable> | null> {
     try {
-      const cloudTable = await firstValueFrom(
-        this.getCloudHealthRateTable(year, prefCode)
+      // フォームから来た値がstringでも安全に処理するため、明示的に数値化
+      const y = Number(targetYear);
+      const m = Number(targetMonth);
+      const targetYearMonth = y * 100 + m;
+      const ref = this.getHealthCollectionRef();
+      const q = query(
+        ref,
+        where('planType', '==', 'kyokai'),
+        where('kyokaiPrefCode', '==', prefCode),
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
       );
-      if (!cloudTable) {
+
+      const snapshot = await firstValueFrom(from(getDocs(q)));
+      if (snapshot.empty) {
         return null;
       }
 
+      const data = snapshot.docs[0].data() as CloudHealthRateTable;
       return {
-        year: cloudTable.year,
-        planType: cloudTable.planType,
-        kyokaiPrefCode: cloudTable.kyokaiPrefCode,
-        kyokaiPrefName: cloudTable.kyokaiPrefName,
-        healthRate: cloudTable.healthRate,
-        bands: cloudTable.bands
+        effectiveYear: data.effectiveYear,
+        effectiveMonth: data.effectiveMonth,
+        effectiveYearMonth: data.effectiveYearMonth,
+        planType: data.planType,
+        kyokaiPrefCode: data.kyokaiPrefCode,
+        kyokaiPrefName: data.kyokaiPrefName,
+        healthRate: data.healthRate,
+        bands: data.bands
       };
     } catch (error) {
       console.error('クラウドマスタからの健康保険料率取得に失敗しました', error);
@@ -304,20 +385,37 @@ export class CloudMasterService {
     }
   }
 
+  /**
+   * 対象年月に有効な最新の介護保険マスタを取得する
+   */
   async getCareRatePresetFromCloud(
-    year: number
+    targetYear: number | string,
+    targetMonth: number | string
   ): Promise<Partial<CareRateTable> | null> {
     try {
-      const cloudTable = await firstValueFrom(
-        this.getCloudCareRateTable(year)
+      // フォームから来た値がstringでも安全に処理するため、明示的に数値化
+      const y = Number(targetYear);
+      const m = Number(targetMonth);
+      const targetYearMonth = y * 100 + m;
+      const ref = this.getCareCollectionRef();
+      const q = query(
+        ref,
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
       );
-      if (!cloudTable) {
+
+      const snapshot = await firstValueFrom(from(getDocs(q)));
+      if (snapshot.empty) {
         return null;
       }
 
+      const data = snapshot.docs[0].data() as CloudCareRateTable;
       return {
-        year: cloudTable.year,
-        careRate: cloudTable.careRate
+        effectiveYear: data.effectiveYear,
+        effectiveMonth: data.effectiveMonth,
+        effectiveYearMonth: data.effectiveYearMonth,
+        careRate: data.careRate
       };
     } catch (error) {
       console.error('クラウドマスタからの介護保険料率取得に失敗しました', error);
@@ -325,21 +423,38 @@ export class CloudMasterService {
     }
   }
 
+  /**
+   * 対象年月に有効な最新の厚生年金マスタを取得する
+   */
   async getPensionRatePresetFromCloud(
-    year: number
+    targetYear: number | string,
+    targetMonth: number | string
   ): Promise<Partial<PensionRateTable> | null> {
     try {
-      const cloudTable = await firstValueFrom(
-        this.getCloudPensionRateTable(year)
+      // フォームから来た値がstringでも安全に処理するため、明示的に数値化
+      const y = Number(targetYear);
+      const m = Number(targetMonth);
+      const targetYearMonth = y * 100 + m;
+      const ref = this.getPensionCollectionRef();
+      const q = query(
+        ref,
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
       );
-      if (!cloudTable) {
+
+      const snapshot = await firstValueFrom(from(getDocs(q)));
+      if (snapshot.empty) {
         return null;
       }
 
+      const data = snapshot.docs[0].data() as CloudPensionRateTable;
       return {
-        year: cloudTable.year,
-        pensionRate: cloudTable.pensionRate,
-        bands: cloudTable.bands
+        effectiveYear: data.effectiveYear,
+        effectiveMonth: data.effectiveMonth,
+        effectiveYearMonth: data.effectiveYearMonth,
+        pensionRate: data.pensionRate,
+        bands: data.bands
       };
     } catch (error) {
       console.error('クラウドマスタからの厚生年金保険料率取得に失敗しました', error);

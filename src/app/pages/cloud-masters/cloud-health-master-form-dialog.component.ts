@@ -14,7 +14,6 @@ import { PREFECTURE_CODES, HEALTH_STANDARD_REWARD_BANDS_DEFAULT } from '../../ut
 
 export interface CloudHealthMasterDialogData {
   table?: CloudHealthRateTable;
-  year?: number;
 }
 
 @Component({
@@ -41,8 +40,19 @@ export interface CloudHealthMasterDialogData {
         <h3 class="section-title">基本情報</h3>
         <div class="form-row">
           <mat-form-field appearance="outline">
-            <mat-label>年度</mat-label>
-            <input matInput type="number" formControlName="year" required />
+            <mat-label>適用開始年</mat-label>
+            <input matInput type="number" formControlName="effectiveYear" required />
+            <mat-hint>何年分からの料率か</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>適用開始月</mat-label>
+            <mat-select formControlName="effectiveMonth" required>
+              <mat-option *ngFor="let month of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="month">
+                {{ month }}月
+              </mat-option>
+            </mat-select>
+            <mat-hint>何月分からの料率か</mat-hint>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -52,6 +62,21 @@ export interface CloudHealthMasterDialogData {
             </mat-select>
           </mat-form-field>
         </div>
+        <div class="help-text">
+          <p>
+            例）2025年3月分から改定される場合：<br>
+            「適用開始年」= 2025、「適用開始月」= 3 を選択してください。<br>
+            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。
+          </p>
+          <p>
+            協会けんぽの案内で「3月分（4月納付）から改定」と書かれている場合、<br>
+            「3月分」の月（3）を選んでください。
+          </p>
+        </div>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>ラベル（任意）</mat-label>
+          <input matInput formControlName="label" placeholder="例: 令和7年度" />
+        </mat-form-field>
       </div>
 
       <div class="form-section">
@@ -179,6 +204,29 @@ export interface CloudHealthMasterDialogData {
         margin-top: 1rem;
       }
 
+      .help-text {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f5f5f5;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .help-text p {
+        margin: 0.5rem 0;
+        font-size: 0.875rem;
+        color: #666;
+        line-height: 1.6;
+      }
+
+      .help-text p:first-child {
+        margin-top: 0;
+      }
+
+      .help-text p:last-child {
+        margin-bottom: 0;
+      }
+
       .bands-header {
         display: flex;
         align-items: center;
@@ -302,24 +350,32 @@ export class CloudHealthMasterFormDialogComponent {
   readonly form: ReturnType<FormBuilder['group']>;
 
   constructor(@Inject(MAT_DIALOG_DATA) public readonly data: CloudHealthMasterDialogData) {
+    const table = data.table;
+    const now = new Date();
+    const defaultYear = now.getFullYear();
+    const defaultMonth = 3; // デフォルトは3月
+
     this.form = this.fb.group({
-      year: [data.year ?? new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
+      effectiveYear: [
+        table?.effectiveYear ?? defaultYear,
+        [Validators.required, Validators.min(2000)]
+      ],
+      effectiveMonth: [
+        table?.effectiveMonth ?? defaultMonth,
+        [Validators.required, Validators.min(1), Validators.max(12)]
+      ],
       planType: ['kyokai', Validators.required],
-      kyokaiPrefCode: ['', Validators.required],
-      kyokaiPrefName: ['', Validators.required],
-      healthRate: [0, [Validators.required, Validators.min(0), Validators.max(1)]],
+      kyokaiPrefCode: [table?.kyokaiPrefCode ?? '', Validators.required],
+      kyokaiPrefName: [table?.kyokaiPrefName ?? '', Validators.required],
+      healthRate: [
+        table?.healthRate ?? 0,
+        [Validators.required, Validators.min(0), Validators.max(1)]
+      ],
+      label: [table?.label ?? ''],
       bands: this.fb.array([] as any[])
     });
 
-    const table = data.table;
     if (table) {
-      this.form.patchValue({
-        year: table.year,
-        planType: table.planType,
-        kyokaiPrefCode: table.kyokaiPrefCode,
-        kyokaiPrefName: table.kyokaiPrefName,
-        healthRate: table.healthRate
-      });
       table.bands?.forEach((band) => this.addBand(band));
     } else {
       // 新規作成時: デフォルトの標準報酬等級を設定
@@ -358,10 +414,16 @@ export class CloudHealthMasterFormDialogComponent {
       this.form.markAllAsTouched();
       return;
     }
+
+    const effectiveYear = this.form.value.effectiveYear!;
+    const effectiveMonth = this.form.value.effectiveMonth!;
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+
     const payload: Partial<CloudHealthRateTable> = {
       ...this.form.value,
       bands: this.bands.value as StandardRewardBand[],
-      id: this.data.table?.id
+      effectiveYearMonth,
+      id: this.data.table?.id || `${effectiveYearMonth}_${this.form.value.kyokaiPrefCode}`
     } as Partial<CloudHealthRateTable>;
     this.dialogRef.close(payload);
   }

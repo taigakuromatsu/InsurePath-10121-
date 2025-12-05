@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   setDoc,
@@ -39,7 +40,7 @@ export class MastersService {
 
   listHealthRateTables(officeId: string): Observable<HealthRateTable[]> {
     const ref = this.getHealthCollectionRef(officeId);
-    const q = query(ref, orderBy('year', 'desc'));
+    const q = query(ref, orderBy('effectiveYearMonth', 'desc'));
 
     return from(getDocs(q)).pipe(
       map((snapshot) =>
@@ -77,10 +78,20 @@ export class MastersService {
     const ref = table.id ? doc(collectionRef, table.id) : doc(collectionRef);
     const now = new Date().toISOString();
 
+    // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
+    const effectiveYear = Number(table.effectiveYear ?? new Date().getFullYear());
+    const effectiveMonth = Number(table.effectiveMonth ?? 3); // デフォルトは3月
+
+    // effectiveYearMonthを計算（既に計算済みの場合はそれを使用、なければ計算）
+    const effectiveYearMonth =
+      table.effectiveYearMonth ?? effectiveYear * 100 + effectiveMonth;
+
     const payload: HealthRateTable = {
       id: ref.id,
       officeId,
-      year: Number(table.year ?? new Date().getFullYear()),
+      effectiveYear,
+      effectiveMonth,
+      effectiveYearMonth,
       planType: table.planType ?? 'kyokai',
       healthRate: Number(table.healthRate ?? 0),
       bands: table.bands ?? [],
@@ -107,7 +118,7 @@ export class MastersService {
 
   listCareRateTables(officeId: string): Observable<CareRateTable[]> {
     const ref = this.getCareCollectionRef(officeId);
-    const q = query(ref, orderBy('year', 'desc'));
+    const q = query(ref, orderBy('effectiveYearMonth', 'desc'));
 
     return from(getDocs(q)).pipe(
       map((snapshot) =>
@@ -145,10 +156,20 @@ export class MastersService {
     const ref = table.id ? doc(collectionRef, table.id) : doc(collectionRef);
     const now = new Date().toISOString();
 
+    // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
+    const effectiveYear = Number(table.effectiveYear ?? new Date().getFullYear());
+    const effectiveMonth = Number(table.effectiveMonth ?? 3); // デフォルトは3月
+
+    // effectiveYearMonthを計算（既に計算済みの場合はそれを使用、なければ計算）
+    const effectiveYearMonth =
+      table.effectiveYearMonth ?? effectiveYear * 100 + effectiveMonth;
+
     const payload: CareRateTable = {
       id: ref.id,
       officeId,
-      year: Number(table.year ?? new Date().getFullYear()),
+      effectiveYear,
+      effectiveMonth,
+      effectiveYearMonth,
       careRate: Number(table.careRate ?? 0),
       createdAt: table.createdAt ?? now,
       updatedAt: now
@@ -168,7 +189,7 @@ export class MastersService {
 
   listPensionRateTables(officeId: string): Observable<PensionRateTable[]> {
     const ref = this.getPensionCollectionRef(officeId);
-    const q = query(ref, orderBy('year', 'desc'));
+    const q = query(ref, orderBy('effectiveYearMonth', 'desc'));
 
     return from(getDocs(q)).pipe(
       map((snapshot) =>
@@ -206,10 +227,20 @@ export class MastersService {
     const ref = table.id ? doc(collectionRef, table.id) : doc(collectionRef);
     const now = new Date().toISOString();
 
+    // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
+    const effectiveYear = Number(table.effectiveYear ?? new Date().getFullYear());
+    const effectiveMonth = Number(table.effectiveMonth ?? 3); // デフォルトは3月
+
+    // effectiveYearMonthを計算（既に計算済みの場合はそれを使用、なければ計算）
+    const effectiveYearMonth =
+      table.effectiveYearMonth ?? effectiveYear * 100 + effectiveMonth;
+
     const payload: PensionRateTable = {
       id: ref.id,
       officeId,
-      year: Number(table.year ?? new Date().getFullYear()),
+      effectiveYear,
+      effectiveMonth,
+      effectiveYearMonth,
       pensionRate: Number(table.pensionRate ?? 0),
       bands: table.bands ?? [],
       createdAt: table.createdAt ?? now,
@@ -228,6 +259,11 @@ export class MastersService {
     return deleteDoc(ref);
   }
 
+  /**
+   * 対象年月に有効な最新の保険料率を取得する
+   * ⚠️ 重要: 既存のシグネチャ（引数・戻り値の型）を壊さないように注意すること。
+   * 既存の呼び出し側（monthly-premiums.service.ts、simulator.page.ts、bonus-form-dialog.component.tsなど）は変更不要になるように実装する。
+   */
   async getRatesForYearMonth(
     office: Office,
     yearMonth: YearMonthString
@@ -236,7 +272,9 @@ export class MastersService {
     careRate?: number;
     pensionRate?: number;
   }> {
-    const year = parseInt(yearMonth.substring(0, 4), 10);
+    const targetYear = parseInt(yearMonth.substring(0, 4), 10);
+    const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
+    const targetYearMonth = targetYear * 100 + targetMonth;
     const officeId = office.id;
 
     const results: {
@@ -245,13 +283,16 @@ export class MastersService {
       pensionRate?: number;
     } = {};
 
+    // 健康保険マスタの取得
     if (office.healthPlanType === 'kyokai' && office.kyokaiPrefCode) {
       const healthRef = this.getHealthCollectionRef(officeId);
       const healthQuery = query(
         healthRef,
-        where('year', '==', year),
         where('planType', '==', 'kyokai'),
-        where('kyokaiPrefCode', '==', office.kyokaiPrefCode)
+        where('kyokaiPrefCode', '==', office.kyokaiPrefCode),
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
       );
       const healthSnapshot = await firstValueFrom(from(getDocs(healthQuery)));
       if (!healthSnapshot.empty) {
@@ -261,8 +302,10 @@ export class MastersService {
       const healthRef = this.getHealthCollectionRef(officeId);
       const healthQuery = query(
         healthRef,
-        where('year', '==', year),
-        where('planType', '==', 'kumiai')
+        where('planType', '==', 'kumiai'),
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
       );
       const healthSnapshot = await firstValueFrom(from(getDocs(healthQuery)));
       if (!healthSnapshot.empty) {
@@ -270,15 +313,27 @@ export class MastersService {
       }
     }
 
+    // 介護保険マスタの取得
     const careRef = this.getCareCollectionRef(officeId);
-    const careQuery = query(careRef, where('year', '==', year));
+    const careQuery = query(
+      careRef,
+      where('effectiveYearMonth', '<=', targetYearMonth),
+      orderBy('effectiveYearMonth', 'desc'),
+      limit(1)
+    );
     const careSnapshot = await firstValueFrom(from(getDocs(careQuery)));
     if (!careSnapshot.empty) {
       results.careRate = careSnapshot.docs[0].data()['careRate'] as number;
     }
 
+    // 厚生年金マスタの取得
     const pensionRef = this.getPensionCollectionRef(officeId);
-    const pensionQuery = query(pensionRef, where('year', '==', year));
+    const pensionQuery = query(
+      pensionRef,
+      where('effectiveYearMonth', '<=', targetYearMonth),
+      orderBy('effectiveYearMonth', 'desc'),
+      limit(1)
+    );
     const pensionSnapshot = await firstValueFrom(from(getDocs(pensionQuery)));
     if (!pensionSnapshot.empty) {
       results.pensionRate = pensionSnapshot.docs[0].data()['pensionRate'] as number;

@@ -559,7 +559,7 @@ export class SimulatorPage {
         if (rates.pensionRate == null) {
           errorMessage += ' 厚生年金保険料率が未設定です。';
         }
-        errorMessage += ' マスタ管理画面で設定してください。';
+        errorMessage += ' 保険料率管理画面で設定してください。';
         this.snackBar.open(errorMessage, '閉じる', { duration: 5000 });
         return;
       }

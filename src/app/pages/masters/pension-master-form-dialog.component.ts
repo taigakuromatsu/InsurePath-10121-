@@ -4,6 +4,7 @@ import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -23,6 +24,7 @@ export interface PensionMasterDialogData {
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     MatButtonModule,
     MatIconModule,
     NgIf,
@@ -38,8 +40,19 @@ export interface PensionMasterDialogData {
         <h3 class="section-title">基本情報</h3>
       <div class="form-row">
         <mat-form-field appearance="outline">
-          <mat-label>年度</mat-label>
-          <input matInput type="number" formControlName="year" required />
+          <mat-label>適用開始年</mat-label>
+          <input matInput type="number" formControlName="effectiveYear" required />
+          <mat-hint>何年分からの料率か</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>適用開始月</mat-label>
+          <mat-select formControlName="effectiveMonth" required>
+            <mat-option *ngFor="let month of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="month">
+              {{ month }}月
+            </mat-option>
+          </mat-select>
+          <mat-hint>何月分からの料率か</mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -47,6 +60,13 @@ export interface PensionMasterDialogData {
           <input matInput type="number" formControlName="pensionRate" step="0.0001" />
             <mat-hint>例: 0.183 (18.3%)</mat-hint>
         </mat-form-field>
+        </div>
+        <div class="help-text">
+          <p>
+            例）2025年3月分から改定される場合：<br>
+            「適用開始年」= 2025、「適用開始月」= 3 を選択してください。<br>
+            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。
+          </p>
         </div>
       </div>
 
@@ -163,6 +183,29 @@ export interface PensionMasterDialogData {
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 1rem;
         margin-bottom: 1rem;
+      }
+
+      .help-text {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f5f5f5;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .help-text p {
+        margin: 0.5rem 0;
+        font-size: 0.875rem;
+        color: #666;
+        line-height: 1.6;
+      }
+
+      .help-text p:first-child {
+        margin-top: 0;
+      }
+
+      .help-text p:last-child {
+        margin-bottom: 0;
       }
 
       .bands-header {
@@ -288,29 +331,38 @@ export class PensionMasterFormDialogComponent {
   private readonly cloudMasterService = inject(CloudMasterService);
 
   readonly form = this.fb.group({
-    year: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
+    effectiveYear: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
+    effectiveMonth: [3, [Validators.required, Validators.min(1), Validators.max(12)]],
     pensionRate: [0, [Validators.required, Validators.min(0), Validators.max(1)]],
     bands: this.fb.array([] as any[])
   });
 
   constructor(@Inject(MAT_DIALOG_DATA) public readonly data: PensionMasterDialogData) {
+    const now = new Date();
+    const defaultYear = now.getFullYear();
+    const defaultMonth = 3; // デフォルトは3月
+
     if (data.table) {
       this.form.patchValue({
-        year: data.table.year,
+        effectiveYear: data.table.effectiveYear,
+        effectiveMonth: data.table.effectiveMonth,
         pensionRate: data.table.pensionRate
       });
       data.table.bands?.forEach((band) => this.addBand(band));
     } else {
       // 新規作成時: クラウドマスタから自動取得
-      const year = new Date().getFullYear();
-      this.form.patchValue({ year });
-      this.loadPresetFromCloud(year);
+      // 対象月は「現在の年月」を使用（現在有効なマスタを取得）
+      this.form.patchValue({
+        effectiveYear: defaultYear,
+        effectiveMonth: defaultMonth
+      });
+      this.loadPresetFromCloud(defaultYear, now.getMonth() + 1);
     }
   }
   
-  private async loadPresetFromCloud(year: number): Promise<void> {
+  private async loadPresetFromCloud(targetYear: number, targetMonth: number): Promise<void> {
     try {
-      const preset = await this.cloudMasterService.getPensionRatePresetFromCloud(year);
+      const preset = await this.cloudMasterService.getPensionRatePresetFromCloud(targetYear, targetMonth);
       if (preset) {
         this.form.patchValue({
           pensionRate: preset.pensionRate
@@ -318,8 +370,8 @@ export class PensionMasterFormDialogComponent {
         this.bands.clear();
         (preset.bands ?? PENSION_STANDARD_REWARD_BANDS_DEFAULT).forEach((band) => this.addBand(band));
       } else {
-        // フォールバック: ハードコードされたデータを使用
-        const fallbackPreset = getPensionRatePreset(year);
+        // フォールバック: ハードコードされたデータを使用（年度ベースのフォールバック）
+        const fallbackPreset = getPensionRatePreset(targetYear);
         this.form.patchValue({
           pensionRate: fallbackPreset.pensionRate
         });
@@ -329,7 +381,7 @@ export class PensionMasterFormDialogComponent {
     } catch (error) {
       console.error('クラウドマスタからの取得に失敗しました', error);
       // フォールバック: ハードコードされたデータを使用
-      const fallbackPreset = getPensionRatePreset(year);
+      const fallbackPreset = getPensionRatePreset(targetYear);
       this.form.patchValue({
         pensionRate: fallbackPreset.pensionRate
       });
@@ -357,8 +409,10 @@ export class PensionMasterFormDialogComponent {
   }
 
   async loadPreset(): Promise<void> {
-    const year = this.form.get('year')?.value ?? new Date().getFullYear();
-    await this.loadPresetFromCloud(Number(year));
+    // フォーム値がstringでも安全に処理するため、明示的に数値化
+    const effectiveYear = Number(this.form.get('effectiveYear')?.value ?? new Date().getFullYear());
+    const effectiveMonth = Number(this.form.get('effectiveMonth')?.value ?? 3);
+    await this.loadPresetFromCloud(effectiveYear, effectiveMonth);
   }
 
   submit(): void {
@@ -366,9 +420,15 @@ export class PensionMasterFormDialogComponent {
       this.form.markAllAsTouched();
       return;
     }
+
+    const effectiveYear = this.form.value.effectiveYear!;
+    const effectiveMonth = this.form.value.effectiveMonth!;
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+
     const payload: Partial<PensionRateTable> = {
       ...this.form.value,
       bands: this.bands.value as StandardRewardBand[],
+      effectiveYearMonth,
       id: this.data.table?.id
     } as Partial<PensionRateTable>;
     this.dialogRef.close(payload);

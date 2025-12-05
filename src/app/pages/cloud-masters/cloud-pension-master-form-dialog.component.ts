@@ -5,6 +5,7 @@ import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -23,6 +24,7 @@ export interface CloudPensionMasterDialogData {
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     MatButtonModule,
     MatIconModule,
     NgIf,
@@ -38,8 +40,19 @@ export interface CloudPensionMasterDialogData {
         <h3 class="section-title">基本情報</h3>
         <div class="form-row">
           <mat-form-field appearance="outline">
-            <mat-label>年度</mat-label>
-            <input matInput type="number" formControlName="year" required />
+            <mat-label>適用開始年</mat-label>
+            <input matInput type="number" formControlName="effectiveYear" required />
+            <mat-hint>何年分からの料率か</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>適用開始月</mat-label>
+            <mat-select formControlName="effectiveMonth" required>
+              <mat-option *ngFor="let month of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="month">
+                {{ month }}月
+              </mat-option>
+            </mat-select>
+            <mat-hint>何月分からの料率か</mat-hint>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -48,6 +61,17 @@ export interface CloudPensionMasterDialogData {
             <mat-hint>例: 0.183 (18.3%)</mat-hint>
           </mat-form-field>
         </div>
+        <div class="help-text">
+          <p>
+            例）2025年3月分から改定される場合：<br>
+            「適用開始年」= 2025、「適用開始月」= 3 を選択してください。<br>
+            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。
+          </p>
+        </div>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>ラベル（任意）</mat-label>
+          <input matInput formControlName="label" placeholder="例: 令和7年度" />
+        </mat-form-field>
       </div>
 
       <div class="form-section">
@@ -159,6 +183,34 @@ export interface CloudPensionMasterDialogData {
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 1rem;
         margin-bottom: 1rem;
+      }
+
+      .full-width {
+        width: 100%;
+        margin-top: 1rem;
+      }
+
+      .help-text {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f5f5f5;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .help-text p {
+        margin: 0.5rem 0;
+        font-size: 0.875rem;
+        color: #666;
+        line-height: 1.6;
+      }
+
+      .help-text p:first-child {
+        margin-top: 0;
+      }
+
+      .help-text p:last-child {
+        margin-bottom: 0;
       }
 
       .bands-header {
@@ -281,16 +333,20 @@ export class CloudPensionMasterFormDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<CloudPensionMasterFormDialogComponent>);
 
   readonly form = this.fb.group({
-    year: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
+    effectiveYear: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
+    effectiveMonth: [3, [Validators.required, Validators.min(1), Validators.max(12)]],
     pensionRate: [0, [Validators.required, Validators.min(0), Validators.max(1)]],
+    label: [''],
     bands: this.fb.array([] as any[])
   });
 
   constructor(@Inject(MAT_DIALOG_DATA) public readonly data: CloudPensionMasterDialogData) {
     if (data.table) {
       this.form.patchValue({
-        year: data.table.year,
-        pensionRate: data.table.pensionRate
+        effectiveYear: data.table.effectiveYear,
+        effectiveMonth: data.table.effectiveMonth,
+        pensionRate: data.table.pensionRate,
+        label: data.table.label ?? ''
       });
       data.table.bands?.forEach((band) => this.addBand(band));
     } else {
@@ -322,10 +378,16 @@ export class CloudPensionMasterFormDialogComponent {
       this.form.markAllAsTouched();
       return;
     }
+
+    const effectiveYear = this.form.value.effectiveYear!;
+    const effectiveMonth = this.form.value.effectiveMonth!;
+    const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+
     const payload: Partial<CloudPensionRateTable> = {
       ...this.form.value,
       bands: this.bands.value as StandardRewardBand[],
-      id: this.data.table?.id
+      effectiveYearMonth,
+      id: this.data.table?.id || `${effectiveYearMonth}`
     } as Partial<CloudPensionRateTable>;
     this.dialogRef.close(payload);
   }

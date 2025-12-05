@@ -280,8 +280,11 @@ export function getKyokaiHealthRatePreset(
     return undefined;
   }
   
+  // 年度ベースのフォールバックデータなので、effectiveYear/effectiveMonthは3月開始として設定
   return {
-    year,
+    effectiveYear: year,
+    effectiveMonth: 3,
+    effectiveYearMonth: year * 100 + 3,
     planType: 'kyokai',
     kyokaiPrefCode: prefCode,
     kyokaiPrefName: PREFECTURE_CODES[prefCode] ?? '',
@@ -291,15 +294,21 @@ export function getKyokaiHealthRatePreset(
 }
 
 export function getCareRatePreset(year: number): Partial<CareRateTable> {
+  // 年度ベースのフォールバックデータなので、effectiveYear/effectiveMonthは3月開始として設定
   return {
-    year,
+    effectiveYear: year,
+    effectiveMonth: 3,
+    effectiveYearMonth: year * 100 + 3,
     careRate: CARE_RATE_2024
   };
 }
 
 export function getPensionRatePreset(year: number): Partial<PensionRateTable> {
+  // 年度ベースのフォールバックデータなので、effectiveYear/effectiveMonthは3月開始として設定
   return {
-    year,
+    effectiveYear: year,
+    effectiveMonth: 3,
+    effectiveYearMonth: year * 100 + 3,
     pensionRate: PENSION_RATE_2024,
     bands: PENSION_STANDARD_REWARD_BANDS_DEFAULT
   };

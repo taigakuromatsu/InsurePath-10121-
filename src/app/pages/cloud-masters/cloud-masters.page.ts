@@ -96,16 +96,17 @@ function buildYearOptions(startYear: number, futureYears: number): number[] {
                     <mat-icon>local_hospital</mat-icon>
                     健康保険マスタ
                   </h2>
-                  <p>年度別・都道府県別の健康保険料率を管理します。</p>
+                  <p>適用開始年月別・都道府県別の健康保険料率を管理します。</p>
                 </div>
                 <div class="tab-actions">
                   <mat-form-field appearance="outline" class="year-select">
-                    <mat-label>年度</mat-label>
-                    <mat-select [formControl]="healthYearControl">
+                    <mat-label>表示対象年</mat-label>
+                    <mat-select [formControl]="displayYearControl">
                       <mat-option *ngFor="let year of availableYears" [value]="year">
-                        {{ year }}年度
+                        {{ year }}年
                       </mat-option>
                     </mat-select>
+                    <mat-hint>effectiveYear（適用開始年）を基準にフィルタします</mat-hint>
                   </mat-form-field>
                   <button mat-stroked-button color="primary" type="button" (click)="bulkRegisterKyokaiHealth()">
                     <mat-icon>cloud_download</mat-icon>
@@ -124,6 +125,13 @@ function buildYearOptions(startYear: number, futureYears: number): number[] {
                   [dataSource]="(filteredHealthTables$ | async) || []"
                   class="master-table"
                 >
+                  <ng-container matColumnDef="effectiveYearMonth">
+                    <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="year-month-badge">{{ row.effectiveYear }}年{{ row.effectiveMonth }}月</span>
+                    </td>
+                  </ng-container>
+
                   <ng-container matColumnDef="prefCode">
                     <th mat-header-cell *matHeaderCellDef>都道府県コード</th>
                     <td mat-cell *matCellDef="let row">
@@ -199,24 +207,35 @@ function buildYearOptions(startYear: number, futureYears: number): number[] {
                     <mat-icon>elderly</mat-icon>
                     介護保険マスタ
                   </h2>
-                  <p>年度別の介護保険料率を管理します。</p>
+                  <p>適用開始年月別の介護保険料率を管理します。</p>
                 </div>
-                <button mat-raised-button color="primary" (click)="openCareDialog()">
-                  <mat-icon>add</mat-icon>
-                  新規登録
-                </button>
+                <div class="tab-actions">
+                  <mat-form-field appearance="outline" class="year-select">
+                    <mat-label>表示対象年</mat-label>
+                    <mat-select [formControl]="careDisplayYearControl">
+                      <mat-option *ngFor="let year of availableYears" [value]="year">
+                        {{ year }}年
+                      </mat-option>
+                    </mat-select>
+                    <mat-hint>effectiveYear（適用開始年）を基準にフィルタします</mat-hint>
+                  </mat-form-field>
+                  <button mat-raised-button color="primary" (click)="openCareDialog()">
+                    <mat-icon>add</mat-icon>
+                    新規登録
+                  </button>
+                </div>
               </div>
 
               <div class="table-container">
                 <table
                   mat-table
-                  [dataSource]="(careTables$ | async) || []"
+                  [dataSource]="(filteredCareTables$ | async) || []"
                   class="master-table"
                 >
-                  <ng-container matColumnDef="year">
-                    <th mat-header-cell *matHeaderCellDef>年度</th>
+                  <ng-container matColumnDef="effectiveYearMonth">
+                    <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
                     <td mat-cell *matCellDef="let row">
-                      <span class="year-badge">{{ row.year }}</span>
+                      <span class="year-month-badge">{{ row.effectiveYear }}年{{ row.effectiveMonth }}月</span>
                     </td>
                   </ng-container>
 
@@ -274,24 +293,35 @@ function buildYearOptions(startYear: number, futureYears: number): number[] {
                     <mat-icon>account_balance</mat-icon>
                     厚生年金マスタ
                   </h2>
-                  <p>年度別の厚生年金料率と標準報酬等級を管理します。</p>
+                  <p>適用開始年月別の厚生年金料率と標準報酬等級を管理します。</p>
                 </div>
-                <button mat-raised-button color="primary" (click)="openPensionDialog()">
-                  <mat-icon>add</mat-icon>
-                  新規登録
-                </button>
+                <div class="tab-actions">
+                  <mat-form-field appearance="outline" class="year-select">
+                    <mat-label>表示対象年</mat-label>
+                    <mat-select [formControl]="pensionDisplayYearControl">
+                      <mat-option *ngFor="let year of availableYears" [value]="year">
+                        {{ year }}年
+                      </mat-option>
+                    </mat-select>
+                    <mat-hint>effectiveYear（適用開始年）を基準にフィルタします</mat-hint>
+                  </mat-form-field>
+                  <button mat-raised-button color="primary" (click)="openPensionDialog()">
+                    <mat-icon>add</mat-icon>
+                    新規登録
+                  </button>
+                </div>
               </div>
 
               <div class="table-container">
                 <table
                   mat-table
-                  [dataSource]="(pensionTables$ | async) || []"
+                  [dataSource]="(filteredPensionTables$ | async) || []"
                   class="master-table"
                 >
-                  <ng-container matColumnDef="year">
-                    <th mat-header-cell *matHeaderCellDef>年度</th>
+                  <ng-container matColumnDef="effectiveYearMonth">
+                    <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
                     <td mat-cell *matCellDef="let row">
-                      <span class="year-badge">{{ row.year }}</span>
+                      <span class="year-month-badge">{{ row.effectiveYear }}年{{ row.effectiveMonth }}月</span>
                     </td>
                   </ng-container>
 
@@ -503,6 +533,16 @@ function buildYearOptions(startYear: number, futureYears: number): number[] {
         font-size: 0.875rem;
       }
 
+      .year-month-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        background: #e3f2fd;
+        color: #1976d2;
+        border-radius: 16px;
+        font-weight: 600;
+        font-size: 0.875rem;
+      }
+
       .pref-code-badge {
         display: inline-block;
         padding: 4px 10px;
@@ -613,33 +653,54 @@ export class CloudMastersPage {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly healthYearControl = new FormControl<number>(getCurrentFiscalYear());
+  readonly displayYearControl = new FormControl<number>(new Date().getFullYear());
+  readonly careDisplayYearControl = new FormControl<number>(new Date().getFullYear());
+  readonly pensionDisplayYearControl = new FormControl<number>(new Date().getFullYear());
   
-  // 2000年度〜「今年+10年」まで
+  // 2000年〜「今年+10年」まで
   readonly availableYears = buildYearOptions(2000, 10);
 
   readonly healthTables$ = this.cloudMasterService.listCloudHealthRateTables();
   readonly filteredHealthTables$ = combineLatest([
     this.healthTables$,
-    this.healthYearControl.valueChanges.pipe(startWith(this.healthYearControl.value))
+    this.displayYearControl.valueChanges.pipe(startWith(this.displayYearControl.value))
   ]).pipe(
     map(([tables, year]) => {
       if (!year) return tables;
-      return tables.filter((t) => t.year === year);
+      return tables.filter((t) => t.effectiveYear === year);
     })
   );
 
   readonly careTables$ = this.cloudMasterService.listCloudCareRateTables();
-  readonly pensionTables$ = this.cloudMasterService.listCloudPensionRateTables();
+  readonly filteredCareTables$ = combineLatest([
+    this.careTables$,
+    this.careDisplayYearControl.valueChanges.pipe(startWith(this.careDisplayYearControl.value))
+  ]).pipe(
+    map(([tables, year]) => {
+      if (!year) return tables;
+      return tables.filter((t) => t.effectiveYear === year);
+    })
+  );
 
-  readonly healthDisplayedColumns = ['prefCode', 'prefName', 'rate', 'bands', 'updatedAt', 'actions'];
-  readonly careDisplayedColumns = ['year', 'rate', 'updatedAt', 'actions'];
-  readonly pensionDisplayedColumns = ['year', 'rate', 'bands', 'updatedAt', 'actions'];
+  readonly pensionTables$ = this.cloudMasterService.listCloudPensionRateTables();
+  readonly filteredPensionTables$ = combineLatest([
+    this.pensionTables$,
+    this.pensionDisplayYearControl.valueChanges.pipe(startWith(this.pensionDisplayYearControl.value))
+  ]).pipe(
+    map(([tables, year]) => {
+      if (!year) return tables;
+      return tables.filter((t) => t.effectiveYear === year);
+    })
+  );
+
+  readonly healthDisplayedColumns = ['effectiveYearMonth', 'prefCode', 'prefName', 'rate', 'bands', 'updatedAt', 'actions'];
+  readonly careDisplayedColumns = ['effectiveYearMonth', 'rate', 'updatedAt', 'actions'];
+  readonly pensionDisplayedColumns = ['effectiveYearMonth', 'rate', 'bands', 'updatedAt', 'actions'];
 
   async openHealthDialog(table?: CloudHealthRateTable): Promise<void> {
     try {
       const ref = this.dialog.open(CloudHealthMasterFormDialogComponent, {
-        data: { table, year: this.healthYearControl.value ?? getCurrentFiscalYear() },
+        data: { table },
         width: '960px'
       });
       const result = await firstValueFrom(ref.afterClosed());
@@ -655,7 +716,11 @@ export class CloudMastersPage {
   async deleteHealth(table: CloudHealthRateTable): Promise<void> {
     if (!confirm('削除してもよろしいですか？')) return;
     try {
-      await this.cloudMasterService.deleteCloudHealthRateTable(table.year, table.kyokaiPrefCode);
+      await this.cloudMasterService.deleteCloudHealthRateTable(
+        table.effectiveYear,
+        table.effectiveMonth,
+        table.kyokaiPrefCode
+      );
       this.snackBar.open('健康保険クラウドマスタを削除しました', '閉じる', { duration: 3000 });
     } catch (error) {
       console.error(error);
@@ -664,10 +729,11 @@ export class CloudMastersPage {
   }
 
   async bulkRegisterKyokaiHealth(): Promise<void> {
-    const year = this.healthYearControl.value ?? getCurrentFiscalYear();
+    const year = this.displayYearControl.value ?? new Date().getFullYear();
+    const month = 3; // デフォルトは3月
 
     const confirmed = confirm(
-      `${year}年度の協会けんぽ健康保険料率を全都道府県分まとめて登録（既存データは上書き）します。よろしいですか？`
+      `${year}年${month}月分からの協会けんぽ健康保険料率を全都道府県分まとめて登録（既存データは上書き）します。よろしいですか？`
     );
     if (!confirmed) return;
 
@@ -682,7 +748,8 @@ export class CloudMastersPage {
         const bands = preset?.bands ?? HEALTH_STANDARD_REWARD_BANDS_DEFAULT;
 
         const payload: Partial<CloudHealthRateTable> = {
-          year,
+          effectiveYear: year,
+          effectiveMonth: month,
           planType: 'kyokai',
           kyokaiPrefCode: code,
           kyokaiPrefName: PREFECTURE_CODES[code],
@@ -690,7 +757,6 @@ export class CloudMastersPage {
           bands
         };
 
-        // saveCloudHealthRateTable は upsert（year+prefCode 単位で上書き）想定
         return this.cloudMasterService.saveCloudHealthRateTable(payload);
       });
 
@@ -729,7 +795,10 @@ export class CloudMastersPage {
   async deleteCare(table: CloudCareRateTable): Promise<void> {
     if (!confirm('削除してもよろしいですか？')) return;
     try {
-      await this.cloudMasterService.deleteCloudCareRateTable(table.year);
+      await this.cloudMasterService.deleteCloudCareRateTable(
+        table.effectiveYear,
+        table.effectiveMonth
+      );
       this.snackBar.open('介護保険クラウドマスタを削除しました', '閉じる', { duration: 3000 });
     } catch (error) {
       console.error(error);
@@ -756,7 +825,10 @@ export class CloudMastersPage {
   async deletePension(table: CloudPensionRateTable): Promise<void> {
     if (!confirm('削除してもよろしいですか？')) return;
     try {
-      await this.cloudMasterService.deleteCloudPensionRateTable(table.year);
+      await this.cloudMasterService.deleteCloudPensionRateTable(
+        table.effectiveYear,
+        table.effectiveMonth
+      );
       this.snackBar.open('厚生年金クラウドマスタを削除しました', '閉じる', { duration: 3000 });
     } catch (error) {
       console.error(error);
