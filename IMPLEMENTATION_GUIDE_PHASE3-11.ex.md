@@ -1047,3 +1047,651 @@ function getStatusLabel(
 
 **最終更新**: 2025年12月4日
 
+---
+
+## 🔧 追加実装: 保険料率管理の改善（重複登録防止・都道府県固定）
+
+**作成日**: 2025年12月4日  
+**対象フェーズ**: Phase3-11.ex（追加改善）  
+**優先度**: 🟡 中（データ整合性のため重要）
+
+---
+
+### 📋 概要
+
+保険料率管理画面で以下の2つの問題を解決する：
+
+1. **同じ適用年月の重複登録問題**: 同じ適用年月で複数のマスタを登録できると、計算時にどれを参照するか混乱する
+2. **事業所設定と異なる都道府県の登録問題**: 事業所設定が東京なのに、埼玉や沖縄などの異なる都道府県を登録できてしまう
+
+### 🎯 目的
+
+- **データ整合性の確保**: 同じ適用年月のマスタは1件のみ存在するようにする
+- **事業所設定との整合性**: 事業所設定の都道府県と一致するマスタのみ登録可能にする
+
+---
+
+### 📎 対象範囲
+
+#### 1. 重複登録防止機能
+
+**対象マスタ**:
+- 健康保険マスタ（`HealthRateTable`）
+- 介護保険マスタ（`CareRateTable`）
+- 厚生年金マスタ（`PensionRateTable`）
+
+**重複判定条件**:
+- **健康保険**: `effectiveYearMonth` + `planType` + `kyokaiPrefCode`（協会けんぽの場合）または `effectiveYearMonth` + `planType`（組合健保の場合）
+- **介護保険**: `effectiveYearMonth`
+- **厚生年金**: `effectiveYearMonth`
+
+**動作**:
+- 保存前に既存マスタを検索
+- 重複がある場合、上書き確認ダイアログを表示
+- 「はい」を選択した場合、既存マスタのIDで上書き保存
+- 「いいえ」を選択した場合、保存をキャンセル
+
+#### 2. プラン種別固定機能
+
+**対象**: 健康保険マスタ
+
+**動作**:
+- `planType`セレクトを事業所設定の`healthPlanType`に固定
+- `planType`セレクトを読み取り専用（`disabled`）にする
+- 事業所設定の`healthPlanType`が唯一の真実として扱われる
+- これにより、「事業所は協会けんぽなのに、マスタは組合健保で登録されている」という不整合が設計上起こりえない
+
+#### 3. 都道府県固定機能
+
+**対象**: 健康保険マスタ（協会けんぽの場合のみ）
+
+**動作**:
+- 協会けんぽの場合、都道府県セレクトを事業所設定の都道府県に固定
+- 都道府県セレクトを読み取り専用（`disabled`）にする
+- 事業所設定に都道府県が未設定の場合、エラーメッセージを表示
+
+---
+
+### 🔧 実装詳細
+
+#### 1. MastersServiceに重複チェックメソッドと一括削除メソッドを追加
+
+**ファイル**: `src/app/services/masters.service.ts`
+
+**追加メソッド**:
+
+##### 1-1. 重複チェックメソッド
+
+```typescript
+/**
+ * 健康保険マスタの重複チェック
+ * 同じeffectiveYearMonth + planType + (kyokaiPrefCode or unionCode)のマスタが存在するか確認
+ */
+async checkHealthRateTableDuplicate(
+  officeId: string,
+  effectiveYearMonth: number,
+  planType: HealthPlanType,
+  kyokaiPrefCode?: string,
+  unionCode?: string,
+  excludeId?: string // 編集時は現在編集中のIDを除外
+): Promise<HealthRateTable | null> {
+  const ref = this.getHealthCollectionRef(officeId);
+  let q;
+  
+  if (planType === 'kyokai' && kyokaiPrefCode) {
+    q = query(
+      ref,
+      where('effectiveYearMonth', '==', effectiveYearMonth),
+      where('planType', '==', 'kyokai'),
+      where('kyokaiPrefCode', '==', kyokaiPrefCode)
+    );
+  } else if (planType === 'kumiai') {
+    q = query(
+      ref,
+      where('effectiveYearMonth', '==', effectiveYearMonth),
+      where('planType', '==', 'kumiai')
+    );
+    if (unionCode) {
+      q = query(q, where('unionCode', '==', unionCode));
+    }
+  } else {
+    return null;
+  }
+  
+  const snapshot = await firstValueFrom(from(getDocs(q)));
+  const existing = snapshot.docs
+    .map((d) => ({ id: d.id, ...(d.data() as any) } as HealthRateTable))
+    .find((t) => !excludeId || t.id !== excludeId);
+  
+  return existing || null;
+}
+
+/**
+ * 介護保険マスタの重複チェック
+ */
+async checkCareRateTableDuplicate(
+  officeId: string,
+  effectiveYearMonth: number,
+  excludeId?: string
+): Promise<CareRateTable | null> {
+  const ref = this.getCareCollectionRef(officeId);
+  const q = query(
+    ref,
+    where('effectiveYearMonth', '==', effectiveYearMonth)
+  );
+  
+  const snapshot = await firstValueFrom(from(getDocs(q)));
+  const existing = snapshot.docs
+    .map((d) => ({ id: d.id, ...(d.data() as any) } as CareRateTable))
+    .find((t) => !excludeId || t.id !== excludeId);
+  
+  return existing || null;
+}
+
+/**
+ * 厚生年金マスタの重複チェック
+ */
+async checkPensionRateTableDuplicate(
+  officeId: string,
+  effectiveYearMonth: number,
+  excludeId?: string
+): Promise<PensionRateTable | null> {
+  const ref = this.getPensionCollectionRef(officeId);
+  const q = query(
+    ref,
+    where('effectiveYearMonth', '==', effectiveYearMonth)
+  );
+  
+  const snapshot = await firstValueFrom(from(getDocs(q)));
+  const existing = snapshot.docs
+    .map((d) => ({ id: d.id, ...(d.data() as any) } as PensionRateTable))
+    .find((t) => !excludeId || t.id !== excludeId);
+  
+  return existing || null;
+}
+```
+
+##### 1-2. 健康保険マスタ一括削除メソッド
+
+健康保険プラン変更時に、既存の健康保険マスタをすべて削除するためのメソッドを追加します。
+
+```typescript
+/**
+ * 健康保険マスタをすべて削除する（プラン変更時などに使用）
+ */
+async deleteAllHealthRateTables(officeId: string): Promise<void> {
+  const ref = this.getHealthCollectionRef(officeId);
+  const snapshot = await firstValueFrom(from(getDocs(ref)));
+  
+  if (snapshot.empty) return;
+  
+  const batch = writeBatch(this.firestore);
+  snapshot.docs.forEach((docSnap) => {
+    batch.delete(docSnap.ref);
+  });
+  
+  await batch.commit();
+}
+```
+
+**注意**: 
+- `writeBatch`を`@angular/fire/firestore`からインポートする必要があります。
+- このメソッドは、Office設定画面で`healthPlanType`を変更する際に使用されます。
+
+**注意（重複チェックメソッドについて）**: 
+- 型注釈は不要です。`let q`として型推論に任せます。
+- このクエリは`where`のみで`orderBy`や範囲条件を使っていないため、基本的には追加のFirestoreインデックスは不要です。もしコンソールで「インデックスを作れ」とエラーが出た場合は、そのエラーメッセージに従ってインデックスを作成してください。
+- **重要**: ReactiveFormsでは`disabled`なコントロールは`form.value`から除外されるため、プラン種別と都道府県情報（`planType`、`kyokaiPrefCode`、`kyokaiPrefName`）は`data.office`から直接取得します。これにより、「事業所設定が唯一の真実」という設計思想が保たれます。
+
+---
+
+#### 2. 健康保険マスタフォームダイアログの変更
+
+**ファイル**: `src/app/pages/masters/health-master-form-dialog.component.ts`
+
+**変更点**:
+
+1. **プラン種別の固定**:
+   - `planType`セレクトを`disabled`にする（事業所設定の`healthPlanType`が唯一の真実）
+   - 初期値は`data.office.healthPlanType`を使用
+   - ユーザーは変更できない
+
+2. **都道府県セレクトの固定**:
+   - 協会けんぽの場合、都道府県セレクトを`disabled`にする
+   - 事業所設定の都道府県を強制的に設定
+   - 事業所設定に都道府県が未設定の場合、エラーメッセージを表示
+
+3. **重複チェックと上書き確認**:
+   - `submit()`メソッドで保存前に重複チェックを実行
+   - 重複がある場合、確認ダイアログを表示
+   - 「はい」を選択した場合、既存マスタのIDで上書き保存
+
+**実装例**:
+
+```typescript
+// コンストラクタでプラン種別と都道府県を固定
+constructor(@Inject(MAT_DIALOG_DATA) public readonly data: HealthMasterDialogData) {
+  // ... 既存のコード ...
+  
+  // プラン種別を事業所設定の値に固定（事業所設定が唯一の真実）
+  const planType = data.office.healthPlanType ?? 'kyokai';
+  this.form.patchValue({
+    planType
+  });
+  this.form.get('planType')?.disable();
+  
+  // 協会けんぽの場合、都道府県を事業所設定の値に固定
+  if (planType === 'kyokai') {
+    if (!data.office.kyokaiPrefCode) {
+      // 事業所設定に都道府県が未設定の場合、エラーメッセージを表示してダイアログを閉じる
+      this.snackBar.open('事業所設定に都道府県が設定されていません。事業所設定画面で都道府県を設定してください。', '閉じる', {
+        duration: 5000
+      });
+      this.dialogRef.close();
+      return;
+    } else {
+      // 都道府県を固定
+      this.form.patchValue({
+        kyokaiPrefCode: data.office.kyokaiPrefCode,
+        kyokaiPrefName: data.office.kyokaiPrefName
+      });
+      // ReactiveForms的に、TS側でdisable()を呼ぶ方がキレイ
+      this.form.get('kyokaiPrefCode')?.disable();
+    }
+  }
+}
+
+// テンプレート側は既存のままでOK（disabledはTS側で制御）
+
+// submit()メソッドの変更
+async submit(): Promise<void> {
+  if (this.form.invalid) {
+    this.form.markAllAsTouched();
+    return;
+  }
+
+  // プラン種別と都道府県情報は事業所設定から取得（事業所設定が唯一の真実）
+  // disabledなコントロールはform.valueから除外されるため、data.officeから取得する
+  const planType = this.data.office.healthPlanType ?? 'kyokai';
+  const effectiveYear = this.form.value.effectiveYear!;
+  const effectiveMonth = this.form.value.effectiveMonth!;
+  const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+  const kyokaiPrefCode = planType === 'kyokai' ? this.data.office.kyokaiPrefCode ?? undefined : undefined;
+  const unionCode = this.form.value.unionCode;
+
+  // 重複チェック
+  const existing = await this.mastersService.checkHealthRateTableDuplicate(
+    this.data.office.id,
+    effectiveYearMonth,
+    planType,
+    kyokaiPrefCode,
+    unionCode,
+    this.data.table?.id // 編集時は現在編集中のIDを除外
+  );
+
+  if (existing && existing.id !== this.data.table?.id) {
+    // 重複がある場合、上書き確認ダイアログを表示
+    const planLabel = planType === 'kyokai' ? '協会けんぽ' : '組合健保';
+    const confirmed = confirm(
+      `${effectiveYear}年${effectiveMonth}月分（${planLabel}）のマスタが既に登録されています。\n` +
+      `上書き保存しますか？\n\n` +
+      `既存の料率: ${(existing.healthRate * 100).toFixed(2)}%`
+    );
+    
+    if (!confirmed) {
+      return; // キャンセル
+    }
+    
+    // 既存マスタのIDで上書き保存
+    const payload: Partial<HealthRateTable> = {
+      ...this.form.value,
+      bands: this.bands.value as StandardRewardBand[],
+      effectiveYearMonth,
+      id: existing.id // 既存マスタのIDを使用
+    } as Partial<HealthRateTable>;
+    
+    // プラン種別と都道府県情報は事業所設定から設定（事業所設定が唯一の真実）
+    payload.planType = planType;
+    if (planType === 'kyokai') {
+      payload.kyokaiPrefCode = this.data.office.kyokaiPrefCode;
+      payload.kyokaiPrefName = this.data.office.kyokaiPrefName;
+      payload.unionCode = undefined;
+      payload.unionName = undefined;
+    } else {
+      payload.kyokaiPrefCode = undefined;
+      payload.kyokaiPrefName = undefined;
+    }
+    
+    this.dialogRef.close(payload);
+    return;
+  }
+
+  // 重複がない場合、通常通り保存
+  const payload: Partial<HealthRateTable> = {
+    ...this.form.value,
+    bands: this.bands.value as StandardRewardBand[],
+    effectiveYearMonth,
+    id: this.data.table?.id
+  } as Partial<HealthRateTable>;
+  
+  // プラン種別と都道府県情報は事業所設定から設定（事業所設定が唯一の真実）
+  payload.planType = planType;
+  if (planType === 'kyokai') {
+    payload.kyokaiPrefCode = this.data.office.kyokaiPrefCode;
+    payload.kyokaiPrefName = this.data.office.kyokaiPrefName;
+    payload.unionCode = undefined;
+    payload.unionName = undefined;
+  } else {
+    payload.kyokaiPrefCode = undefined;
+    payload.kyokaiPrefName = undefined;
+  }
+  
+  this.dialogRef.close(payload);
+}
+```
+
+**注意**: `MatDialog`を使用して確認ダイアログを表示する場合は、`MatDialog`をインジェクトして使用します。簡易的な確認の場合は`confirm()`でも構いませんが、UXを向上させる場合は`MatDialog`を使用することを推奨します。
+
+---
+
+#### 4. MastersPageの変更（介護・厚生年金ダイアログにofficeを渡す）
+
+**ファイル**: `src/app/pages/masters/masters.page.ts`
+
+**変更点**: `openCareDialog`と`openPensionDialog`で`data: { office, table }`を渡すように統一
+
+**実装例**:
+
+```typescript
+async openCareDialog(table?: CareRateTable): Promise<void> {
+  try {
+    const office = await this.requireOffice();
+    const ref = this.dialog.open(CareMasterFormDialogComponent, {
+      data: { office, table }, // officeを追加
+      width: '600px'
+    });
+    const result = await firstValueFrom(ref.afterClosed());
+    if (!result) return;
+    await this.mastersService.saveCareRateTable(office.id, result);
+    this.snackBar.open('介護保険マスタを保存しました', '閉じる', { duration: 3000 });
+  } catch (error) {
+    console.error(error);
+    this.snackBar.open('介護保険マスタの保存に失敗しました', '閉じる', { duration: 3000 });
+  }
+}
+
+async openPensionDialog(table?: PensionRateTable): Promise<void> {
+  try {
+    const office = await this.requireOffice();
+    const ref = this.dialog.open(PensionMasterFormDialogComponent, {
+      data: { office, table }, // officeを追加
+      width: '960px'
+    });
+    const result = await firstValueFrom(ref.afterClosed());
+    if (!result) return;
+    await this.mastersService.savePensionRateTable(office.id, result);
+    this.snackBar.open('厚生年金マスタを保存しました', '閉じる', { duration: 3000 });
+  } catch (error) {
+    console.error(error);
+    this.snackBar.open('厚生年金マスタの保存に失敗しました', '閉じる', { duration: 3000 });
+  }
+}
+```
+
+**注意**: これにより、介護・厚生年金のフォームダイアログでも`data.office`を使用できるようになり、`CurrentOfficeService`をフォームでinjectする必要がなくなります。
+
+---
+
+#### 5. 介護保険マスタフォームダイアログの変更
+
+**ファイル**: `src/app/pages/masters/care-master-form-dialog.component.ts`
+
+**変更点**: 
+- `CareMasterDialogData`インターフェースに`office: Office`を追加
+- `submit()`メソッドで重複チェックと上書き確認を追加
+
+**実装例**:
+
+```typescript
+// インターフェースの変更
+export interface CareMasterDialogData {
+  office: Office; // 追加
+  table?: CareRateTable;
+}
+
+async submit(): Promise<void> {
+  if (this.form.invalid) {
+    this.form.markAllAsTouched();
+    return;
+  }
+
+  const effectiveYear = this.form.value.effectiveYear!;
+  const effectiveMonth = this.form.value.effectiveMonth!;
+  const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+
+  // 重複チェック（data.officeを使用）
+  const existing = await this.mastersService.checkCareRateTableDuplicate(
+    this.data.office.id,
+    effectiveYearMonth,
+    this.data.table?.id
+  );
+
+  if (existing && existing.id !== this.data.table?.id) {
+    const confirmed = confirm(
+      `${effectiveYear}年${effectiveMonth}月分の介護保険マスタが既に登録されています。\n` +
+      `上書き保存しますか？\n\n` +
+      `既存の料率: ${(existing.careRate * 100).toFixed(2)}%`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    const payload: Partial<CareRateTable> = {
+      ...this.form.value,
+      effectiveYearMonth,
+      id: existing.id
+    };
+    
+    this.dialogRef.close(payload);
+    return;
+  }
+
+  // 重複がない場合、通常通り保存
+  const payload: Partial<CareRateTable> = {
+    ...this.form.value,
+    effectiveYearMonth,
+    id: this.data.table?.id
+  };
+  
+  this.dialogRef.close(payload);
+}
+```
+
+---
+
+#### 6. 厚生年金マスタフォームダイアログの変更
+
+**ファイル**: `src/app/pages/masters/pension-master-form-dialog.component.ts`
+
+**変更点**: 
+- `PensionMasterDialogData`インターフェースに`office: Office`を追加
+- `submit()`メソッドで重複チェックと上書き確認を追加
+
+**実装例**:
+
+```typescript
+// インターフェースの変更
+export interface PensionMasterDialogData {
+  office: Office; // 追加
+  table?: PensionRateTable;
+}
+
+async submit(): Promise<void> {
+  if (this.form.invalid) {
+    this.form.markAllAsTouched();
+    return;
+  }
+
+  const effectiveYear = this.form.value.effectiveYear!;
+  const effectiveMonth = this.form.value.effectiveMonth!;
+  const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+
+  // 重複チェック（data.officeを使用）
+  const existing = await this.mastersService.checkPensionRateTableDuplicate(
+    this.data.office.id,
+    effectiveYearMonth,
+    this.data.table?.id
+  );
+
+  if (existing && existing.id !== this.data.table?.id) {
+    const confirmed = confirm(
+      `${effectiveYear}年${effectiveMonth}月分の厚生年金マスタが既に登録されています。\n` +
+      `上書き保存しますか？\n\n` +
+      `既存の料率: ${(existing.pensionRate * 100).toFixed(2)}%`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    const payload: Partial<PensionRateTable> = {
+      ...this.form.value,
+      bands: this.bands.value as StandardRewardBand[],
+      effectiveYearMonth,
+      id: existing.id
+    };
+    
+    this.dialogRef.close(payload);
+    return;
+  }
+
+  // 重複がない場合、通常通り保存
+  const payload: Partial<PensionRateTable> = {
+    ...this.form.value,
+    bands: this.bands.value as StandardRewardBand[],
+    effectiveYearMonth,
+    id: this.data.table?.id
+  };
+  
+  this.dialogRef.close(payload);
+}
+```
+
+---
+
+### ✅ テスト・確認事項
+
+#### 1. 重複登録防止機能
+
+- [ ] 同じ適用年月で健康保険マスタを2回登録しようとした場合、上書き確認ダイアログが表示される
+- [ ] 「はい」を選択した場合、既存マスタが上書き保存される
+- [ ] 「いいえ」を選択した場合、保存がキャンセルされる
+- [ ] 編集時（既存マスタを編集している場合）は、自分自身との重複チェックが除外される
+- [ ] 介護保険マスタ、厚生年金マスタでも同様の動作が確認できる
+
+#### 2. プラン種別固定機能
+
+- [ ] `planType`セレクトが読み取り専用（`disabled`）になっている
+- [ ] 事業所設定の`healthPlanType`が自動的に設定されている
+- [ ] ユーザーが`planType`を変更できない
+
+#### 3. 都道府県固定機能
+
+- [ ] 協会けんぽの場合、都道府県セレクトが読み取り専用（`disabled`）になっている
+- [ ] 事業所設定の都道府県が自動的に設定されている
+- [ ] 事業所設定に都道府県が未設定の場合、適切なエラーメッセージが表示される
+- [ ] 組合健保の場合、都道府県セレクトは表示されない（既存の動作を維持）
+
+#### 4. 健康保険プラン変更時の挙動
+
+- [ ] Office設定画面で`healthPlanType`を変更しようとした場合、確認ダイアログが表示される
+- [ ] 「はい」を選択した場合、`healthPlanType`が更新され、健康保険マスタがすべて削除される
+- [ ] 「いいえ」を選択した場合、変更がキャンセルされる
+- [ ] 介護保険・厚生年金のマスタは削除されない
+
+---
+
+### 🚨 注意事項
+
+1. **Firestoreインデックス**: 重複チェック用のクエリは`where`のみで`orderBy`や範囲条件を使っていないため、基本的には追加のインデックスは不要です。もしコンソールで「インデックスを作れ」とエラーが出た場合は、そのエラーメッセージに従ってインデックスを作成してください。
+
+2. **既存データへの影響**: 既存の重複データがある場合、手動で整理する必要があります。
+
+3. **UXの改善**: 確認ダイアログは`confirm()`でも動作しますが、将来的には`MatDialog`を使用したカスタムダイアログに変更することで、より良いUXを提供できます。
+
+4. **型注釈について**: `MastersService`の重複チェックメソッドでは、`Query`型の明示的な型注釈は不要です。型推論に任せることで、コードがシンプルになります。
+
+5. **プラン種別・都道府県固定の実装**: `planType`と都道府県セレクトはテンプレート側の`[disabled]`ではなく、TS側で`form.get('planType')?.disable()`や`form.get('kyokaiPrefCode')?.disable()`を呼ぶことで、ReactiveForms的に正しく動作します。これにより、`form.value`から自動的に除外され、コード上でも「固定値」であることが明確になります。
+
+6. **プラン変更時のデータ整合性**: Office設定で`healthPlanType`を変更する際は、既存の健康保険マスタをすべて削除することで、データ整合性を保ちます。介護保険・厚生年金のマスタはプランと無関係のため、削除対象外です。
+
+---
+
+#### 6. 健康保険プラン変更時の挙動（Office設定）
+
+**対象**: `Office`ドキュメントの`healthPlanType`フィールド（`'kyokai' | 'kumiai'`）
+
+**目的**:
+- 事業所ごとの健康保険プランを「単一の真実」としてOfficeで管理する
+- プラン切替時にマスタの取り扱いを明確にすることで、データ整合性を保つ
+
+**仕様**:
+
+1. **`healthPlanType`の管理**:
+   - `healthPlanType`はOffice設定画面のみで変更可能とし、保険料率マスタ画面では`office.healthPlanType`をそのまま使用・表示する（`planType`のセレクトは`disabled`にする）
+
+2. **プラン変更時の確認ダイアログ**:
+   - Office設定画面で`healthPlanType`を変更しようとした場合、次の内容の確認ダイアログを表示する：
+     > 健康保険のプランを変更すると、現在登録されている  
+     > 「健康保険マスタ（料率・標準報酬等級）」はすべて削除されます。  
+     > 新しいプランに合わせてマスタを登録し直す必要があります。  
+     > 本当にプランを変更しますか？
+
+3. **「はい」を選択した場合**:
+   1. `Office`ドキュメントの`healthPlanType`を新しい値に更新する
+   2. `offices/{officeId}/healthRateTables`コレクション配下のドキュメントを全件削除する（`MastersService.deleteAllHealthRateTables(officeId)`を呼び出す）
+
+4. **「いいえ」を選択した場合**:
+   - `healthPlanType`の変更はキャンセルし、元の値のままとする
+
+**実装イメージ（Office設定画面側）**:
+
+```typescript
+// Office設定画面の保存処理例
+async saveOffice(office: Partial<Office>): Promise<void> {
+  const currentOffice = await firstValueFrom(this.office$);
+  if (!currentOffice) return;
+  
+  // healthPlanTypeが変更されているかチェック
+  if (office.healthPlanType && office.healthPlanType !== currentOffice.healthPlanType) {
+    const confirmed = confirm(
+      '健康保険のプランを変更すると、現在登録されている\n' +
+      '「健康保険マスタ（料率・標準報酬等級）」はすべて削除されます。\n' +
+      '新しいプランに合わせてマスタを登録し直す必要があります。\n' +
+      '本当にプランを変更しますか？'
+    );
+    
+    if (!confirmed) {
+      // 変更をキャンセル（healthPlanTypeを元の値に戻す）
+      office.healthPlanType = currentOffice.healthPlanType;
+      return;
+    }
+    
+    // 健康保険マスタをすべて削除
+    await this.mastersService.deleteAllHealthRateTables(currentOffice.id);
+  }
+  
+  // Officeドキュメントを更新
+  await this.officesService.updateOffice(currentOffice.id, office);
+}
+```
+
+**備考**:
+- 介護保険・厚生年金のマスタは事業所の健康保険プランとは独立しているため、プラン変更時に削除するのは「健康保険マスタ（healthRateTables）」のみとする
+- 将来的にプラン変更履歴や移行ロジックを実装する場合は、`healthPlanTypeChangedAt`などのフィールドを`Office`に追加する余地を残しておく
+
+---
+
+**最終更新**: 2025年12月4日
+
