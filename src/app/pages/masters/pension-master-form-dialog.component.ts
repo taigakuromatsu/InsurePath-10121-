@@ -8,11 +8,13 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { PensionRateTable, StandardRewardBand } from '../../types';
+import { PensionRateTable, StandardRewardBand, Office } from '../../types';
 import { CloudMasterService } from '../../services/cloud-master.service';
 import { PENSION_STANDARD_REWARD_BANDS_DEFAULT, getPensionRatePreset } from '../../utils/kyokai-presets';
+import { MastersService } from '../../services/masters.service';
 
 export interface PensionMasterDialogData {
+  office: Office;
   table?: PensionRateTable;
 }
 
@@ -329,6 +331,7 @@ export class PensionMasterFormDialogComponent {
   private readonly fb = inject(FormBuilder);
   private readonly dialogRef = inject(MatDialogRef<PensionMasterFormDialogComponent>);
   private readonly cloudMasterService = inject(CloudMasterService);
+  private readonly mastersService = inject(MastersService);
 
   readonly form = this.fb.group({
     effectiveYear: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
@@ -415,22 +418,55 @@ export class PensionMasterFormDialogComponent {
     await this.loadPresetFromCloud(effectiveYear, effectiveMonth);
   }
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
-    const effectiveYear = this.form.value.effectiveYear!;
-    const effectiveMonth = this.form.value.effectiveMonth!;
+    const effectiveYear = Number(this.form.value.effectiveYear!);
+    const effectiveMonth = Number(this.form.value.effectiveMonth!);
     const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
 
+    const existing = await this.mastersService.checkPensionRateTableDuplicate(
+      this.data.office.id,
+      effectiveYearMonth,
+      this.data.table?.id
+    );
+
+    if (existing && existing.id !== this.data.table?.id) {
+      const confirmed = confirm(
+        `${effectiveYear}年${effectiveMonth}月分の厚生年金マスタが既に登録されています。\n` +
+          `上書き保存しますか？\n\n` +
+          `既存の料率: ${(existing.pensionRate * 100).toFixed(2)}%`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      const payload: Partial<PensionRateTable> = {
+        effectiveYear,
+        effectiveMonth,
+        pensionRate: Number(this.form.value.pensionRate ?? 0),
+        bands: this.bands.value as StandardRewardBand[],
+        effectiveYearMonth,
+        id: existing.id
+      };
+
+      this.dialogRef.close(payload);
+      return;
+    }
+
     const payload: Partial<PensionRateTable> = {
-      ...this.form.value,
+      effectiveYear,
+      effectiveMonth,
+      pensionRate: Number(this.form.value.pensionRate ?? 0),
       bands: this.bands.value as StandardRewardBand[],
       effectiveYearMonth,
       id: this.data.table?.id
-    } as Partial<PensionRateTable>;
+    };
+
     this.dialogRef.close(payload);
   }
 }

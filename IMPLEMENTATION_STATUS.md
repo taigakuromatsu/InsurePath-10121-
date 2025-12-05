@@ -1,7 +1,7 @@
 # InsurePath 実装状況レポート
 
 **作成日**: 2025年1月  
-**最終更新**: 2025年12月（Phase3-10完了後）
+**最終更新**: 2025年12月5日（Phase3-11.ex完了後）
 
 ## 概要
 
@@ -531,52 +531,7 @@
 - `src/app/pages/employees/dependent-form-dialog.component.ts`（拡張）
 - `firestore.rules`（拡張）
 
-### (27) マイナンバー管理機能 ✅ 実装済み
-
-**実装状況**: Phase3-7完了により、マイナンバー管理機能が実装済み（e-Gov届出対応マスタ管理機能に統合）
-
-- ✅ マイナンバー管理サービス（MyNumberService）の実装
-- ✅ マイナンバーのバリデーション（12桁数字のみ、正規表現パターン統一）
-- ✅ マイナンバーのマスキング表示機能（`mask()`メソッド）
-- ✅ マイナンバーの暗号化・復号化インターフェース（`encrypt()`、`decrypt()`メソッド、現時点では簡易実装）
-- ✅ 従業員・被扶養者へのマイナンバーフィールド追加
-- ✅ FirestoreルールでのMyNumberフィールドの型チェック
-- ⚠️ 現時点では簡易実装（プレーン文字列保存）。本番運用では暗号化必須
-- ⚠️ アクセスログ記録は未実装（将来の拡張として検討）
-
-**関連ファイル**:
-- `src/app/services/mynumber.service.ts`（新規作成）
-- `src/app/types.ts`（Employee、Dependent型へのmyNumberフィールド追加）
-- `src/app/pages/employees/employee-form-dialog.component.ts`（マイナンバー入力フィールド追加）
-- `src/app/pages/employees/dependent-form-dialog.component.ts`（マイナンバー入力フィールド追加）
-- `firestore.rules`（MyNumberフィールドの型チェック追加）
-
-### (35) CSVテンプレートダウンロード機能（実装済み）
-
-**実装状況**: Phase2-7完了により、CSVテンプレートダウンロード機能が完全実装済み
-
-- ✅ CSVテンプレートダウンロード機能
-- ✅ ヘッダ行のみのテンプレートCSV出力
-- ✅ コメント行付きテンプレート（入力ルール説明）
-- ✅ 従業員台帳ページからのダウンロード
-- ✅ CSVインポートダイアログからのダウンロード
-
-**関連ファイル**:
-- `src/app/utils/csv-export.service.ts`（`exportEmployeesTemplate()`メソッド）
-- `src/app/pages/employees/employees.page.ts`（CSVテンプレートボタン追加）
-- `src/app/pages/employees/employee-import-dialog.component.ts`（テンプレートダウンロードボタン追加）
-
----
-
-## 🚧 部分実装・プレースホルダー状態
-
-（現在、部分実装の機能はありません）
-
----
-
-## ❌ 未実装機能
-
-### (23) 公的帳票（届出書）自動作成・PDF 出力機能 ✅ 実装済み（MVP）
+### (23) 公的帳票（届出書）自動作成・PDF出力機能 ✅ 実装済み（MVP）
 
 **実装状況**: Phase3-8 MVP完了により、基本的なPDF帳票生成機能が実装済み
 
@@ -794,13 +749,107 @@
 
 **注意**: 本機能は「手続きレコードに紐づける」方式ではなく、「従業員ごとの書類ボックス（ドキュメントセンター）として整理する」方式で実装されています。将来的に手続きレコードと紐づける余地を残しています。
 
-### (26) 保険料率・等級表クラウドマスタ・自動更新機能
+### (26) 保険料率・等級表クラウドマスタ・自動更新機能 ✅ 実装済み
 
-**実装状況**: 完全に未実装
+**実装状況**: Phase3-11.ex完了により、保険料率マスタのクラウドマスタ化と適用開始年月ベース管理が完全実装済み
 
-- ❌ クラウドマスタの実装
-- ❌ 事業所への自動適用機能
-- ❌ マスタ改定履歴管理
+**実装完了内容**:
+1. ✅ **クラウドマスタの実装**
+   - `CloudHealthRateTable`、`CloudCareRateTable`、`CloudPensionRateTable`型の定義
+   - `CloudMasterService`の実装（CRUD操作、プリセット取得）
+   - クラウドマスタ管理画面（`/cloud-masters`、admin専用）
+   - 適用開始年月ベースの管理（`effectiveYear`、`effectiveMonth`、`effectiveYearMonth`）
+   - ID形式: 健康保険は`"{effectiveYearMonth}_{prefCode}"`、介護・厚生年金は`"{effectiveYearMonth}"`
+
+2. ✅ **事業所マスタへの自動適用機能**
+   - 新規作成時にクラウドマスタから自動的に初期値を取得
+   - 健康保険: 都道府県選択時に自動取得
+   - 介護保険・厚生年金: フォーム初期化時に自動取得
+   - 「プリセットを読み込む」ボタンで手動再取得も可能
+   - フォールバック機能（クラウドマスタ未登録時はハードコードプリセットを使用）
+
+3. ✅ **適用開始年月ベースの管理**
+   - 年度ベースから適用開始年月ベースへの全面移行
+   - 「対象月に有効な最新マスタ」を自動選択するロジック
+   - 月次保険料・賞与保険料の計算ロジックを統一
+   - 年度途中改定（例：2025年3月改定）への対応
+
+4. ✅ **重複登録防止機能**
+   - 同じ適用年月・プラン種別・都道府県（または組合）のマスタ登録時の重複チェック
+   - 重複検出時の確認ダイアログ（上書き保存の選択）
+
+5. ✅ **都道府県固定機能（協会けんぽ）**
+   - 事業所設定の都道府県を強制選択（フォームで変更不可）
+   - データ整合性の確保
+
+6. ✅ **プラン種別固定機能**
+   - 事業所設定の`healthPlanType`を唯一の真実として固定
+   - プラン変更時の健康保険マスタ一括削除機能
+   - Office設定画面でのプラン変更確認ダイアログ
+
+**関連ファイル**:
+- `src/app/types.ts`（`CloudHealthRateTable`、`CloudCareRateTable`、`CloudPensionRateTable`型追加、`effectiveYear`/`effectiveMonth`/`effectiveYearMonth`フィールド追加）
+- `src/app/services/cloud-master.service.ts`（新規作成）
+- `src/app/services/masters.service.ts`（適用開始年月ベースのロジックに変更、重複チェックメソッド追加、`deleteAllHealthRateTables`メソッド追加）
+- `src/app/pages/cloud-masters/cloud-masters.page.ts`（新規作成、admin専用）
+- `src/app/pages/cloud-masters/cloud-health-master-form-dialog.component.ts`（新規作成）
+- `src/app/pages/cloud-masters/cloud-care-master-form-dialog.component.ts`（新規作成）
+- `src/app/pages/cloud-masters/cloud-pension-master-form-dialog.component.ts`（新規作成）
+- `src/app/pages/masters/masters.page.ts`（適用開始年月ベースの表示に変更、ページタイトルを「保険料率管理」に変更）
+- `src/app/pages/masters/health-master-form-dialog.component.ts`（適用開始年月ベースに変更、重複チェック追加、都道府県固定、プラン種別固定）
+- `src/app/pages/masters/care-master-form-dialog.component.ts`（適用開始年月ベースに変更、重複チェック追加）
+- `src/app/pages/masters/pension-master-form-dialog.component.ts`（適用開始年月ベースに変更、重複チェック追加）
+- `src/app/pages/offices/offices.page.ts`（プラン変更時の確認ダイアログと健康保険マスタ一括削除機能追加）
+- `src/app/utils/kyokai-presets.ts`（`year`フィールド削除、`effectiveYear`/`effectiveMonth`対応）
+- `firestore.rules`（`cloudHealthRateTables`、`cloudCareRateTables`、`cloudPensionRateTables`コレクションのルール追加）
+- `storage.rules`（クラウドマスタ用のルール追加）
+- `src/app/app.routes.ts`（`/cloud-masters`ルート追加）
+- `src/app/app.ts`（サイドメニューに「クラウドマスタ管理」追加、admin専用、「マスタ管理」→「保険料率管理」に変更）
+
+### (27) マイナンバー管理機能 ✅ 実装済み
+
+**実装状況**: Phase3-7完了により、マイナンバー管理機能が実装済み（e-Gov届出対応マスタ管理機能に統合）
+
+- ✅ マイナンバー管理サービス（MyNumberService）の実装
+- ✅ マイナンバーのバリデーション（12桁数字のみ、正規表現パターン統一）
+- ✅ マイナンバーのマスキング表示機能（`mask()`メソッド）
+- ✅ マイナンバーの暗号化・復号化インターフェース（`encrypt()`、`decrypt()`メソッド、現時点では簡易実装）
+- ✅ 従業員・被扶養者へのマイナンバーフィールド追加
+- ✅ FirestoreルールでのMyNumberフィールドの型チェック
+- ⚠️ 現時点では簡易実装（プレーン文字列保存）。本番運用では暗号化必須
+- ⚠️ アクセスログ記録は未実装（将来の拡張として検討）
+
+**関連ファイル**:
+- `src/app/services/mynumber.service.ts`（新規作成）
+- `src/app/types.ts`（Employee、Dependent型へのmyNumberフィールド追加）
+- `src/app/pages/employees/employee-form-dialog.component.ts`（マイナンバー入力フィールド追加）
+- `src/app/pages/employees/dependent-form-dialog.component.ts`（マイナンバー入力フィールド追加）
+- `firestore.rules`（MyNumberフィールドの型チェック追加）
+
+### (35) CSVテンプレートダウンロード機能（実装済み）
+
+**実装状況**: Phase2-7完了により、CSVテンプレートダウンロード機能が完全実装済み
+
+- ✅ CSVテンプレートダウンロード機能
+- ✅ ヘッダ行のみのテンプレートCSV出力
+- ✅ コメント行付きテンプレート（入力ルール説明）
+- ✅ 従業員台帳ページからのダウンロード
+- ✅ CSVインポートダイアログからのダウンロード
+
+**関連ファイル**:
+- `src/app/utils/csv-export.service.ts`（`exportEmployeesTemplate()`メソッド）
+- `src/app/pages/employees/employees.page.ts`（CSVテンプレートボタン追加）
+- `src/app/pages/employees/employee-import-dialog.component.ts`（テンプレートダウンロードボタン追加）
+
+---
+
+## 🚧 部分実装・プレースホルダー状態
+
+（現在、部分実装の機能はありません）
+
+---
+
+## ❌ 未実装機能
 
 ### (28) 多言語対応機能
 
@@ -859,12 +908,12 @@
 | 基本機能 | 3 | 0 | 0 | 3 |
 | 管理機能 | 12 | 0 | 0 | 12 |
 | 計算・表示機能 | 8 | 0 | 0 | 8 |
-| その他機能 | 3 | 0 | 6 | 9 |
-| **合計** | **27** | **0** | **6** | **33** |
+| その他機能 | 7 | 0 | 5 | 12 |
+| **合計** | **28** | **0** | **5** | **33** |
 
-**実装率**: 約82%（完全実装のみ）
+**実装率**: 約85%（完全実装のみ）
 
-**注**: Phase3-10まで完了し、実装済み機能は27件（(1)～(25), (27), (35)）です。残り6機能（(26), (28)～(30), (32)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。
+**注**: Phase3-11.exまで完了し、実装済み機能は28件（(1)～(27), (35)）です。残り5機能（(28)～(30), (32)～(34)）の多くは将来拡張として位置づけられており、現時点では未実装です。((31) 外部給与システム連携（CSV）機能は不採用のため除外)
 
 **最新更新**: 
 - Phase1-2完了により、従業員台帳機能の資格情報・就業状態管理が追加実装されました。
@@ -896,6 +945,7 @@
 - Phase3-8 MVP完了により、公的帳票（届出書）自動作成・PDF出力機能が実装されました。PDF生成サービス（DocumentGeneratorService）、帳票テンプレート（資格取得届・資格喪失届・賞与支払届の3種類）、日本語フォント対応（Noto Sans JP）、帳票生成ダイアログコンポーネント、従業員詳細ダイアログからの帳票生成ボタン、賞与保険料画面からの帳票生成ボタン、バリデーション機能（致命的必須項目・通常必須項目・任意項目の3段階分類）が実装されました。本機能は「参考様式」として位置づけられており、生成されたPDFは印刷して手書き修正や、e-Gov入力時の参照用として利用することを想定しています。算定基礎届・月額変更届・被扶養者異動届、一括PDF生成、帳票履歴管理機能は将来拡張（Phase4以降）として設計のみ行っています。
 - Phase3-9（追加）完了により、従業員セルフ入力・手続き申請フロー機能が完全実装されました。プロフィール変更申請機能（Phase3-3で実装済み）、扶養家族申請機能（追加・変更・削除の3種類のフォーム）、申請種別選択ダイアログ、被扶養者選択ダイアログ、申請一覧画面の拡張、自動反映機能（プロフィール変更申請と扶養家族申請の両方で承認時に台帳データへ自動反映）、マイページの拡張（申請履歴セクション、扶養家族カードの改善）、型定義の整理（`ChangeRequest.field`の型整理、レガシー値`'other'`の扱い明確化）、ラベル変換の統一、Firestoreセキュリティルール、UX改善（`window.alert`/`window.confirm`をAngular Materialに統一、`undefined`フィールドの除去処理）が実装されました。従業員本人がマイページからプロフィール変更や扶養家族の追加・変更・削除を申請し、管理者・担当者が承認・却下できるワークフローが完成しました。
 - Phase3-10完了により、書類管理機能（ドキュメントセンター＆添付ファイル管理）が完全実装されました。型定義（`DocumentCategory`、`DocumentAttachment`、`DocumentRequest`）、StorageService（ファイルアップロード・ダウンロード・プレビュー・削除）、DocumentsService（CRUD操作）、ドキュメントセンター画面（2カラムレイアウト、従業員ごとの書類・依頼一覧）、書類アップロード依頼作成ダイアログ、管理者直接アップロードダイアログ、従業員アップロードダイアログ、マイページの拡張（書類アップロード依頼セクション）、ラベル変換関数、ルーティングとサイドメニュー、Firestoreセキュリティルール、Storageセキュリティルールが実装されました。管理者・人事担当者が従業員に対して書類提出を依頼し、従業員本人がマイページから書類をアップロードできる機能が完成しました。本機能は「手続きレコードに紐づける」方式ではなく、「従業員ごとの書類ボックス（ドキュメントセンター）として整理する」方式で実装されています。
+- Phase3-11.ex完了（2025年12月5日）により、保険料率マスタのクラウドマスタ化と適用開始年月ベース管理が完全実装されました。クラウドマスタの実装（`CloudMasterService`、クラウドマスタ管理画面）、事業所マスタへの自動適用機能、適用開始年月ベースの管理（年度ベースから全面移行）、重複登録防止機能、都道府県固定機能（協会けんぽ）、プラン種別固定機能が実装されました。年度途中改定（例：2025年3月改定）に対応し、月次保険料・賞与保険料の計算ロジックが「対象月に有効な最新マスタ」を自動選択する仕組みに統一されました。
 
 ---
 

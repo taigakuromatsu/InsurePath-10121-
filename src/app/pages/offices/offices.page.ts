@@ -12,6 +12,7 @@ import { Subscription } from 'rxjs';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { OfficesService } from '../../services/offices.service';
+import { MastersService } from '../../services/masters.service';
 import { HealthPlanType, Office } from '../../types';
 
 @Component({
@@ -301,9 +302,11 @@ export class OfficesPage implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly officesService = inject(OfficesService);
+  private readonly mastersService = inject(MastersService);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly loading = signal(false);
+  private currentOfficeValue: Office | null = null;
   form = this.fb.group({
     id: [''],
     name: ['', Validators.required],
@@ -328,6 +331,7 @@ export class OfficesPage implements OnDestroy {
       if (!office) {
         return;
       }
+      this.currentOfficeValue = office;
       this.form.patchValue(office);
     });
   }
@@ -354,27 +358,49 @@ export class OfficesPage implements OnDestroy {
       return trimmed === '' ? null : trimmed;
     };
 
-    const office: Office = {
+    const office = {
       id: formValue.id,
       name: formValue.name ?? '',
-      address: normalizeString(formValue.address) ?? undefined,
+      address: normalizeString(formValue.address),
       healthPlanType: (formValue.healthPlanType as HealthPlanType) ?? 'kyokai',
-      kyokaiPrefCode: normalizeString(formValue.kyokaiPrefCode) ?? undefined,
-      kyokaiPrefName: normalizeString(formValue.kyokaiPrefName) ?? undefined,
-      unionName: normalizeString(formValue.unionName) ?? undefined,
-      unionCode: normalizeString(formValue.unionCode) ?? undefined,
-      officeSymbol: normalizeString(formValue.officeSymbol) ?? undefined,
-      officeNumber: normalizeString(formValue.officeNumber) ?? undefined,
-      officeCityCode: normalizeString(formValue.officeCityCode) ?? undefined,
-      officePostalCode: normalizeString(formValue.officePostalCode) ?? undefined,
-      officePhone: normalizeString(formValue.officePhone) ?? undefined,
-      officeOwnerName: normalizeString(formValue.officeOwnerName) ?? undefined
-    };
+      kyokaiPrefCode: normalizeString(formValue.kyokaiPrefCode),
+      kyokaiPrefName: normalizeString(formValue.kyokaiPrefName),
+      unionName: normalizeString(formValue.unionName),
+      unionCode: normalizeString(formValue.unionCode),
+      officeSymbol: normalizeString(formValue.officeSymbol),
+      officeNumber: normalizeString(formValue.officeNumber),
+      officeCityCode: normalizeString(formValue.officeCityCode),
+      officePostalCode: normalizeString(formValue.officePostalCode),
+      officePhone: normalizeString(formValue.officePhone),
+      officeOwnerName: normalizeString(formValue.officeOwnerName)
+    } as Office;
 
     try {
       this.loading.set(true);
+      // プラン変更チェック
+      const previousPlan = this.currentOfficeValue?.healthPlanType;
+      if (previousPlan && previousPlan !== office.healthPlanType) {
+        const confirmed = confirm(
+          '健康保険のプランを変更すると、現在登録されている\n' +
+            '「健康保険マスタ（料率・標準報酬等級）」はすべて削除されます。\n' +
+            '新しいプランに合わせてマスタを登録し直す必要があります。\n' +
+            '本当にプランを変更しますか？'
+        );
+        if (!confirmed) {
+          // 変更をキャンセル
+          office.healthPlanType = previousPlan;
+          this.form.patchValue({ healthPlanType: previousPlan });
+          this.loading.set(false);
+          return;
+        }
+        await this.mastersService.deleteAllHealthRateTables(office.id);
+      }
+
       await this.officesService.saveOffice(office);
       this.snackBar.open('事業所情報を保存しました', '閉じる', { duration: 3000 });
+    } catch (e) {
+      console.error(e);
+      this.snackBar.open('事業所情報の保存に失敗しました', '閉じる', { duration: 3000 });
     } finally {
       this.loading.set(false);
     }

@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  writeBatch,
   limit,
   orderBy,
   query,
@@ -109,6 +110,104 @@ export class MastersService {
     ) as HealthRateTable;
 
     await setDoc(ref, cleanPayload, { merge: true });
+  }
+
+  /**
+   * 健康保険マスタの重複チェック
+   * 同じeffectiveYearMonth + planType + (kyokaiPrefCode or unionCode)のマスタが存在するか確認
+   */
+  async checkHealthRateTableDuplicate(
+    officeId: string,
+    effectiveYearMonth: number,
+    planType: 'kyokai' | 'kumiai',
+    kyokaiPrefCode?: string,
+    unionCode?: string,
+    excludeId?: string
+  ): Promise<HealthRateTable | null> {
+    const ref = this.getHealthCollectionRef(officeId);
+    let q;
+
+    if (planType === 'kyokai' && kyokaiPrefCode) {
+      q = query(
+        ref,
+        where('effectiveYearMonth', '==', effectiveYearMonth),
+        where('planType', '==', 'kyokai'),
+        where('kyokaiPrefCode', '==', kyokaiPrefCode)
+      );
+    } else if (planType === 'kumiai') {
+      q = query(
+        ref,
+        where('effectiveYearMonth', '==', effectiveYearMonth),
+        where('planType', '==', 'kumiai')
+      );
+      if (unionCode) {
+        q = query(q, where('unionCode', '==', unionCode));
+      }
+    } else {
+      return null;
+    }
+
+    const snapshot = await firstValueFrom(from(getDocs(q)));
+    const existing = snapshot.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) } as HealthRateTable))
+      .find((t) => !excludeId || t.id !== excludeId);
+
+    return existing || null;
+  }
+
+  /**
+   * 介護保険マスタの重複チェック
+   */
+  async checkCareRateTableDuplicate(
+    officeId: string,
+    effectiveYearMonth: number,
+    excludeId?: string
+  ): Promise<CareRateTable | null> {
+    const ref = this.getCareCollectionRef(officeId);
+    const q = query(ref, where('effectiveYearMonth', '==', effectiveYearMonth));
+
+    const snapshot = await firstValueFrom(from(getDocs(q)));
+    const existing = snapshot.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) } as CareRateTable))
+      .find((t) => !excludeId || t.id !== excludeId);
+
+    return existing || null;
+  }
+
+  /**
+   * 厚生年金マスタの重複チェック
+   */
+  async checkPensionRateTableDuplicate(
+    officeId: string,
+    effectiveYearMonth: number,
+    excludeId?: string
+  ): Promise<PensionRateTable | null> {
+    const ref = this.getPensionCollectionRef(officeId);
+    const q = query(ref, where('effectiveYearMonth', '==', effectiveYearMonth));
+
+    const snapshot = await firstValueFrom(from(getDocs(q)));
+    const existing = snapshot.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) } as PensionRateTable))
+      .find((t) => !excludeId || t.id !== excludeId);
+
+    return existing || null;
+  }
+
+  /**
+   * 健康保険マスタをすべて削除する（プラン変更時などに使用）
+   */
+  async deleteAllHealthRateTables(officeId: string): Promise<void> {
+    const ref = this.getHealthCollectionRef(officeId);
+    const snapshot = await firstValueFrom(from(getDocs(ref)));
+
+    if (snapshot.empty) return;
+
+    const batch = writeBatch(this.firestore);
+    snapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+
+    await batch.commit();
   }
 
   async deleteHealthRateTable(officeId: string, id: string): Promise<void> {

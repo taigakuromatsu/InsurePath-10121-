@@ -636,7 +636,7 @@ export class MastersPage {
     try {
       const office = await this.requireOffice();
       const ref = this.dialog.open(CareMasterFormDialogComponent, {
-        data: { table },
+        data: { office, table },
         width: '600px'
       });
       const result = await firstValueFrom(ref.afterClosed());
@@ -665,7 +665,7 @@ export class MastersPage {
     try {
       const office = await this.requireOffice();
       const ref = this.dialog.open(PensionMasterFormDialogComponent, {
-        data: { table },
+        data: { office, table },
         width: '960px'
       });
       const result = await firstValueFrom(ref.afterClosed());

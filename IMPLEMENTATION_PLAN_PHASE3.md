@@ -1,9 +1,9 @@
 # Phase3 実装計画
 
 **作成日**: 2025年11月28日  
-**最終更新**: 2025年12月（Phase3-10完了後）  
+**最終更新**: 2025年12月5日（Phase3-11.ex完了後）  
 **目標完了日**: 2025年12月10日  
-**残り日数**: 約7日間（Phase3-1からPhase3-9（追加）まで完了済み、残り9機能）
+**残り日数**: 約5日間（Phase3-1からPhase3-11.exまで完了済み、残り5機能）
 
 ---
 
@@ -34,7 +34,7 @@
 
 ## 🎯 Phase3の実装方針
 
-Phase3では、**12月10日までの完成を目指し、残り10機能すべてを実装**します（Phase3-1からPhase3-8 MVPまで完了済み）。
+Phase3では、**12月10日までの完成を目指し、残り5機能すべてを実装**します（Phase3-1からPhase3-11.exまで完了済み）。
 
 ### Phase3の目標
 1. **基本機能の完成**: 部分実装されている機能を完成させる
@@ -44,7 +44,7 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 
 ---
 
-## 📋 Phase3の実装フェーズ（残り9機能）
+## 📋 Phase3の実装フェーズ（残り5機能）
 
 ### Phase3-1: 従業員情報の最終更新者・更新日時表示機能の完成 ✅ 実装完了
 
@@ -623,59 +623,83 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 
 ---
 
-### Phase3-11: 保険料率・等級表クラウドマスタ・自動更新機能 📋 未実装（優先度：低）
+### Phase3-11: 保険料率・等級表クラウドマスタ・自動更新機能 ✅ 実装完了
 
-**優先度**: 🟢 低（拡張機能）  
+**優先度**: 🟡 中（年度途中改定対応のため重要）  
 **依存関係**: Phase1-5  
 **目標完了日**: 2025年12月5日
+**完了日**: 2025年12月（Phase3-11.ex完了）
 
-**目的**: 協会けんぽおよび厚生年金などの全国共通マスタについて、システム全体で共有する「クラウドマスタ」として保険料率・等級表を一元管理できるようにする。システム管理者がクラウドマスタを更新すると、協会けんぽの全事務所の初期値が自動的に更新される。
+**目的**: 協会けんぽおよび厚生年金などの全国共通マスタについて、システム全体で共有する「クラウドマスタ」として保険料率・等級表を一元管理できるようにする。システム管理者がクラウドマスタを更新すると、協会けんぽの全事務所の初期値が自動的に更新される。また、年度途中改定（例：2025年3月改定）に対応するため、管理単位を「年度」から「適用開始年月」に全面移行する。
 
-**実装予定内容**:
+**実装完了内容**:
 
-1. **クラウドマスタのデータ構造**
-   - Firestoreコレクション: `cloudMasters/healthRateTables/{year}_{prefCode}`（年度+都道府県コードで管理）
-   - Firestoreコレクション: `cloudMasters/careRateTables/{year}`（年度で管理、全国一律）
-   - Firestoreコレクション: `cloudMasters/pensionRateTables/{year}`（年度で管理、全国一律）
-   - 都道府県別の健康保険料率も年度ごとにクラウドマスタで管理（全47都道府県分）
+1. ✅ **クラウドマスタのデータ構造**
+   - Firestoreコレクション: `cloudHealthRateTables/{effectiveYearMonth}_{prefCode}`（適用開始年月+都道府県コードで管理）
+   - Firestoreコレクション: `cloudCareRateTables/{effectiveYearMonth}`（適用開始年月で管理、全国一律）
+   - Firestoreコレクション: `cloudPensionRateTables/{effectiveYearMonth}`（適用開始年月で管理、全国一律）
+   - 都道府県別の健康保険料率も適用開始年月ごとにクラウドマスタで管理（全47都道府県分）
 
-2. **CloudMasterServiceの実装**
-   - クラウドマスタの取得メソッド（年度・都道府県コード指定）
+2. ✅ **CloudMasterServiceの実装**
+   - クラウドマスタの取得メソッド（適用開始年月・都道府県コード指定）
    - クラウドマスタの更新メソッド（システム管理者用）
-   - 事業所マスタへの初期値取得メソッド（クラウドマスタから取得）
+   - 事業所マスタへの初期値取得メソッド（クラウドマスタから取得、「対象月に有効な最新マスタ」を自動選択）
 
-3. **マスタフォームダイアログの拡張**
+3. ✅ **マスタフォームダイアログの拡張**
    - **新規作成時**: クラウドマスタから自動的に初期値を取得して設定（ボタン操作不要）
      - 健康保険: 都道府県選択時（`onPrefChange()`）に自動取得
      - 介護保険・厚生年金: フォーム初期化時（`constructor`）に自動取得
    - **編集時**: 既存データを表示（自動更新しない）
      - 「プリセットを読み込む」ボタンでクラウドマスタから初期値を再取得（上書き）
 
-4. **都道府県別データの実装**
-   - 全47都道府県分の健康保険料率データをクラウドマスタに登録
-   - `kyokai-presets.ts`のハードコードされたデータは、クラウドマスタ取得失敗時のフォールバック用として保持
+4. ✅ **適用開始年月ベースの管理**
+   - 年度ベースから適用開始年月ベースへの全面移行
+   - `effectiveYear`、`effectiveMonth`、`effectiveYearMonth`フィールドの追加
+   - 「対象月に有効な最新マスタ」を自動選択するロジック
+   - 月次保険料・賞与保険料の計算ロジックを統一
 
-5. **クラウドマスタ管理画面（システム管理者用）**
+5. ✅ **重複登録防止機能**
+   - 同じ適用年月・プラン種別・都道府県（または組合）のマスタ登録時の重複チェック
+   - 重複検出時の確認ダイアログ（上書き保存の選択）
+
+6. ✅ **都道府県固定機能（協会けんぽ）**
+   - 事業所設定の都道府県を強制選択（フォームで変更不可）
+   - データ整合性の確保
+
+7. ✅ **プラン種別固定機能**
+   - 事業所設定の`healthPlanType`を唯一の真実として固定
+   - プラン変更時の健康保険マスタ一括削除機能
+   - Office設定画面でのプラン変更確認ダイアログ
+
+8. ✅ **クラウドマスタ管理画面（システム管理者用）**
    - 新規ページ: `/cloud-masters`（admin専用）
    - クラウドマスタの一覧表示・編集・削除
-   - 年度別・都道府県別の健康保険料率管理
-   - 年度別の介護保険料率・厚生年金保険料率管理
+   - 適用開始年月別・都道府県別の健康保険料率管理
+   - 適用開始年月別の介護保険料率・厚生年金保険料率管理
+   - 協会けんぽ都道府県別ひな形一括登録機能
 
-6. **Firestoreセキュリティルール**
+9. ✅ **Firestoreセキュリティルール**
    - クラウドマスタの読み取り: 全認証ユーザーが閲覧可能
    - クラウドマスタの作成・更新・削除: adminロールのみ（システム管理者が更新可能）
 
-**実装予定ファイル**:
-- `src/app/types.ts`（`CloudHealthRateTable`、`CloudCareRateTable`、`CloudPensionRateTable`型追加）
+**実装ファイル**:
+- `src/app/types.ts`（`CloudHealthRateTable`、`CloudCareRateTable`、`CloudPensionRateTable`型追加、`effectiveYear`/`effectiveMonth`/`effectiveYearMonth`フィールド追加）
 - `src/app/services/cloud-master.service.ts`（新規作成）
-- `src/app/pages/masters/health-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加）
-- `src/app/pages/masters/care-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加）
-- `src/app/pages/masters/pension-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加）
+- `src/app/services/masters.service.ts`（適用開始年月ベースのロジックに変更、重複チェックメソッド追加、`deleteAllHealthRateTables`メソッド追加）
+- `src/app/pages/masters/health-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加、適用開始年月ベースに変更、重複チェック追加、都道府県固定、プラン種別固定）
+- `src/app/pages/masters/care-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加、適用開始年月ベースに変更、重複チェック追加）
+- `src/app/pages/masters/pension-master-form-dialog.component.ts`（クラウドマスタからの自動取得機能追加、適用開始年月ベースに変更、重複チェック追加）
 - `src/app/pages/cloud-masters/cloud-masters.page.ts`（新規作成、システム管理者用）
-- `src/app/utils/kyokai-presets.ts`（全47都道府県データ追加、フォールバック用として保持）
-- `firestore.rules`（`cloudMasters`コレクションのルール追加）
+- `src/app/pages/cloud-masters/cloud-health-master-form-dialog.component.ts`（新規作成）
+- `src/app/pages/cloud-masters/cloud-care-master-form-dialog.component.ts`（新規作成）
+- `src/app/pages/cloud-masters/cloud-pension-master-form-dialog.component.ts`（新規作成）
+- `src/app/pages/masters/masters.page.ts`（適用開始年月ベースの表示に変更、ページタイトルを「保険料率管理」に変更）
+- `src/app/pages/offices/offices.page.ts`（プラン変更時の確認ダイアログと健康保険マスタ一括削除機能追加）
+- `src/app/utils/kyokai-presets.ts`（`year`フィールド削除、`effectiveYear`/`effectiveMonth`対応）
+- `firestore.rules`（`cloudHealthRateTables`、`cloudCareRateTables`、`cloudPensionRateTables`コレクションのルール追加）
+- `storage.rules`（クラウドマスタ用のルール追加）
 - `src/app/app.routes.ts`（`/cloud-masters`ルート追加）
-- `src/app/app.ts`（サイドメニューに「クラウドマスタ管理」追加、admin専用）
+- `src/app/app.ts`（サイドメニューに「クラウドマスタ管理」追加、admin専用、「マスタ管理」→「保険料率管理」に変更）
 
 ---
 
@@ -810,7 +834,7 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 
 ---
 
-## 📅 Phase3の実装スケジュール（12日間：Phase3-1からPhase3-7まで完了済み）
+## 📅 Phase3の実装スケジュール（Phase3-1からPhase3-11.exまで完了済み、残り5機能）
 
 ### 11月28日（金）- Day 1 ✅ 完了
 - ✅ **Phase3-1**: 従業員情報の最終更新者・更新日時表示機能
@@ -836,22 +860,24 @@ Phase3では、**12月10日までの完成を目指し、残り10機能すべて
 
 ### 12月4日（木）- Day 7 ✅ 完了
 - ✅ **Phase3-10**: 社会保険手続き用添付書類管理機能（書類管理機能（ドキュメントセンター＆添付ファイル管理）実装完了）
-- **Phase3-11**: 保険料率・等級表クラウドマスタ・自動更新機能
+- ✅ **Phase3-11**: 保険料率・等級表クラウドマスタ・自動更新機能（Phase3-11.ex完了、適用開始年月ベース管理実装完了）
 
-### 12月5日（金）- Day 8
-- **Phase3-13**: 社会保険情報の異常値チェック・ギャップ検知機能
-- **Phase3-14**: 手続きタスクの期限別ビュー・簡易アラート機能
+### 12月5日（金）- Day 8 ✅ 完了
+- ✅ **Phase3-11**: 保険料率・等級表クラウドマスタ・自動更新機能（Phase3-11.ex完了、適用開始年月ベース管理実装完了）
 
 ### 12月6日（土）- Day 9
+- **Phase3-13**: 社会保険情報の異常値チェック・ギャップ検知機能
+- **Phase3-14**: 手続きタスクの期限別ビュー・簡易アラート機能
 - **Phase3-15**: 口座情報・給与情報管理機能
 
 ### 12月7日（日）- Day 10
 - **Phase3-16**: 入社手続きフロー・入社チェックリスト機能
 - **Phase3-17**: 年末調整・確定申告用社会保険料集計・エクスポート機能
 
+
 ### 12月8日（月）- Day 11
-- **Phase3-12**: 多言語対応機能
 - **最終確認・テスト**: 残り時間で最終確認とテスト
+- **バグ修正・調整**
 
 ### 12月9日（火）- Day 12
 - **最終確認・テスト**: 残り時間で最終確認とテスト

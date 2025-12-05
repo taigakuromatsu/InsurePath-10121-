@@ -1118,6 +1118,13 @@ function getStatusLabel(
 
 **ファイル**: `src/app/services/masters.service.ts`
 
+**実装手順**:
+1. `checkHealthRateTableDuplicate`メソッドを追加
+2. `checkCareRateTableDuplicate`メソッドを追加
+3. `checkPensionRateTableDuplicate`メソッドを追加
+4. `deleteAllHealthRateTables`メソッドを追加
+5. 必要なインポート（`writeBatch`、`firstValueFrom`、`from`、`getDocs`、`query`、`where`）を確認
+
 **追加メソッド**:
 
 ##### 1-1. 重複チェックメソッド
@@ -1266,6 +1273,26 @@ async deleteAllHealthRateTables(officeId: string): Promise<void> {
    - 重複がある場合、確認ダイアログを表示
    - 「はい」を選択した場合、既存マスタのIDで上書き保存
 
+**実装手順**:
+
+1. **コンストラクタの変更**:
+   - `planType`を`data.office.healthPlanType`から取得し、フォームに設定
+   - `planType`コントロールを`disable()`する
+   - 協会けんぽの場合、都道府県を`data.office`から取得し、フォームに設定
+   - 都道府県コントロールを`disable()`する
+   - 都道府県が未設定の場合、エラーメッセージを表示してダイアログを閉じる
+
+2. **`submit()`メソッドの変更**:
+   - フォームバリデーション
+   - `planType`と都道府県情報を`data.office`から取得（`form.value`ではなく）
+   - `effectiveYearMonth`を計算
+   - `MastersService.checkHealthRateTableDuplicate`を呼び出して重複チェック
+   - 重複がある場合、確認ダイアログを表示
+   - 「はい」を選択した場合、既存マスタのIDで上書き保存
+   - 「いいえ」を選択した場合、保存をキャンセル
+   - 重複がない場合、通常通り保存
+   - `payload`に`planType`と都道府県情報を`data.office`から設定
+
 **実装例**:
 
 ```typescript
@@ -1394,7 +1421,7 @@ async submit(): Promise<void> {
 
 ---
 
-#### 4. MastersPageの変更（介護・厚生年金ダイアログにofficeを渡す）
+#### 3. MastersPageの変更（介護・厚生年金ダイアログにofficeを渡す）
 
 **ファイル**: `src/app/pages/masters/masters.page.ts`
 
@@ -1442,13 +1469,21 @@ async openPensionDialog(table?: PensionRateTable): Promise<void> {
 
 ---
 
-#### 5. 介護保険マスタフォームダイアログの変更
+#### 4. 介護保険マスタフォームダイアログの変更
 
 **ファイル**: `src/app/pages/masters/care-master-form-dialog.component.ts`
 
 **変更点**: 
 - `CareMasterDialogData`インターフェースに`office: Office`を追加
 - `submit()`メソッドで重複チェックと上書き確認を追加
+
+**実装手順**:
+1. `CareMasterDialogData`インターフェースに`office: Office`を追加
+2. `submit()`メソッドの冒頭で`effectiveYearMonth`を計算
+3. `MastersService.checkCareRateTableDuplicate`を呼び出して重複チェック
+4. 重複がある場合、確認ダイアログを表示
+5. 「はい」を選択した場合、既存マスタのIDで上書き保存
+6. 「いいえ」を選択した場合、保存をキャンセル
 
 **実装例**:
 
@@ -1510,13 +1545,21 @@ async submit(): Promise<void> {
 
 ---
 
-#### 6. 厚生年金マスタフォームダイアログの変更
+#### 5. 厚生年金マスタフォームダイアログの変更
 
 **ファイル**: `src/app/pages/masters/pension-master-form-dialog.component.ts`
 
 **変更点**: 
 - `PensionMasterDialogData`インターフェースに`office: Office`を追加
 - `submit()`メソッドで重複チェックと上書き確認を追加
+
+**実装手順**:
+1. `PensionMasterDialogData`インターフェースに`office: Office`を追加
+2. `submit()`メソッドの冒頭で`effectiveYearMonth`を計算
+3. `MastersService.checkPensionRateTableDuplicate`を呼び出して重複チェック
+4. 重複がある場合、確認ダイアログを表示
+5. 「はい」を選択した場合、既存マスタのIDで上書き保存
+6. 「いいえ」を選択した場合、保存をキャンセル
 
 **実装例**:
 
@@ -1628,7 +1671,7 @@ async submit(): Promise<void> {
 
 ---
 
-#### 6. 健康保険プラン変更時の挙動（Office設定）
+#### 7. 健康保険プラン変更時の挙動（Office設定）
 
 **対象**: `Office`ドキュメントの`healthPlanType`フィールド（`'kyokai' | 'kumiai'`）
 
@@ -1654,6 +1697,17 @@ async submit(): Promise<void> {
 
 4. **「いいえ」を選択した場合**:
    - `healthPlanType`の変更はキャンセルし、元の値のままとする
+
+**実装手順**:
+1. Office設定画面の保存処理（`saveOffice`など）を特定
+2. 保存前に`healthPlanType`が変更されているかチェック
+3. 変更されている場合、確認ダイアログを表示
+4. 「はい」を選択した場合：
+   - `MastersService.deleteAllHealthRateTables(officeId)`を呼び出す
+   - `Office`ドキュメントの`healthPlanType`を更新
+5. 「いいえ」を選択した場合：
+   - `healthPlanType`を元の値に戻す
+   - 保存処理を中断
 
 **実装イメージ（Office設定画面側）**:
 

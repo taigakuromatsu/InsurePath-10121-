@@ -8,12 +8,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { NgFor } from '@angular/common';
 
-import { CareRateTable } from '../../types';
+import { CareRateTable, Office } from '../../types';
 import { CloudMasterService } from '../../services/cloud-master.service';
 import { getCareRatePreset } from '../../utils/kyokai-presets';
+import { MastersService } from '../../services/masters.service';
 
 
 export interface CareMasterDialogData {
+  office: Office;
   table?: CareRateTable;
 }
 
@@ -190,6 +192,7 @@ export class CareMasterFormDialogComponent {
   private readonly fb = inject(FormBuilder);
   private readonly dialogRef = inject(MatDialogRef<CareMasterFormDialogComponent>);
   private readonly cloudMasterService = inject(CloudMasterService);
+  private readonly mastersService = inject(MastersService);
 
   readonly form = this.fb.group({
     effectiveYear: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
@@ -250,21 +253,52 @@ export class CareMasterFormDialogComponent {
     await this.loadPresetFromCloud(effectiveYear, effectiveMonth);
   }
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
-    const effectiveYear = this.form.value.effectiveYear!;
-    const effectiveMonth = this.form.value.effectiveMonth!;
+    const effectiveYear = Number(this.form.value.effectiveYear!);
+    const effectiveMonth = Number(this.form.value.effectiveMonth!);
     const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
 
+    const existing = await this.mastersService.checkCareRateTableDuplicate(
+      this.data.office.id,
+      effectiveYearMonth,
+      this.data.table?.id
+    );
+
+    if (existing && existing.id !== this.data.table?.id) {
+      const confirmed = confirm(
+        `${effectiveYear}年${effectiveMonth}月分の介護保険マスタが既に登録されています。\n` +
+          `上書き保存しますか？\n\n` +
+          `既存の料率: ${(existing.careRate * 100).toFixed(2)}%`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      const payload: Partial<CareRateTable> = {
+        effectiveYear,
+        effectiveMonth,
+        careRate: Number(this.form.value.careRate ?? 0),
+        effectiveYearMonth,
+        id: existing.id
+      };
+      this.dialogRef.close(payload);
+      return;
+    }
+
     const payload: Partial<CareRateTable> = {
-      ...this.form.value,
+      effectiveYear,
+      effectiveMonth,
+      careRate: Number(this.form.value.careRate ?? 0),
       effectiveYearMonth,
       id: this.data.table?.id
-    } as Partial<CareRateTable>;
+    };
+
     this.dialogRef.close(payload);
   }
 }

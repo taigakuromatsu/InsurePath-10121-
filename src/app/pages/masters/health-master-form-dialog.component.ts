@@ -7,10 +7,12 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { HealthRateTable, Office, StandardRewardBand } from '../../types';
 import { CloudMasterService } from '../../services/cloud-master.service';
 import { PREFECTURE_CODES, getKyokaiHealthRatePreset, STANDARD_REWARD_BANDS_BASE } from '../../utils/kyokai-presets';
+import { MastersService } from '../../services/masters.service';
 
 export interface HealthMasterDialogData {
   office: Office;
@@ -372,6 +374,8 @@ export class HealthMasterFormDialogComponent {
   private readonly fb = inject(FormBuilder);
   private readonly dialogRef = inject(MatDialogRef<HealthMasterFormDialogComponent>);
   private readonly cloudMasterService = inject(CloudMasterService);
+  private readonly mastersService = inject(MastersService);
+  private readonly snackBar = inject(MatSnackBar);
 
   readonly prefCodes = Object.keys(PREFECTURE_CODES);
 
@@ -393,36 +397,55 @@ export class HealthMasterFormDialogComponent {
     const defaultYear = now.getFullYear();
     const defaultMonth = 3; // デフォルトは3月
 
+    // 事業所設定を唯一の真実としてプラン種別を固定
+    const planType = data.office.healthPlanType ?? 'kyokai';
+    this.form.patchValue({ planType });
+    this.form.get('planType')?.disable();
+
+    if (planType === 'kyokai') {
+      if (!data.office.kyokaiPrefCode) {
+        this.snackBar.open('事業所設定に都道府県が設定されていません。事業所設定画面で都道府県を設定してください。', '閉じる', {
+          duration: 5000
+        });
+        this.dialogRef.close();
+        return;
+      }
+      this.form.patchValue({
+        kyokaiPrefCode: data.office.kyokaiPrefCode,
+        kyokaiPrefName: data.office.kyokaiPrefName
+      });
+      this.form.get('kyokaiPrefCode')?.disable();
+    }
+
     if (table) {
       this.form.patchValue({
         effectiveYear: table.effectiveYear,
         effectiveMonth: table.effectiveMonth,
-        planType: table.planType,
-        kyokaiPrefCode: table.kyokaiPrefCode,
-        kyokaiPrefName: table.kyokaiPrefName,
+        healthRate: table.healthRate,
         unionName: table.unionName,
-        unionCode: table.unionCode,
-        healthRate: table.healthRate
+        unionCode: table.unionCode
       });
       table.bands?.forEach((band) => this.addBand(band));
     } else {
-      const planType = data.office.healthPlanType ?? 'kyokai';
       this.form.patchValue({
-        planType,
         effectiveYear: defaultYear,
-        effectiveMonth: defaultMonth,
-        kyokaiPrefCode: data.office.kyokaiPrefCode,
-        kyokaiPrefName: data.office.kyokaiPrefName
+        effectiveMonth: defaultMonth
       });
-      
-      // 新規作成時: プラン種別が'kyokai'で都道府県コードが設定されている場合、クラウドマスタから自動取得
-      // 対象月は「現在の年月」を使用（現在有効なマスタを取得）
+
+      if (planType === 'kumiai') {
+        this.form.patchValue({
+          unionName: data.office.unionName ?? '',
+          unionCode: data.office.unionCode ?? ''
+        });
+      }
+
+      // 新規作成時: 協会けんぽで事業所に都道府県がある場合はクラウドマスタから取得
       if (planType === 'kyokai' && data.office.kyokaiPrefCode) {
         const targetYear = now.getFullYear();
         const targetMonth = now.getMonth() + 1;
         this.loadPresetFromCloud(targetYear, targetMonth, data.office.kyokaiPrefCode);
       } else {
-        STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
+      STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
       }
     }
   }
@@ -451,11 +474,8 @@ export class HealthMasterFormDialogComponent {
 
   async onPrefChange(code: string): Promise<void> {
     this.form.patchValue({ kyokaiPrefName: this.prefectureName(code) });
-    
-    // プラン種別が'kyokai'の場合、クラウドマスタから自動取得
-    const planType = this.form.get('planType')?.value;
+    const planType = this.data.office.healthPlanType ?? 'kyokai';
     if (planType === 'kyokai' && code) {
-      // フォーム値がstringでも安全に処理するため、明示的に数値化
       const effectiveYear = Number(this.form.get('effectiveYear')?.value ?? new Date().getFullYear());
       const effectiveMonth = Number(this.form.get('effectiveMonth')?.value ?? 3);
       await this.loadPresetFromCloud(effectiveYear, effectiveMonth, code);
@@ -517,64 +537,103 @@ export class HealthMasterFormDialogComponent {
   }
 
   async loadPreset(): Promise<void> {
-    const planType = this.form.get('planType')?.value;
-    const prefCode = this.form.get('kyokaiPrefCode')?.value || this.data.office.kyokaiPrefCode || '13';
-    // フォーム値がstringでも安全に処理するため、明示的に数値化
+    const planType = this.data.office.healthPlanType ?? 'kyokai';
+    const prefCode = this.data.office.kyokaiPrefCode;
     const effectiveYear = Number(this.form.get('effectiveYear')?.value ?? new Date().getFullYear());
     const effectiveMonth = Number(this.form.get('effectiveMonth')?.value ?? 3);
-    
+
     if (planType === 'kyokai' && prefCode) {
-      // クラウドマスタから取得を試みる（適用開始年月に有効な最新マスタを取得）
-      await this.loadPresetFromCloud(effectiveYear, effectiveMonth, prefCode as string);
-    } else {
-      // 組合健保の場合は既存の処理を維持
-      const preset = getKyokaiHealthRatePreset(prefCode as string, effectiveYear);
-      if (preset) {
-        this.form.patchValue({
-          planType: 'kyokai',
-          kyokaiPrefCode: prefCode,
-          kyokaiPrefName: this.prefectureName(prefCode as string),
-          healthRate: preset.healthRate
-        });
-        this.bands.clear();
-        (preset.bands ?? STANDARD_REWARD_BANDS_BASE).forEach((band) => this.addBand(band));
-      } else {
-        // プリセットが存在しない年度（2026以降など）は料率0で初期化
-        this.form.patchValue({
-          planType: 'kyokai',
-          kyokaiPrefCode: prefCode,
-          kyokaiPrefName: this.prefectureName(prefCode as string),
-          healthRate: 0
-        });
-        this.bands.clear();
-        STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
-      }
+      await this.loadPresetFromCloud(effectiveYear, effectiveMonth, prefCode);
+      return;
     }
+
+    // 組合健保など：標準報酬等級だけ初期値で埋める（planTypeは事業所設定を変更しない）
+    this.bands.clear();
+    STANDARD_REWARD_BANDS_BASE.forEach((band) => this.addBand(band));
+    this.form.patchValue({
+      healthRate: this.form.value.healthRate ?? 0
+    });
   }
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
-    const effectiveYear = this.form.value.effectiveYear!;
-    const effectiveMonth = this.form.value.effectiveMonth!;
+    const planType = this.data.office.healthPlanType ?? 'kyokai';
+    const effectiveYear = Number(this.form.value.effectiveYear!);
+    const effectiveMonth = Number(this.form.value.effectiveMonth!);
     const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
+    const rawUnionName = this.form.value.unionName as string | null | undefined;
+    const rawUnionCode = this.form.value.unionCode as string | null | undefined;
+    const unionName =
+      typeof rawUnionName === 'string' && rawUnionName.trim() !== ''
+        ? rawUnionName.trim()
+        : undefined;
+    const unionCode =
+      typeof rawUnionCode === 'string' && rawUnionCode.trim() !== ''
+        ? rawUnionCode.trim()
+        : undefined;
+    const kyokaiPrefCode =
+      planType === 'kyokai' ? this.data.office.kyokaiPrefCode ?? undefined : undefined;
+
+    const existing = await this.mastersService.checkHealthRateTableDuplicate(
+      this.data.office.id,
+      effectiveYearMonth,
+      planType,
+      kyokaiPrefCode,
+      unionCode,
+      this.data.table?.id
+    );
+
+    if (existing && existing.id !== this.data.table?.id) {
+      const planLabel =
+        planType === 'kyokai'
+          ? `協会けんぽ（${this.data.office.kyokaiPrefName ?? '都道府県不明'}）`
+          : `組合健保（${unionName ?? '組合名未設定'}）`;
+      const confirmed = confirm(
+        `${effectiveYear}年${effectiveMonth}月分（${planLabel}）のマスタが既に登録されています。\n` +
+          `上書き保存しますか？\n\n` +
+          `既存の料率: ${(existing.healthRate * 100).toFixed(2)}%`
+      );
+      if (!confirmed) {
+        return;
+      }
+      const payload: Partial<HealthRateTable> = {
+        id: existing.id,
+        effectiveYear,
+        effectiveMonth,
+        healthRate: Number(this.form.value.healthRate ?? 0),
+        bands: this.bands.value as StandardRewardBand[],
+        effectiveYearMonth,
+        planType,
+        kyokaiPrefCode:
+          planType === 'kyokai' ? this.data.office.kyokaiPrefCode ?? undefined : undefined,
+        kyokaiPrefName:
+          planType === 'kyokai' ? this.data.office.kyokaiPrefName ?? undefined : undefined,
+        unionName: planType === 'kyokai' ? undefined : unionName,
+        unionCode: planType === 'kyokai' ? undefined : unionCode
+      };
+      this.dialogRef.close(payload);
+      return;
+    }
 
     const payload: Partial<HealthRateTable> = {
-      ...this.form.value,
+      id: this.data.table?.id,
+      effectiveYear,
+      effectiveMonth,
+      healthRate: Number(this.form.value.healthRate ?? 0),
       bands: this.bands.value as StandardRewardBand[],
       effectiveYearMonth,
-      id: this.data.table?.id
-    } as Partial<HealthRateTable>;
-    if (payload.planType === 'kyokai') {
-      payload.unionCode = undefined;
-      payload.unionName = undefined;
-    } else {
-      payload.kyokaiPrefCode = undefined;
-      payload.kyokaiPrefName = undefined;
-    }
+      planType,
+      kyokaiPrefCode:
+        planType === 'kyokai' ? this.data.office.kyokaiPrefCode ?? undefined : undefined,
+      kyokaiPrefName:
+        planType === 'kyokai' ? this.data.office.kyokaiPrefName ?? undefined : undefined,
+      unionName: planType === 'kyokai' ? undefined : unionName,
+      unionCode: planType === 'kyokai' ? undefined : unionCode
+    };
     this.dialogRef.close(payload);
   }
 }
