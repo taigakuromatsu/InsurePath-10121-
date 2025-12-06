@@ -1,4 +1,5 @@
 import { ProcedureType } from '../types';
+import { dateToYmdLocal, ymdToDateLocal } from './date-helpers';
 
 /**
  * 事由発生日から法定提出期限の目安を計算する
@@ -16,7 +17,7 @@ import { ProcedureType } from '../types';
  * @returns 提出期限（YYYY-MM-DD形式のstring）
  */
 export function calculateDeadline(procedureType: ProcedureType, incidentDate: string): string {
-  const incident = new Date(incidentDate);
+  const incident = ymdToDateLocal(incidentDate);
   let deadline: Date;
 
   switch (procedureType) {
@@ -46,5 +47,5 @@ export function calculateDeadline(procedureType: ProcedureType, incidentDate: st
     }
   }
 
-  return deadline.toISOString().substring(0, 10);
+  return dateToYmdLocal(deadline);
 }

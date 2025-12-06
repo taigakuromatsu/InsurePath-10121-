@@ -7,7 +7,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
-import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
+import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap, Observable } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
 
 import { ProceduresService } from '../../services/procedures.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
@@ -15,6 +16,7 @@ import { EmployeesService } from '../../services/employees.service';
 import { DependentsService } from '../../services/dependents.service';
 import { ProcedureFormDialogComponent } from './procedure-form-dialog.component';
 import { ProcedureStatus, ProcedureType, SocialInsuranceProcedure, Employee } from '../../types';
+import { todayYmd } from '../../utils/date-helpers';
 
 @Component({
   selector: 'ip-procedures-page',
@@ -70,6 +72,8 @@ import { ProcedureStatus, ProcedureType, SocialInsuranceProcedure, Employee } fr
             <mat-select [value]="deadlineFilter$.value" (selectionChange)="deadlineFilter$.next($event.value)">
               <mat-option value="all">すべて</mat-option>
               <mat-option value="upcoming">期限が近い（7日以内）</mat-option>
+              <mat-option value="thisWeek">今週提出期限</mat-option>
+              <mat-option value="nextWeek">来週提出期限</mat-option>
               <mat-option value="overdue">期限切れ</mat-option>
             </mat-select>
           </mat-form-field>
@@ -291,6 +295,7 @@ export class ProceduresPage {
   private readonly employeesService = inject(EmployeesService);
   private readonly dependentsService = inject(DependentsService);
   private readonly dialog = inject(MatDialog);
+  private readonly route = inject(ActivatedRoute);
 
   readonly displayedColumns = [
     'procedureType',
@@ -304,7 +309,7 @@ export class ProceduresPage {
   ];
 
   readonly statusFilter$ = new BehaviorSubject<ProcedureStatus | 'all'>('all');
-  readonly deadlineFilter$ = new BehaviorSubject<'all' | 'upcoming' | 'overdue'>('all');
+  readonly deadlineFilter$ = new BehaviorSubject<'all' | 'upcoming' | 'overdue' | 'thisWeek' | 'nextWeek'>('all');
   readonly procedureTypeFilter$ = new BehaviorSubject<ProcedureType | 'all'>('all');
 
   readonly employees$ = this.currentOffice.officeId$.pipe(
@@ -320,29 +325,39 @@ export class ProceduresPage {
     switchMap(([officeId, statusFilter, deadlineFilter, procedureTypeFilter]) => {
       if (!officeId) return of([]);
 
-      if (deadlineFilter !== 'all') {
-        return this.proceduresService.listByDeadline(officeId, deadlineFilter).pipe(
-          map((procedures) => {
-            let filtered = procedures;
-            if (statusFilter !== 'all') {
-              filtered = filtered.filter((p) => p.status === statusFilter);
-            }
-            if (procedureTypeFilter !== 'all') {
-              filtered = filtered.filter((p) => p.procedureType === procedureTypeFilter);
-            }
-            return filtered;
-          })
-        );
+      let procedures$: ReturnType<ProceduresService['list']>;
+
+      if (deadlineFilter === 'upcoming') {
+        procedures$ = this.proceduresService.listByDeadline(officeId, 'upcoming');
+      } else if (deadlineFilter === 'overdue') {
+        procedures$ = this.proceduresService.listByDeadline(officeId, 'overdue');
+      } else if (deadlineFilter === 'thisWeek') {
+        procedures$ = this.proceduresService.listThisWeekDeadlines(officeId);
+      } else if (deadlineFilter === 'nextWeek') {
+        procedures$ = this.proceduresService.listNextWeekDeadlines(officeId);
+      } else {
+        const filters: { status?: ProcedureStatus; procedureType?: ProcedureType } = {};
+        if (statusFilter !== 'all') {
+          filters.status = statusFilter;
+        }
+        if (procedureTypeFilter !== 'all') {
+          filters.procedureType = procedureTypeFilter;
+        }
+        return this.proceduresService.list(officeId, Object.keys(filters).length > 0 ? filters : undefined);
       }
 
-      const filters: { status?: ProcedureStatus; procedureType?: ProcedureType } = {};
-      if (statusFilter !== 'all') {
-        filters.status = statusFilter;
-      }
-      if (procedureTypeFilter !== 'all') {
-        filters.procedureType = procedureTypeFilter;
-      }
-      return this.proceduresService.list(officeId, Object.keys(filters).length > 0 ? filters : undefined);
+      return procedures$.pipe(
+        map((procedures) => {
+          let filtered = procedures;
+          if (statusFilter !== 'all') {
+            filtered = filtered.filter((p) => p.status === statusFilter);
+          }
+          if (procedureTypeFilter !== 'all') {
+            filtered = filtered.filter((p) => p.procedureType === procedureTypeFilter);
+          }
+          return filtered;
+        })
+      );
     })
   );
 
@@ -430,7 +445,7 @@ export class ProceduresPage {
     if (procedure.status === 'submitted') {
       return false;
     }
-    const today = new Date().toISOString().substring(0, 10);
+    const today = todayYmd();
     return procedure.deadline < today;
   }
 
@@ -463,5 +478,16 @@ export class ProceduresPage {
     if (!officeId) return;
 
     await this.proceduresService.delete(officeId, procedure.id);
+  }
+
+  constructor() {
+    this.route.queryParams.subscribe((params) => {
+      const deadline = params['deadline'] as 'thisWeek' | 'overdue' | 'nextWeek' | undefined;
+      if (deadline === 'thisWeek' || deadline === 'overdue' || deadline === 'nextWeek') {
+        this.deadlineFilter$.next(deadline);
+        this.statusFilter$.next('all');
+        this.procedureTypeFilter$.next('all');
+      }
+    });
   }
 }

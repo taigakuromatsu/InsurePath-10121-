@@ -14,8 +14,10 @@ import {
   where
 } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
-import { ProcedureStatus, ProcedureType, SocialInsuranceProcedure } from '../types';
+import { PENDING_PROCEDURE_STATUSES, ProcedureStatus, ProcedureType, SocialInsuranceProcedure } from '../types';
+import { addDays, getNextWeekMonday, getSundayOfWeek, getThisWeekMonday, todayYmd } from '../utils/date-helpers';
 
 @Injectable({ providedIn: 'root' })
 export class ProceduresService {
@@ -103,8 +105,8 @@ export class ProceduresService {
     filter: 'upcoming' | 'overdue' | 'all'
   ): Observable<SocialInsuranceProcedure[]> {
     const ref = this.collectionPath(officeId);
-    const now = new Date().toISOString().substring(0, 10);
-    const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
+    const now = todayYmd();
+    const sevenDaysLater = addDays(now, 7);
 
     let q: Query;
 
@@ -113,14 +115,14 @@ export class ProceduresService {
         ref,
         where('deadline', '>=', now),
         where('deadline', '<=', sevenDaysLater),
-        where('status', 'in', ['not_started', 'in_progress', 'rejected']),
+        where('status', 'in', PENDING_PROCEDURE_STATUSES),
         orderBy('deadline', 'asc')
       );
     } else if (filter === 'overdue') {
       q = query(
         ref,
         where('deadline', '<', now),
-        where('status', 'in', ['not_started', 'in_progress', 'rejected']),
+        where('status', 'in', PENDING_PROCEDURE_STATUSES),
         orderBy('deadline', 'asc')
       );
     } else {
@@ -128,6 +130,46 @@ export class ProceduresService {
     }
 
     return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+  }
+
+  listThisWeekDeadlines(officeId: string): Observable<SocialInsuranceProcedure[]> {
+    const ref = this.collectionPath(officeId);
+    const thisWeekMonday = getThisWeekMonday();
+    const thisWeekSunday = getSundayOfWeek(thisWeekMonday);
+
+    const q = query(
+      ref,
+      where('deadline', '>=', thisWeekMonday),
+      where('deadline', '<=', thisWeekSunday),
+      where('status', 'in', PENDING_PROCEDURE_STATUSES),
+      orderBy('deadline', 'asc')
+    );
+
+    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+  }
+
+  listNextWeekDeadlines(officeId: string): Observable<SocialInsuranceProcedure[]> {
+    const ref = this.collectionPath(officeId);
+    const nextWeekMonday = getNextWeekMonday();
+    const nextWeekSunday = getSundayOfWeek(nextWeekMonday);
+
+    const q = query(
+      ref,
+      where('deadline', '>=', nextWeekMonday),
+      where('deadline', '<=', nextWeekSunday),
+      where('status', 'in', PENDING_PROCEDURE_STATUSES),
+      orderBy('deadline', 'asc')
+    );
+
+    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+  }
+
+  countThisWeekDeadlines(officeId: string): Observable<number> {
+    return this.listThisWeekDeadlines(officeId).pipe(map((procedures) => procedures.length));
+  }
+
+  countOverdueDeadlines(officeId: string): Observable<number> {
+    return this.listByDeadline(officeId, 'overdue').pipe(map((procedures) => procedures.length));
   }
 
   async update(

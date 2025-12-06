@@ -61,6 +61,9 @@ export type ProcedureType =
 
 export type ProcedureStatus = 'not_started' | 'in_progress' | 'submitted' | 'rejected';
 
+// 未完了ステータス（期限管理の対象となるステータス）
+export const PENDING_PROCEDURE_STATUSES: ProcedureStatus[] = ['not_started', 'in_progress', 'rejected'];
+
 export interface SocialInsuranceProcedure {
   id: string;
   officeId: string;

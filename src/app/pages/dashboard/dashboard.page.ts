@@ -1,17 +1,20 @@
 import { AsyncPipe, DecimalPipe, NgIf } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { Chart, ChartData, ChartOptions, registerables } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 import { catchError, firstValueFrom, map, of, switchMap } from 'rxjs';
+import { Router } from '@angular/router';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { EmployeesService } from '../../services/employees.service';
 import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
 import { PaymentsService } from '../../services/payments.service';
+import { ProceduresService } from '../../services/procedures.service';
 import { BonusPremium, Employee, MonthlyPremium, PaymentStatus, SocialInsurancePayment } from '../../types';
 
 Chart.register(...registerables);
@@ -101,6 +104,42 @@ Chart.register(...registerables);
               <ng-template #notRegistered>未登録</ng-template>
             </p>
             <p class="stat-label">会社負担額（予定）</p>
+          </div>
+        </mat-card>
+
+        <mat-card
+          class="stat-card"
+          [class.warning]="thisWeekDeadlinesCount() > 0"
+          (click)="navigateToProcedures('thisWeek')"
+          style="cursor: pointer;"
+        >
+          <div class="stat-icon" style="background: #fff3e0;">
+            <mat-icon style="color: #ff9800;">assignment_turned_in</mat-icon>
+          </div>
+          <div class="stat-content">
+            <h3>今週提出期限の手続き</h3>
+            <p class="stat-value" [style.color]="thisWeekDeadlinesCount() > 0 ? '#ff9800' : '#333'">
+              {{ thisWeekDeadlinesCount() }}件
+            </p>
+            <p class="stat-label">対応が必要</p>
+          </div>
+        </mat-card>
+
+        <mat-card
+          class="stat-card"
+          [class.danger]="overdueDeadlinesCount() > 0"
+          (click)="navigateToProcedures('overdue')"
+          style="cursor: pointer;"
+        >
+          <div class="stat-icon" style="background: #fef2f2;">
+            <mat-icon style="color: #b91c1c;">warning</mat-icon>
+          </div>
+          <div class="stat-content">
+            <h3>期限超過の手続き</h3>
+            <p class="stat-value" [style.color]="overdueDeadlinesCount() > 0 ? '#b91c1c' : '#333'">
+              {{ overdueDeadlinesCount() }}件
+            </p>
+            <p class="stat-label">緊急対応が必要</p>
           </div>
         </mat-card>
 
@@ -506,6 +545,20 @@ Chart.register(...registerables);
         margin: 1.5rem 0;
       }
 
+      /* Phase3-14: 手続きタスクカードの強調表示 */
+      .stat-card.warning {
+        border: 2px solid #ff9800;
+      }
+
+      .stat-card.danger {
+        border: 2px solid #b91c1c;
+      }
+
+      .stat-card.warning:hover,
+      .stat-card.danger:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
       .ranking-card {
         padding: 1.5rem;
       }
@@ -550,6 +603,8 @@ export class DashboardPage implements OnInit {
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly bonusPremiumsService = inject(BonusPremiumsService);
   private readonly paymentsService = inject(PaymentsService);
+  private readonly proceduresService = inject(ProceduresService);
+  private readonly router = inject(Router);
 
   readonly officeId$ = this.currentOffice.officeId$;
 
@@ -586,6 +641,28 @@ export class DashboardPage implements OnInit {
     }),
     catchError(() => of<SocialInsurancePayment[]>([]))
   );
+
+  // 手続きタスク件数（Phase3-14）
+  readonly thisWeekDeadlinesCount$ = this.officeId$.pipe(
+    switchMap((officeId) => {
+      if (!officeId) {
+        return of(0);
+      }
+      return this.proceduresService.countThisWeekDeadlines(officeId);
+    })
+  );
+
+  readonly overdueDeadlinesCount$ = this.officeId$.pipe(
+    switchMap((officeId) => {
+      if (!officeId) {
+        return of(0);
+      }
+      return this.proceduresService.countOverdueDeadlines(officeId);
+    })
+  );
+
+  readonly thisWeekDeadlinesCount = toSignal(this.thisWeekDeadlinesCount$, { initialValue: 0 });
+  readonly overdueDeadlinesCount = toSignal(this.overdueDeadlinesCount$, { initialValue: 0 });
 
   readonly trendPercentage = computed(() => {
     const current = this.currentMonthTotalEmployer();
@@ -937,5 +1014,9 @@ export class DashboardPage implements OnInit {
       this.employerRanking.set([]);
       this.employeeRanking.set([]);
     }
+  }
+
+  navigateToProcedures(deadline: 'thisWeek' | 'overdue' | 'nextWeek'): void {
+    this.router.navigate(['/procedures'], { queryParams: { deadline } });
   }
 }
