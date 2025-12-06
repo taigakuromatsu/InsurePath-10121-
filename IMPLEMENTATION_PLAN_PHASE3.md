@@ -744,25 +744,36 @@ Phase3では、**12月10日までの完成を目指し、残り5機能すべて�
 
 ---
 
-### Phase3-14: 手続きタスクの期限別ビュー・簡易アラート機能 📋 未実装（優先度：中）
+### Phase3-14: 手続きタスクの期限別ビュー・簡易アラート機能 ✅ 実装済み（優先度：中）
 
 **優先度**: 🟡 中（実務上必要な機能）  
 **依存関係**: Phase3-4  
-**目標完了日**: 2025年12月6日
+**目標完了日**: 2025年12月6日  
+**実績**: 2025年12月6日 完了（Phase3-14）
 
 **目的**: 社会保険手続き履歴・期限管理機能と連携し、「いつまでに何の手続きを行う必要があるか」をタスク一覧として見える化する
 
-**実装予定内容**:
-1. **期限別ビューの実装**
-   - 「今週提出期限の手続き」一覧
-   - 「提出期限を過ぎて未完了の手続き」一覧
+**実装内容（完了）**:
+1. **期限フィルタの拡張（/procedures）**
+   - 既存の期限フィルタに「今週提出期限」「来週提出期限」「期限切れ」を追加
+   - 既存の「期限が近い（7日以内）」と組み合わせ可能
+   - クエリパラメータ`?deadline=thisWeek|nextWeek|overdue`で初期表示切替
 
-2. **ダッシュボードへの集計表示**
-   - 「今週提出期限の手続き：◯件」の表示
+2. **ダッシュボード集計（/dashboard）**
+   - 「今週提出期限の手続き：◯件」「期限超過の手続き：◯件」を表示
+   - カードクリックで`/procedures?deadline=...`へ遷移し、期限フィルタのみ適用
 
-**実装予定ファイル**:
-- `src/app/pages/procedures/procedures.page.ts`（期限別ビュー追加）
-- `src/app/pages/dashboard/dashboard.page.ts`（手続きタスク集計追加）
+3. **簡易アラート・強調表示**
+   - 期限切れ行の強調表示、ステータスバッジの表示
+   - JST基準の日付ヘルパー導入で`toISOString`のズレを解消
+
+**実装ファイル**:
+- `src/app/utils/date-helpers.ts`（新規）
+- `src/app/types.ts`（PENDING_PROCEDURE_STATUSES 追加）
+- `src/app/utils/procedure-deadline-calculator.ts`
+- `src/app/services/procedures.service.ts`
+- `src/app/pages/procedures/procedures.page.ts`
+- `src/app/pages/dashboard/dashboard.page.ts`
 
 ---
 
