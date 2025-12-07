@@ -95,6 +95,12 @@ export const routes: Routes = [
         path: 'cloud-masters',
         canActivate: [authGuard, officeGuard, roleGuard(['admin'])],
         loadComponent: () => import('./pages/cloud-masters/cloud-masters.page').then((m) => m.CloudMastersPage)
+      },
+      {
+        path: 'data-quality',
+        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
+        loadComponent: () =>
+          import('./pages/data-quality/data-quality.page').then((m) => m.DataQualityPage)
       }
     ]
   },

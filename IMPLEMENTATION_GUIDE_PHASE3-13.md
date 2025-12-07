@@ -30,7 +30,7 @@ Phase3-13では、従業員台帳・資格情報・標準報酬履歴・保険�
 ## 3. 仕様の明確化
 
 ### 3.1 チェック対象データ
-- 従業員: `Employee`（isInsured, health/pension qualification & loss dates, retireDate, birthDate など）
+- 従業員: `Employee`（isInsured, health/pension qualification & loss dates, retireDate, birthDate, hireDate など）
 - 標準報酬履歴: `StandardRewardHistory`（appliedFromYearMonth など）
 - 月次保険料: `MonthlyPremium`（yearMonth, careTotal, health/pension 等級・標準報酬スナップショット など）
 - 年齢判定: 生年月日から算出（基準日は対象年月末、計算ロジックは保険料計算で使用しているヘルパーを流用）
@@ -44,21 +44,29 @@ Phase3-13では、従業員台帳・資格情報・標準報酬履歴・保険�
 `DataQualityIssueType`と1:1対応させる。
 1) **被保険者フラグと資格情報・標準報酬履歴の不整合**  
    - `isInsured = true` なのに健康/厚年の資格取得日未設定、または `StandardRewardHistory` が1件もない  
-   - 健康/厚年の資格取得日があるのに `isInsured = false`
+   - 健康/厚年の資格取得日があるのに `isInsured = false`  
+   - 入社直後の入力猶予: 雇用開始日から1ヶ月以内の従業員は本ルールの警告対象外としてよい  
+   - description例: 「社会保険加入フラグは ON ですが、資格取得日または標準報酬履歴が登録されていません。」
 2) **資格期間内なのに月次保険料レコードが存在しない**  
-   - 対象レンジ（最新+前月）で `isInsured = true` かつ資格期間内なのに、その年月の `MonthlyPremium` が存在しない
+   - 対象レンジ（最新+前月）で `isInsured = true` かつ資格期間内なのに、その年月の `MonthlyPremium` が存在しない  
+   - description例: 「対象年月（YYYY-MM）は資格期間内かつ加入中ですが、月額保険料レコードが見つかりません。」
 3) **資格喪失日（＋退職日）と保険料計上の矛盾**  
    - 資格喪失日があるのに、その後の年月に `MonthlyPremium` が計上され続けている  
-   - 退職日があるのに資格喪失日が未入力/矛盾し、その後も計上が続くケースを含む
+   - 退職日があるのに資格喪失日が未入力/矛盾し、その後も計上が続くケースを含む  
+   - description例: 「資格喪失日（または退職日）以降の年月にも保険料が計上されています。」
 4) **標準報酬決定・改定履歴の期間矛盾**  
    - 同一社員の `StandardRewardHistory` を `appliedFromYearMonth` 昇順ソート  
-   - 前レコードの有効終了と次レコードの開始が重なっていないかをチェック（endがnullなら最終レコードとして無期限扱い）
+   - 前レコードの有効終了と次レコードの開始が重なっていないかをチェック（endがnullなら最終レコードとして無期限扱い）  
+   - 有効終了の扱い: 明示的な終了年月が無い場合は「次のレコードの `appliedFromYearMonth` の前月」を有効終了とみなし、最後のレコードのみ無期限とする  
+   - description例: 「標準報酬決定・改定履歴の適用期間が重複している可能性があります。」
 5) **介護保険料の年齢不整合**  
    - 40〜64歳に該当するのに `careTotal` が0/未設定  
    - 40歳未満または65歳以上なのに `careTotal` が正の値  
-   - 年齢判定は既存ヘルパーを流用
+   - 年齢判定は既存ヘルパーを流用  
+   - description例: 「介護保険の対象年齢と介護保険料の有無が一致していません。」
 6) **月次保険料レコードの標準報酬スナップショット欠落**  
-   - `MonthlyPremium` の等級/標準報酬スナップショット（health/pension 等級・標準報酬）が未設定または0
+   - `MonthlyPremium` の等級/標準報酬スナップショット（health/pension 等級・標準報酬）が未設定または0  
+   - description例: 「月次保険料レコードに標準報酬の等級・金額が記録されていません。」
 
 ### 3.4 拡張チェックルール例（今回実装対象外）
 - isInsured = true なのに保険者番号・基礎年金番号が未登録

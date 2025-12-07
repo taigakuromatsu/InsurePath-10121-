@@ -229,6 +229,26 @@ export interface StandardRewardHistory {
   updatedByUserId?: string;
 }
 
+// データ品質チェック（Phase3-13）
+export type DataQualityIssueType =
+  | 'insured_qualification_inconsistent' // ルール1
+  | 'missing_premium_record' // ルール2
+  | 'loss_retire_premium_mismatch' // ルール3
+  | 'standard_reward_overlap' // ルール4
+  | 'care_premium_mismatch' // ルール5
+  | 'premium_snapshot_missing'; // ルール6
+
+export interface DataQualityIssue {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  issueType: DataQualityIssueType;
+  description: string;
+  targetPeriod?: string; // YYYY-MM など
+  detectedAt: string; // ISO or YYYY-MM-DD
+  severity?: 'warning' | 'error'; // MVPはwarningで運用、将来errorも使用可
+}
+
 export interface Employee {
   id: string;
   officeId: string;

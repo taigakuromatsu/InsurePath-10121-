@@ -15,6 +15,7 @@ import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
 import { PaymentsService } from '../../services/payments.service';
 import { ProceduresService } from '../../services/procedures.service';
+import { DataQualityService } from '../../services/data-quality.service';
 import { BonusPremium, Employee, MonthlyPremium, PaymentStatus, SocialInsurancePayment } from '../../types';
 
 Chart.register(...registerables);
@@ -198,6 +199,24 @@ Chart.register(...registerables);
               [options]="barChartOptions"
               type="bar"
             ></canvas>
+          </div>
+        </mat-card>
+
+        <mat-card
+          class="stat-card"
+          [class.warning]="dataQualityIssuesCount() > 0"
+          (click)="navigateToDataQuality()"
+          style="cursor: pointer;"
+        >
+          <div class="stat-icon" style="background: #fff7ed;">
+            <mat-icon style="color: #f97316;">fact_check</mat-icon>
+          </div>
+          <div class="stat-content">
+            <h3>要確認レコード</h3>
+            <p class="stat-value" [style.color]="dataQualityIssuesCount() > 0 ? '#f97316' : '#333'">
+              {{ dataQualityIssuesCount() }}件
+            </p>
+            <p class="stat-label">社会保険情報の異常検知</p>
           </div>
         </mat-card>
       </div>
@@ -605,6 +624,7 @@ export class DashboardPage implements OnInit {
   private readonly paymentsService = inject(PaymentsService);
   private readonly proceduresService = inject(ProceduresService);
   private readonly router = inject(Router);
+  private readonly dataQualityService = inject(DataQualityService);
 
   readonly officeId$ = this.currentOffice.officeId$;
 
@@ -641,6 +661,15 @@ export class DashboardPage implements OnInit {
     }),
     catchError(() => of<SocialInsurancePayment[]>([]))
   );
+
+  // データ品質（Phase3-13）
+  readonly dataQualityIssuesCount$ = this.officeId$.pipe(
+    switchMap((officeId) => {
+      if (!officeId) return of(0);
+      return this.dataQualityService.listIssues(officeId).pipe(map((issues) => issues.length));
+    })
+  );
+  readonly dataQualityIssuesCount = toSignal(this.dataQualityIssuesCount$, { initialValue: 0 });
 
   // 手続きタスク件数（Phase3-14）
   readonly thisWeekDeadlinesCount$ = this.officeId$.pipe(
@@ -1018,5 +1047,9 @@ export class DashboardPage implements OnInit {
 
   navigateToProcedures(deadline: 'thisWeek' | 'overdue' | 'nextWeek'): void {
     this.router.navigate(['/procedures'], { queryParams: { deadline } });
+  }
+
+  navigateToDataQuality(): void {
+    this.router.navigate(['/data-quality']);
   }
 }
