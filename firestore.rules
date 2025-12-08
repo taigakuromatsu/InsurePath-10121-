@@ -534,7 +534,38 @@ service cloud.firestore {
             && (!('postalCode' in data) || data.postalCode == null || (data.postalCode is string && data.postalCode.matches('^[0-9]{7}$')))
             && (!('addressKana' in data) || data.addressKana == null || data.addressKana is string)
             // TODO: 現在は平文12桁前提。将来、本当に暗号化する場合はこのチェックを変更する必要がある
-            && (!('myNumber' in data) || data.myNumber == null || (data.myNumber is string && data.myNumber.size() == 12 && data.myNumber.matches('^[0-9]{12}$')));
+            && (!('myNumber' in data) || data.myNumber == null || (data.myNumber is string && data.myNumber.size() == 12 && data.myNumber.matches('^[0-9]{12}$')))
+            && validBankAccount(data)
+            && validPayrollSettings(data);
+        }
+
+        function validBankAccount(data) {
+          return (!('bankAccount' in data)
+            || data.bankAccount == null
+            || (
+              data.bankAccount is map
+              && data.bankAccount.keys().hasAll(['bankName', 'branchName', 'accountType', 'accountNumber', 'accountHolderName'])
+              && data.bankAccount.bankName is string && data.bankAccount.bankName.size() > 0
+              && data.bankAccount.branchName is string && data.bankAccount.branchName.size() > 0
+              && data.bankAccount.accountType in ['ordinary', 'checking', 'savings', 'other']
+              && data.bankAccount.accountNumber is string && data.bankAccount.accountNumber.size() > 0
+              && (!('bankCode' in data.bankAccount) || data.bankAccount.bankCode == null || data.bankAccount.bankCode is string)
+              && (!('branchCode' in data.bankAccount) || data.bankAccount.branchCode == null || data.bankAccount.branchCode is string)
+              && (!('accountHolderKana' in data.bankAccount) || data.bankAccount.accountHolderKana == null || data.bankAccount.accountHolderKana is string)
+            ));
+        }
+
+        function validPayrollSettings(data) {
+          return (!('payrollSettings' in data)
+            || data.payrollSettings == null
+            || (
+              data.payrollSettings is map
+              && data.payrollSettings.keys().hasAll(['payType', 'payCycle'])
+              && data.payrollSettings.payType in ['monthly', 'daily', 'hourly', 'annual', 'other']
+              && data.payrollSettings.payCycle in ['monthly', 'twice_per_month', 'weekly', 'other']
+              && (!('insurableMonthlyWage' in data.payrollSettings) || data.payrollSettings.insurableMonthlyWage == null || (data.payrollSettings.insurableMonthlyWage is int && data.payrollSettings.insurableMonthlyWage >= 0))
+              && (!('note' in data.payrollSettings) || data.payrollSettings.note == null || data.payrollSettings.note is string)
+            ));
         }
 
         allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId));

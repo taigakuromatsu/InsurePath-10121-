@@ -1,4 +1,11 @@
-import { AsyncPipe, DatePipe, NgIf } from '@angular/common';
+import {
+  AsyncPipe,
+  DatePipe,
+  NgIf,
+  NgSwitch,
+  NgSwitchCase,
+  NgSwitchDefault
+} from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -19,13 +26,16 @@ import {
   ChangeRequestStatus,
   DependentAddPayload,
   DependentUpdatePayload,
-  Employee
+  Employee,
+  BankAccount,
+  BankAccountChangePayload
 } from '../../types';
 import { RejectReasonDialogComponent } from './reject-reason-dialog.component';
 import {
   getChangeRequestKindLabel,
   getChangeRequestStatusLabel,
-  getDependentRelationshipLabel
+  getDependentRelationshipLabel,
+  getBankAccountTypeLabel
 } from '../../utils/label-utils';
 
 @Component({
@@ -41,6 +51,9 @@ import {
     MatDialogModule,
     AsyncPipe,
     NgIf,
+    NgSwitch,
+    NgSwitchCase,
+    NgSwitchDefault,
     DatePipe
   ],
   template: `
@@ -52,7 +65,7 @@ import {
           </div>
           <div class="header-text">
             <h1>変更申請一覧</h1>
-            <p>従業員からのプロフィール・扶養家族変更申請を承認・却下できます。</p>
+            <p>従業員からのプロフィール・口座情報・扶養家族変更申請を承認・却下できます。</p>
           </div>
         </div>
       </mat-card>
@@ -98,7 +111,13 @@ import {
               <ng-container matColumnDef="field">
                 <th mat-header-cell *matHeaderCellDef>変更項目</th>
                 <td mat-cell *matCellDef="let row">
-                  {{ row.kind === 'profile' ? getFieldLabel(row.field) : '-' }}
+                  {{
+                    row.kind === 'profile'
+                      ? getFieldLabel(row.field)
+                      : row.kind === 'bankAccount'
+                        ? '口座情報'
+                        : '-'
+                  }}
                 </td>
               </ng-container>
 
@@ -109,12 +128,46 @@ import {
 
               <ng-container matColumnDef="currentValue">
                 <th mat-header-cell *matHeaderCellDef>現在の値</th>
-                <td mat-cell *matCellDef="let row">{{ row.currentValue || '-' }}</td>
+                <td mat-cell *matCellDef="let row">
+                  <ng-container [ngSwitch]="row.kind">
+                    <ng-container *ngSwitchCase="'bankAccount'">
+                      <div class="bank-account-info" *ngIf="getCurrentBankAccount(row) as bankAccount; else noCurrent">
+                        <div>{{ bankAccount.bankName }} {{ bankAccount.branchName }}</div>
+                        <div>
+                          {{ getBankAccountTypeLabel(bankAccount.accountType) }} /
+                          {{ bankAccount.accountNumber }}
+                        </div>
+                        <div>名義: {{ bankAccount.accountHolderName }}</div>
+                      </div>
+                      <ng-template #noCurrent>未登録</ng-template>
+                    </ng-container>
+                    <ng-container *ngSwitchDefault>
+                      {{ row.currentValue || '-' }}
+                    </ng-container>
+                  </ng-container>
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="requestedValue">
                 <th mat-header-cell *matHeaderCellDef>申請する値</th>
-                <td mat-cell *matCellDef="let row">{{ row.requestedValue }}</td>
+              <td mat-cell *matCellDef="let row">
+                <ng-container [ngSwitch]="row.kind">
+                  <ng-container *ngSwitchCase="'bankAccount'">
+                    <div class="bank-account-info" *ngIf="getBankAccountPayload(row) as payload; else noPayload">
+                      <div>{{ payload.bankName }} {{ payload.branchName }}</div>
+                      <div>
+                        {{ getBankAccountTypeLabel(payload.accountType) }} /
+                        {{ payload.accountNumber }}
+                      </div>
+                      <div>名義: {{ payload.accountHolderName }}</div>
+                    </div>
+                    <ng-template #noPayload>-</ng-template>
+                  </ng-container>
+                  <ng-container *ngSwitchDefault>
+                    {{ row.requestedValue }}
+                  </ng-container>
+                </ng-container>
+              </td>
               </ng-container>
 
               <ng-container matColumnDef="status">
@@ -357,6 +410,7 @@ export class RequestsPage {
     map(([requests, employees]) =>
       requests.map((request) => ({
         ...request,
+        employee: employees.get(request.employeeId),
         employeeName: employees.get(request.employeeId)?.name ?? '不明'
       }))
     )
@@ -389,8 +443,10 @@ export class RequestsPage {
     return getChangeRequestStatusLabel(status);
   }
 
+  protected readonly getBankAccountTypeLabel = getBankAccountTypeLabel;
+
   getTargetDependentLabel(request: ChangeRequest): string {
-    if (request.kind === 'profile') {
+    if (request.kind === 'profile' || request.kind === 'bankAccount') {
       return '-';
     }
 
@@ -451,17 +507,17 @@ export class RequestsPage {
       const employee = await firstValueFrom(
         this.employeesService.get(officeId, request.employeeId)
       );
-    if (!employee) {
-      throw new Error('従業員が見つかりませんでした');
-    }
+      if (!employee) {
+        throw new Error('従業員が見つかりませんでした');
+      }
 
-    const updateData = this.buildUpdateData(request);
+      const updateData = this.buildUpdateData(request);
 
-    await this.employeesService.save(officeId, {
-      ...employee,
-      ...updateData,
-      updatedByUserId: currentUserId
-    });
+      await this.employeesService.save(officeId, {
+        ...employee,
+        ...updateData,
+        updatedByUserId: currentUserId
+      });
     }
     // 扶養家族追加申請の場合
     else if (request.kind === 'dependent_add') {
@@ -513,9 +569,44 @@ export class RequestsPage {
       // ハードデリートで実装
       await this.dependentsService.delete(officeId, request.employeeId, request.targetDependentId);
     }
+    // 口座情報変更申請の場合
+    else if (request.kind === 'bankAccount') {
+      const payload = request.payload as BankAccountChangePayload | undefined;
+      if (!payload) {
+        throw new Error('申請データが見つかりませんでした');
+      }
+
+      const employee = await firstValueFrom(
+        this.employeesService.get(officeId, request.employeeId)
+      );
+      if (!employee) {
+        throw new Error('従業員が見つかりませんでした');
+      }
+
+      await this.employeesService.save(officeId, {
+        ...employee,
+        bankAccount: {
+          ...payload,
+          updatedAt: new Date().toISOString(),
+          updatedByUserId: currentUserId
+        },
+        updatedByUserId: currentUserId
+      });
+    }
 
     // ChangeRequest の status を更新（既存の ChangeRequestsService.approve() を使用）
     await this.changeRequestsService.approve(officeId, request.id, currentUserId);
+  }
+
+  getBankAccountPayload(request: ChangeRequest): BankAccountChangePayload | null {
+    if (request.kind !== 'bankAccount') return null;
+    return (request.payload as BankAccountChangePayload) ?? null;
+  }
+
+  getCurrentBankAccount(request: ChangeRequest): BankAccount | null {
+    if (request.kind !== 'bankAccount') return null;
+    const employee = (request as any).employee as Employee | undefined;
+    return employee?.bankAccount ?? null;
   }
 
   async reject(request: ChangeRequest): Promise<void> {

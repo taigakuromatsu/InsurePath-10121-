@@ -12,7 +12,14 @@ import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialo
 
 import { EmployeesService } from '../../services/employees.service';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
-import { Employee, Sex, YearMonthString } from '../../types';
+import {
+  BankAccountType,
+  Employee,
+  PayrollPayCycle,
+  PayrollPayType,
+  Sex,
+  YearMonthString
+} from '../../types';
 import { CurrentUserService } from '../../services/current-user.service';
 import { firstValueFrom, map } from 'rxjs';
 import { MyNumberService } from '../../services/mynumber.service';
@@ -250,6 +257,131 @@ export interface EmployeeDialogData {
         <mat-label>厚生年金番号</mat-label>
         <input matInput formControlName="pensionNumber" />
       </mat-form-field>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>account_balance_wallet</mat-icon>
+          給与振込口座情報
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>金融機関名</mat-label>
+            <input matInput formControlName="bankAccountBankName" />
+            <mat-error *ngIf="form.get('bankAccountBankName')?.hasError('required')">
+              金融機関名を入力してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>金融機関コード</mat-label>
+            <input matInput formControlName="bankAccountBankCode" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>支店名</mat-label>
+            <input matInput formControlName="bankAccountBranchName" />
+            <mat-error *ngIf="form.get('bankAccountBranchName')?.hasError('required')">
+              支店名を入力してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>支店コード</mat-label>
+            <input matInput formControlName="bankAccountBranchCode" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>口座種別</mat-label>
+            <mat-select formControlName="bankAccountAccountType">
+              <mat-option value="ordinary">普通</mat-option>
+              <mat-option value="checking">当座</mat-option>
+              <mat-option value="savings">貯蓄</mat-option>
+              <mat-option value="other">その他</mat-option>
+            </mat-select>
+            <mat-error *ngIf="form.get('bankAccountAccountType')?.hasError('required')">
+              口座種別を選択してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>口座番号</mat-label>
+            <input matInput formControlName="bankAccountAccountNumber" />
+            <mat-error *ngIf="form.get('bankAccountAccountNumber')?.hasError('required')">
+              口座番号を入力してください
+            </mat-error>
+            <mat-error *ngIf="form.get('bankAccountAccountNumber')?.hasError('pattern')">
+              数字のみを入力してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>名義</mat-label>
+            <input matInput formControlName="bankAccountHolderName" />
+            <mat-error *ngIf="form.get('bankAccountHolderName')?.hasError('required')">
+              名義を入力してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>名義カナ</mat-label>
+            <input matInput formControlName="bankAccountHolderKana" />
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>payments</mat-icon>
+          給与情報（保険用）
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>支給形態</mat-label>
+            <mat-select formControlName="payrollPayType">
+              <mat-option [value]="''">未選択</mat-option>
+              <mat-option value="monthly">月給</mat-option>
+              <mat-option value="daily">日給</mat-option>
+              <mat-option value="hourly">時給</mat-option>
+              <mat-option value="annual">年俸</mat-option>
+              <mat-option value="other">その他</mat-option>
+            </mat-select>
+            <mat-error *ngIf="form.get('payrollPayType')?.hasError('required')">
+              支給形態を選択してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>支給サイクル</mat-label>
+            <mat-select formControlName="payrollPayCycle">
+              <mat-option [value]="''">未選択</mat-option>
+              <mat-option value="monthly">月次</mat-option>
+              <mat-option value="twice_per_month">月2回</mat-option>
+              <mat-option value="weekly">週次</mat-option>
+              <mat-option value="other">その他</mat-option>
+            </mat-select>
+            <mat-error *ngIf="form.get('payrollPayCycle')?.hasError('required')">
+              支給サイクルを選択してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>報酬月額（円）</mat-label>
+            <input matInput formControlName="payrollInsurableMonthlyWage" />
+            <mat-hint>社会保険の標準報酬月額を決めるための月額給与です</mat-hint>
+            <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('min')">
+              0以上の数値を入力してください
+            </mat-error>
+            <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('pattern')">
+              数字のみを入力してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-row">
+            <mat-label>補足メモ</mat-label>
+            <textarea matInput rows="2" formControlName="payrollNote"></textarea>
+          </mat-form-field>
         </div>
       </div>
 
@@ -548,7 +680,25 @@ export class EmployeeFormDialogComponent {
     workingStatusStartDate: [''],
     workingStatusEndDate: [''],
     premiumTreatment: [''],
-    workingStatusNote: ['']
+    workingStatusNote: [''],
+    bankAccountBankName: [''],
+    bankAccountBankCode: [''],
+    bankAccountBranchName: [''],
+    bankAccountBranchCode: [''],
+    bankAccountAccountType: [''],
+    bankAccountAccountNumber: [
+      '',
+      [Validators.pattern(/^[0-9]+$/), Validators.maxLength(8)]
+    ],
+    bankAccountHolderName: [''],
+    bankAccountHolderKana: [''],
+    payrollPayType: [''],
+    payrollPayCycle: [''],
+    payrollInsurableMonthlyWage: [
+      null,
+      [Validators.min(0), Validators.pattern(/^\d+$/)]
+    ],
+    payrollNote: ['']
   });
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDialogData) {
@@ -579,7 +729,19 @@ export class EmployeeFormDialogComponent {
         workingStatusStartDate: employee.workingStatusStartDate ?? '',
         workingStatusEndDate: employee.workingStatusEndDate ?? '',
         premiumTreatment: employee.premiumTreatment ?? '',
-        workingStatusNote: employee.workingStatusNote ?? ''
+        workingStatusNote: employee.workingStatusNote ?? '',
+        bankAccountBankName: employee.bankAccount?.bankName ?? '',
+        bankAccountBankCode: employee.bankAccount?.bankCode ?? '',
+        bankAccountBranchName: employee.bankAccount?.branchName ?? '',
+        bankAccountBranchCode: employee.bankAccount?.branchCode ?? '',
+        bankAccountAccountType: employee.bankAccount?.accountType ?? '',
+        bankAccountAccountNumber: employee.bankAccount?.accountNumber ?? '',
+        bankAccountHolderName: employee.bankAccount?.accountHolderName ?? '',
+        bankAccountHolderKana: employee.bankAccount?.accountHolderKana ?? '',
+        payrollPayType: employee.payrollSettings?.payType ?? '',
+        payrollPayCycle: employee.payrollSettings?.payCycle ?? '',
+        payrollInsurableMonthlyWage: employee.payrollSettings?.insurableMonthlyWage ?? null,
+        payrollNote: employee.payrollSettings?.note ?? ''
       } as any);
 
       if (employee.myNumber) {
@@ -643,6 +805,31 @@ export class EmployeeFormDialogComponent {
       return trimmed === '' ? null : trimmed;
     };
 
+    const bankName = normalizeString(formValue.bankAccountBankName);
+    const bankCode = normalizeString(formValue.bankAccountBankCode);
+    const branchName = normalizeString(formValue.bankAccountBranchName);
+    const branchCode = normalizeString(formValue.bankAccountBranchCode);
+    const accountType = normalizeSelectString(formValue.bankAccountAccountType) as
+      | BankAccountType
+      | null;
+    const accountNumber = normalizeString(formValue.bankAccountAccountNumber);
+    const accountHolderName = normalizeString(formValue.bankAccountHolderName);
+    const accountHolderKana = normalizeString(formValue.bankAccountHolderKana);
+
+    const payrollPayType = normalizeSelectString(formValue.payrollPayType) as
+      | PayrollPayType
+      | null;
+    const payrollPayCycle = normalizeSelectString(formValue.payrollPayCycle) as
+      | PayrollPayCycle
+      | null;
+    const payrollInsurableMonthlyWage =
+      formValue.payrollInsurableMonthlyWage !== null &&
+      formValue.payrollInsurableMonthlyWage !== undefined &&
+      formValue.payrollInsurableMonthlyWage !== ''
+        ? Number(formValue.payrollInsurableMonthlyWage)
+        : null;
+    const payrollNote = normalizeString(formValue.payrollNote);
+
     // マイナンバー: 空文字の場合はnull（削除扱い）
     const encryptedMyNumber =
       formValue.myNumber && formValue.myNumber.trim() !== ''
@@ -692,6 +879,92 @@ export class EmployeeFormDialogComponent {
       workingStatusNote: normalizeString(formValue.workingStatusNote) as any,
       updatedByUserId: currentUserId ?? undefined
     };
+
+    const hasBankAccountInput = [
+      bankName,
+      bankCode,
+      branchName,
+      branchCode,
+      accountType,
+      accountNumber,
+      accountHolderName,
+      accountHolderKana
+    ].some((v) => v !== null && v !== undefined && v !== '');
+
+    if (hasBankAccountInput) {
+      if (!bankName) {
+        this.form.get('bankAccountBankName')?.setErrors({ required: true });
+      }
+      if (!branchName) {
+        this.form.get('bankAccountBranchName')?.setErrors({ required: true });
+      }
+      if (!accountType) {
+        this.form.get('bankAccountAccountType')?.setErrors({ required: true });
+      }
+      if (!accountNumber) {
+        this.form.get('bankAccountAccountNumber')?.setErrors({ required: true });
+      }
+      if (!accountHolderName) {
+        this.form.get('bankAccountHolderName')?.setErrors({ required: true });
+      }
+
+      const missingRequired =
+        !bankName || !branchName || !accountType || !accountNumber || !accountHolderName;
+
+      if (missingRequired) {
+        this.form.markAllAsTouched();
+        return;
+      }
+
+      const bankAccountPayload: any = {
+        bankName,
+        bankCode,
+        branchName,
+        branchCode,
+        accountType,
+        accountNumber,
+        accountHolderName,
+        accountHolderKana,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (currentUserId) {
+        bankAccountPayload.updatedByUserId = currentUserId;
+      }
+
+      payload.bankAccount = bankAccountPayload;
+    } else if (this.data.employee?.bankAccount) {
+      payload.bankAccount = null;
+    }
+
+    const hasPayrollInput =
+      payrollPayType ||
+      payrollPayCycle ||
+      payrollInsurableMonthlyWage !== null ||
+      payrollNote !== null;
+
+    if (hasPayrollInput) {
+      if (!payrollPayType) {
+        this.form.get('payrollPayType')?.setErrors({ required: true });
+      }
+      if (!payrollPayCycle) {
+        this.form.get('payrollPayCycle')?.setErrors({ required: true });
+      }
+
+      if (!payrollPayType || !payrollPayCycle) {
+        this.form.markAllAsTouched();
+        return;
+      }
+
+      payload.payrollSettings = {
+        payType: payrollPayType,
+        payCycle: payrollPayCycle,
+        insurableMonthlyWage: payrollInsurableMonthlyWage,
+        note: payrollNote
+      };
+    } else if (this.data.employee?.payrollSettings) {
+      payload.payrollSettings = null;
+    }
 
     try {
       await this.employeesService.save(this.data.officeId, payload);

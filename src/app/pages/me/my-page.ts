@@ -1,4 +1,13 @@
-import { AsyncPipe, DatePipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
+import {
+  AsyncPipe,
+  DatePipe,
+  DecimalPipe,
+  NgFor,
+  NgIf,
+  NgSwitch,
+  NgSwitchCase,
+  NgSwitchDefault
+} from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -19,6 +28,8 @@ import {
   BonusPremium,
   ChangeRequest,
   ChangeRequestStatus,
+  BankAccountChangePayload,
+  Employee,
   Dependent,
   DocumentRequest,
   MonthlyPremium
@@ -30,6 +41,9 @@ import {
   getDependentRelationshipLabel,
   getDocumentCategoryLabel,
   getEmploymentTypeLabel,
+  getBankAccountTypeLabel,
+  getPayrollPayTypeLabel,
+  getPayrollPayCycleLabel,
   getInsuranceLossReasonKindLabel,
   getInsuranceQualificationKindLabel,
   getPremiumTreatmentLabel,
@@ -39,6 +53,7 @@ import {
   calculateAge
 } from '../../utils/label-utils';
 import { RequestKindSelectionDialogComponent } from '../requests/request-kind-selection-dialog.component';
+import { BankAccountChangeRequestFormDialogComponent } from '../requests/bank-account-change-request-form-dialog.component';
 import { DependentAddRequestFormDialogComponent } from '../requests/dependent-add-request-form-dialog.component';
 import { DependentUpdateRequestFormDialogComponent } from '../requests/dependent-update-request-form-dialog.component';
 import { DependentRemoveRequestFormDialogComponent } from '../requests/dependent-remove-request-form-dialog.component';
@@ -61,6 +76,9 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
     NgFor,
     DatePipe,
     DecimalPipe,
+    NgSwitch,
+    NgSwitchCase,
+    NgSwitchDefault,
     MatSnackBarModule
   ],
   template: `
@@ -168,6 +186,94 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="value" style="color: #6b7280;">住所・連絡先情報が未設定です</span>
               </div>
             </div>
+          </mat-card>
+
+          <!-- 2.5 給与振込口座 -->
+          <mat-card class="sub-card">
+            <div class="sub-card-header">
+              <h3>
+                <mat-icon>account_balance</mat-icon>
+                給与振込口座
+              </h3>
+              <button
+                mat-stroked-button
+                color="primary"
+                (click)="openBankAccountChangeRequest(employee)"
+              >
+                <mat-icon>edit</mat-icon>
+                口座情報を{{ employee.bankAccount ? '変更' : '登録' }}申請
+              </button>
+            </div>
+            <ng-container *ngIf="employee.bankAccount as bankAccount; else noBankAccount">
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">金融機関・支店</span>
+                  <span class="value">{{ bankAccount.bankName }} {{ bankAccount.branchName }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">口座種別</span>
+                  <span class="value">{{ getBankAccountTypeLabel(bankAccount.accountType) }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">口座番号</span>
+                  <span class="value">{{ bankAccount.accountNumber }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">名義</span>
+                  <span class="value">{{ bankAccount.accountHolderName }}</span>
+                </div>
+                <div class="info-item" *ngIf="bankAccount.accountHolderKana">
+                  <span class="label">名義カナ</span>
+                  <span class="value">{{ bankAccount.accountHolderKana }}</span>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #noBankAccount>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="value" style="color: #6b7280;">口座情報が未登録です</span>
+                </div>
+              </div>
+            </ng-template>
+          </mat-card>
+
+          <!-- 2.6 給与情報（保険用） -->
+          <mat-card class="sub-card">
+            <div class="sub-card-header">
+              <h3>
+                <mat-icon>payments</mat-icon>
+                給与情報（保険用）
+              </h3>
+            </div>
+            <ng-container *ngIf="employee.payrollSettings as payroll; else noPayrollSettings">
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">支給形態</span>
+                  <span class="value">{{ getPayrollPayTypeLabel(payroll.payType) }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">支給サイクル</span>
+                  <span class="value">{{ getPayrollPayCycleLabel(payroll.payCycle) }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">報酬月額</span>
+                  <span class="value">
+                    {{ payroll.insurableMonthlyWage != null ? (payroll.insurableMonthlyWage | number) + ' 円' : '-' }}
+                  </span>
+                </div>
+                <div class="info-item" *ngIf="payroll.note">
+                  <span class="label">補足メモ</span>
+                  <span class="value">{{ payroll.note }}</span>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #noPayrollSettings>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="value" style="color: #6b7280;">給与情報が未登録です</span>
+                </div>
+              </div>
+            </ng-template>
           </mat-card>
 
           <!-- 3. 就労条件カード -->
@@ -604,7 +710,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
               <ng-container matColumnDef="field">
                 <th mat-header-cell *matHeaderCellDef>変更項目</th>
                 <td mat-cell *matCellDef="let row">
-                  {{ row.kind === 'profile' ? getFieldLabel(row.field) : '-' }}
+                  {{
+                    row.kind === 'profile'
+                      ? getFieldLabel(row.field)
+                      : row.kind === 'bankAccount'
+                        ? '口座情報'
+                        : '-'
+                  }}
                 </td>
               </ng-container>
 
@@ -620,7 +732,24 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
               <ng-container matColumnDef="requestedValue">
                 <th mat-header-cell *matHeaderCellDef>申請する値</th>
-                <td mat-cell *matCellDef="let row">{{ row.requestedValue }}</td>
+                <td mat-cell *matCellDef="let row">
+                  <ng-container [ngSwitch]="row.kind">
+                    <ng-container *ngSwitchCase="'bankAccount'">
+                      <div class="bank-account-info" *ngIf="getBankAccountPayload(row) as payload; else noPayload">
+                        <div>{{ payload.bankName }} {{ payload.branchName }}</div>
+                        <div>
+                          {{ getBankAccountTypeLabel(payload.accountType) }} /
+                          {{ payload.accountNumber }}
+                        </div>
+                        <div>名義: {{ payload.accountHolderName }}</div>
+                      </div>
+                      <ng-template #noPayload>-</ng-template>
+                    </ng-container>
+                    <ng-container *ngSwitchDefault>
+                      {{ row.requestedValue }}
+                    </ng-container>
+                  </ng-container>
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="status">
@@ -1301,6 +1430,20 @@ export class MyPage {
     });
   }
 
+  async openBankAccountChangeRequest(employee: Employee): Promise<void> {
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
+    if (!officeId) return;
+
+    this.dialog.open(BankAccountChangeRequestFormDialogComponent, {
+      width: '640px',
+      data: {
+        officeId,
+        employeeId: employee.id,
+        currentBankAccount: employee.bankAccount ?? null
+      }
+    });
+  }
+
   getFieldLabel(field: ChangeRequest['field'] | undefined): string {
     switch (field) {
       case 'postalCode':
@@ -1329,7 +1472,7 @@ export class MyPage {
   }
 
   getTargetDependentLabel(request: ChangeRequest): string {
-    if (request.kind === 'profile') {
+    if (request.kind === 'profile' || request.kind === 'bankAccount') {
       return '-';
     }
 
@@ -1350,6 +1493,11 @@ export class MyPage {
       : '';
 
     return `${name}${relationshipLabel}`;
+  }
+
+  getBankAccountPayload(request: ChangeRequest): BankAccountChangePayload | null {
+    if (request.kind !== 'bankAccount') return null;
+    return (request.payload as BankAccountChangePayload) ?? null;
   }
 
   async cancelRequest(request: ChangeRequest): Promise<void> {
@@ -1379,6 +1527,9 @@ export class MyPage {
   }
 
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
+  protected readonly getBankAccountTypeLabel = getBankAccountTypeLabel;
+  protected readonly getPayrollPayTypeLabel = getPayrollPayTypeLabel;
+  protected readonly getPayrollPayCycleLabel = getPayrollPayCycleLabel;
 
   getDocumentCategoryLabel(category: string): string {
     return getDocumentCategoryLabel(category as any);

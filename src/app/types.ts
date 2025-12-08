@@ -249,6 +249,34 @@ export interface DataQualityIssue {
   severity?: 'warning' | 'error'; // MVPはwarningで運用、将来errorも使用可
 }
 
+// 銀行口座情報
+export type BankAccountType = 'ordinary' | 'checking' | 'savings' | 'other';
+
+export interface BankAccount {
+  bankName: string;
+  bankCode?: string | null;
+  branchName: string;
+  branchCode?: string | null;
+  accountType: BankAccountType;
+  accountNumber: string;
+  accountHolderName: string;
+  accountHolderKana?: string | null;
+  isMain?: boolean;
+  updatedAt?: IsoDateString;
+  updatedByUserId?: string;
+}
+
+// 給与基本情報（保険用）
+export type PayrollPayType = 'monthly' | 'daily' | 'hourly' | 'annual' | 'other';
+export type PayrollPayCycle = 'monthly' | 'twice_per_month' | 'weekly' | 'other';
+
+export interface PayrollSettings {
+  payType: PayrollPayType;
+  payCycle: PayrollPayCycle;
+  insurableMonthlyWage?: number | null;
+  note?: string | null;
+}
+
 export interface Employee {
   id: string;
   officeId: string;
@@ -313,6 +341,12 @@ export interface Employee {
   pensionGrade?: number;
   pensionStandardMonthly?: number;
   pensionGradeSource?: GradeDecisionSource;
+
+  /** 給与振込口座情報 */
+  bankAccount?: BankAccount | null;
+
+  /** 給与基本情報（社会保険用） */
+  payrollSettings?: PayrollSettings | null;
 
   createdAt?: IsoDateString;
   updatedAt?: IsoDateString;
@@ -486,7 +520,23 @@ export interface BonusPremium {
 // Change requests
 export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected' | 'canceled';
 
-export type ChangeRequestKind = 'profile' | 'dependent_add' | 'dependent_update' | 'dependent_remove';
+export type ChangeRequestKind =
+  | 'profile'
+  | 'dependent_add'
+  | 'dependent_update'
+  | 'dependent_remove'
+  | 'bankAccount';
+
+export interface BankAccountChangePayload {
+  bankName: string;
+  bankCode?: string | null;
+  branchName: string;
+  branchCode?: string | null;
+  accountType: BankAccountType;
+  accountNumber: string;
+  accountHolderName: string;
+  accountHolderKana?: string | null;
+}
 
 export interface DependentAddPayload {
   name: string;
@@ -524,6 +574,8 @@ export type DependentRequestPayload =
   | DependentUpdatePayload
   | DependentRemovePayload;
 
+export type ChangeRequestPayload = DependentRequestPayload | BankAccountChangePayload;
+
 export interface ChangeRequest {
   id: string;
   officeId: string;
@@ -534,7 +586,7 @@ export interface ChangeRequest {
   currentValue?: string;
   requestedValue?: string;
   targetDependentId?: string;
-  payload?: DependentRequestPayload;
+  payload?: ChangeRequestPayload;
   status: ChangeRequestStatus;
   requestedAt: IsoDateString;
   decidedAt?: IsoDateString;

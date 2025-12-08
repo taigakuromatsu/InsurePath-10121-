@@ -27,6 +27,9 @@ import {
   getInsuranceLossReasonKindLabel,
   getInsuranceQualificationKindLabel,
   getStandardRewardDecisionKindLabel,
+  getBankAccountTypeLabel,
+  getPayrollPayTypeLabel,
+  getPayrollPayCycleLabel,
   getPremiumTreatmentLabel,
   getWorkingStatusLabel
 } from '../../utils/label-utils';
@@ -48,6 +51,8 @@ export type DialogFocusSection =
   | 'working-status'
   | 'dependents'
   | 'standard-reward-history'
+  | 'bankAccount'
+  | 'payrollSettings'
   | 'system';
 
 export interface EmployeeDetailDialogData {
@@ -293,6 +298,65 @@ export interface EmployeeDetailDialogData {
         <div class="label">備考</div>
         <div class="value">{{ data.employee.workingStatusNote || '-' }}</div>
       </div>
+      </div>
+
+      <!-- 給与振込口座 -->
+      <div class="form-section" id="bankAccount" #sectionBlock>
+        <h2 class="section-title">
+          <mat-icon>account_balance_wallet</mat-icon>
+          給与振込口座
+        </h2>
+        <div class="grid">
+          <ng-container *ngIf="data.employee.bankAccount as bankAccount; else noBankAccount">
+            <div class="label">金融機関・支店</div>
+            <div class="value">{{ bankAccount.bankName }} {{ bankAccount.branchName }}</div>
+
+            <div class="label">口座種別</div>
+            <div class="value">{{ getBankAccountTypeLabel(bankAccount.accountType) }}</div>
+
+            <div class="label">口座番号</div>
+            <div class="value">{{ bankAccount.accountNumber }}</div>
+
+            <div class="label">名義</div>
+            <div class="value">{{ bankAccount.accountHolderName }}</div>
+
+            <div class="label">名義カナ</div>
+            <div class="value">{{ bankAccount.accountHolderKana || '-' }}</div>
+          </ng-container>
+          <ng-template #noBankAccount>
+            <div class="label">口座情報</div>
+            <div class="value">未登録</div>
+          </ng-template>
+        </div>
+      </div>
+
+      <!-- 給与情報（保険用） -->
+      <div class="form-section" id="payrollSettings" #sectionBlock>
+        <h2 class="section-title">
+          <mat-icon>payments</mat-icon>
+          給与情報（保険用）
+        </h2>
+        <div class="grid">
+          <ng-container *ngIf="data.employee.payrollSettings as payroll; else noPayroll">
+            <div class="label">支給形態</div>
+            <div class="value">{{ getPayrollPayTypeLabel(payroll.payType) }}</div>
+
+            <div class="label">支給サイクル</div>
+            <div class="value">{{ getPayrollPayCycleLabel(payroll.payCycle) }}</div>
+
+            <div class="label">報酬月額</div>
+            <div class="value">
+              {{ payroll.insurableMonthlyWage != null ? (payroll.insurableMonthlyWage | number) + ' 円' : '-' }}
+            </div>
+
+            <div class="label">補足メモ</div>
+            <div class="value">{{ payroll.note || '-' }}</div>
+          </ng-container>
+          <ng-template #noPayroll>
+            <div class="label">給与情報</div>
+            <div class="value">未登録</div>
+          </ng-template>
+        </div>
       </div>
 
       <!-- 標準報酬履歴 -->
@@ -791,6 +855,8 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
     { id: 'health-qualification', label: '健保資格', icon: 'local_hospital' },
     { id: 'pension-qualification', label: '厚年資格', icon: 'account_balance' },
     { id: 'working-status', label: '就業状態', icon: 'event' },
+    { id: 'bankAccount', label: '口座情報', icon: 'account_balance_wallet' },
+    { id: 'payrollSettings', label: '給与情報', icon: 'payments' },
     { id: 'standard-reward-history', label: '標準報酬履歴', icon: 'trending_up' },
     { id: 'dependents', label: '扶養家族', icon: 'family_restroom' },
     { id: 'system', label: 'システム', icon: 'info' }
@@ -859,6 +925,9 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
   protected readonly getStandardRewardDecisionKindLabel =
     getStandardRewardDecisionKindLabel;
+  protected readonly getBankAccountTypeLabel = getBankAccountTypeLabel;
+  protected readonly getPayrollPayTypeLabel = getPayrollPayTypeLabel;
+  protected readonly getPayrollPayCycleLabel = getPayrollPayCycleLabel;
 
   protected readonly getSexLabel = (sex: Sex | null | undefined): string => {
     switch (sex) {

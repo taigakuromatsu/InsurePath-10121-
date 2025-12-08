@@ -16,7 +16,7 @@ import {
   ChangeRequest,
   ChangeRequestKind,
   ChangeRequestStatus,
-  DependentRequestPayload
+  ChangeRequestPayload
 } from '../types';
 
 @Injectable({ providedIn: 'root' })
@@ -66,7 +66,7 @@ export class ChangeRequestsService {
       currentValue?: string;
       requestedValue?: string;
       targetDependentId?: string;
-      payload?: DependentRequestPayload;
+      payload?: ChangeRequestPayload;
     }
   ): Promise<void> {
     const ref = this.collectionPath(officeId);

@@ -4,6 +4,9 @@ import {
   DependentRelationship,
   DocumentCategory,
   DocumentRequestStatus,
+  BankAccountType,
+  PayrollPayType,
+  PayrollPayCycle,
   EmploymentType,
   InsuranceLossReasonKind,
   InsuranceQualificationKind,
@@ -102,6 +105,8 @@ export function getChangeRequestKindLabel(kind?: ChangeRequestKind): string {
       return '扶養家族変更';
     case 'dependent_remove':
       return '扶養家族削除';
+    case 'bankAccount':
+      return '口座情報変更';
     case 'profile':
     default:
       return 'プロフィール変更';
@@ -235,6 +240,53 @@ export function getDocumentRequestStatusLabel(status?: DocumentRequestStatus): s
       return 'アップロード済み';
     case 'cancelled':
       return 'キャンセル済み';
+    default:
+      return '-';
+  }
+}
+
+export function getBankAccountTypeLabel(type?: BankAccountType | null): string {
+  switch (type) {
+    case 'ordinary':
+      return '普通';
+    case 'checking':
+      return '当座';
+    case 'savings':
+      return '貯蓄';
+    case 'other':
+      return 'その他';
+    default:
+      return '-';
+  }
+}
+
+export function getPayrollPayTypeLabel(type?: PayrollPayType | null): string {
+  switch (type) {
+    case 'monthly':
+      return '月給';
+    case 'daily':
+      return '日給';
+    case 'hourly':
+      return '時給';
+    case 'annual':
+      return '年俸';
+    case 'other':
+      return 'その他';
+    default:
+      return '-';
+  }
+}
+
+export function getPayrollPayCycleLabel(cycle?: PayrollPayCycle | null): string {
+  switch (cycle) {
+    case 'monthly':
+      return '月次';
+    case 'twice_per_month':
+      return '月2回';
+    case 'weekly':
+      return '週次';
+    case 'other':
+      return 'その他';
     default:
       return '-';
   }

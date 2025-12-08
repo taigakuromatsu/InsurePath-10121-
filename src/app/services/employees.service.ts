@@ -17,6 +17,24 @@ import { Employee } from '../types';
 export class EmployeesService {
   constructor(private readonly firestore: Firestore) {}
 
+  /**
+   * ネストされた undefined を除去したオブジェクトを返す（null / undefined はそのまま返す）
+   */
+  private cleanNestedObject<T extends Record<string, any> | null | undefined>(value: T): T {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    const cleaned: any = {};
+    for (const [key, v] of Object.entries(value)) {
+      if (v === undefined) {
+        continue;
+      }
+      cleaned[key] = v;
+    }
+    return cleaned as T;
+  }
+
   private collectionPath(officeId: string) {
     return collection(this.firestore, 'offices', officeId, 'employees');
   }
@@ -190,8 +208,20 @@ export class EmployeesService {
     if (employee.premiumTreatment !== undefined) {
       payload.premiumTreatment = employee.premiumTreatment;
     }
-    if (employee.workingStatusNote != null) {
+    if (employee.workingStatusNote !== undefined) {
       payload.workingStatusNote = employee.workingStatusNote;
+    }
+    if (employee.bankAccount !== undefined) {
+      payload.bankAccount =
+        employee.bankAccount === null
+          ? null
+          : this.cleanNestedObject(employee.bankAccount);
+    }
+    if (employee.payrollSettings !== undefined) {
+      payload.payrollSettings =
+        employee.payrollSettings === null
+          ? null
+          : this.cleanNestedObject(employee.payrollSettings);
     }
 
     // null を deleteField() に変換して、空で保存された項目を Firestore から削除

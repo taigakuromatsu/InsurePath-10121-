@@ -13,6 +13,7 @@ import { DependentRemoveRequestFormDialogComponent } from './dependent-remove-re
 import { DependentUpdateRequestFormDialogComponent } from './dependent-update-request-form-dialog.component';
 import { ChangeRequestFormDialogComponent } from './change-request-form-dialog.component';
 import { DependentSelectDialogComponent } from './dependent-select-dialog.component';
+import { BankAccountChangeRequestFormDialogComponent } from './bank-account-change-request-form-dialog.component';
 import { EmployeesService } from '../../services/employees.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
@@ -33,6 +34,18 @@ import { MatSnackBar } from '@angular/material/snack-bar';
           <div class="option-content">
             <div class="option-title">プロフィール変更</div>
             <div class="option-description">住所・連絡先などの変更を申請</div>
+          </div>
+        </button>
+
+        <button
+          mat-stroked-button
+          class="kind-option"
+          (click)="openBankAccountChangeForm()"
+        >
+          <mat-icon>account_balance</mat-icon>
+          <div class="option-content">
+            <div class="option-title">口座情報を変更</div>
+            <div class="option-description">給与振込口座の変更を申請</div>
           </div>
         </button>
 
@@ -149,6 +162,35 @@ export class RequestKindSelectionDialogComponent {
     this.dialog.open(ChangeRequestFormDialogComponent, {
       width: '600px',
       data: { employee, officeId }
+    });
+  }
+
+  async openBankAccountChangeForm(): Promise<void> {
+    this.dialogRef.close();
+    const [profile, officeId] = await Promise.all([
+      firstValueFrom(this.currentUser.profile$),
+      firstValueFrom(this.currentOffice.officeId$)
+    ]);
+
+    if (!profile?.employeeId || !officeId) {
+      return;
+    }
+
+    const employee = await firstValueFrom(
+      this.employeesService.get(officeId, profile.employeeId)
+    );
+
+    if (!employee) {
+      return;
+    }
+
+    this.dialog.open(BankAccountChangeRequestFormDialogComponent, {
+      width: '640px',
+      data: {
+        officeId,
+        employeeId: employee.id,
+        currentBankAccount: employee.bankAccount ?? null
+      }
     });
   }
 
