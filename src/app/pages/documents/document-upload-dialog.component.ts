@@ -34,32 +34,29 @@ export interface DocumentUploadDialogData {
     DatePipe
   ],
   template: `
-    <h1 mat-dialog-title>ファイルをアップロード</h1>
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div mat-dialog-content>
-        <!-- 依頼情報（読み取り専用） -->
-        <div class="request-info">
-          <h3>依頼内容</h3>
-          <div class="info-item">
-            <span class="label">カテゴリ:</span>
-            <span class="value">{{ getCategoryLabel(data.request.category) }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">タイトル:</span>
-            <span class="value">{{ data.request.title }}</span>
-          </div>
-          <div class="info-item" *ngIf="data.request.message">
-            <span class="label">メッセージ:</span>
-            <span class="value">{{ data.request.message }}</span>
-          </div>
-          <div class="info-item" *ngIf="data.request.dueDate">
-            <span class="label">締め切り日:</span>
-            <span class="value">{{ data.request.dueDate | date: 'yyyy-MM-dd' }}</span>
-          </div>
+    <h1 mat-dialog-title>
+      <mat-icon class="mr-2">upload</mat-icon>
+      ファイルをアップロード
+    </h1>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <!-- 依頼情報（読み取り専用） -->
+      <div class="form-section mb-4">
+        <h3 class="mat-h3 mb-2 flex-row align-center gap-2">
+          <mat-icon color="primary">info</mat-icon> 依頼内容
+        </h3>
+        <div class="screen-rules">
+          <p>
+            <strong>カテゴリ:</strong> {{ getCategoryLabel(data.request.category) }}<br>
+            <strong>タイトル:</strong> {{ data.request.title }}<br>
+            <span *ngIf="data.request.message"><strong>メッセージ:</strong> {{ data.request.message }}<br></span>
+            <span *ngIf="data.request.dueDate"><strong>締め切り日:</strong> {{ data.request.dueDate | date: 'yyyy-MM-dd' }}</span>
+          </p>
         </div>
+      </div>
 
-                <!-- ファイル選択（ここを差し替え） -->
-        <mat-form-field appearance="outline" class="full-width">
+      <div class="form-section">
+        <!-- ファイル選択 -->
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>ファイル</mat-label>
           <!-- 表示用のテキスト入力 -->
           <input
@@ -106,7 +103,7 @@ export interface DocumentUploadDialogData {
 
 
         <!-- タイトル確認・編集 -->
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>タイトル</mat-label>
           <input matInput formControlName="title" required maxlength="200" />
           <mat-hint>{{ form.get('title')?.value?.length || 0 }}/200</mat-hint>
@@ -119,14 +116,14 @@ export interface DocumentUploadDialogData {
         </mat-form-field>
 
         <!-- メモ（任意） -->
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>メモ（任意）</mat-label>
           <textarea matInput formControlName="note" rows="3"></textarea>
         </mat-form-field>
       </div>
       <div mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close [disabled]="submitting">キャンセル</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || submitting">
+        <button mat-stroked-button type="button" mat-dialog-close [disabled]="submitting">キャンセル</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
           <mat-icon *ngIf="!submitting">upload</mat-icon>
           <span *ngIf="submitting">アップロード中...</span>
           <span *ngIf="!submitting">アップロード</span>
@@ -136,37 +133,17 @@ export interface DocumentUploadDialogData {
   `,
   styles: [
     `
-      .full-width {
-        width: 100%;
-        margin-bottom: 1rem;
-      }
-
-      .request-info {
-        background-color: #f5f5f5;
-        padding: 1rem;
+      .mr-2 { margin-right: 8px; }
+      
+      .screen-rules {
+        padding: 12px;
+        background: #f5f7fa;
         border-radius: 4px;
-        margin-bottom: 1.5rem;
-      }
-
-      .request-info h3 {
-        margin: 0 0 0.75rem 0;
-        font-size: 1rem;
-        font-weight: 600;
-      }
-
-      .info-item {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-      }
-
-      .info-item .label {
-        font-weight: 600;
-        min-width: 100px;
-      }
-
-      .info-item .value {
-        flex: 1;
+        font-size: 13px;
+        color: #666;
+        border-left: 3px solid #1a237e;
+        
+        p { margin: 0; line-height: 1.5; }
       }
 
       .file-info {

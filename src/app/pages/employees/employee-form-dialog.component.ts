@@ -44,13 +44,13 @@ export interface EmployeeDialogData {
     NgIf
   ],
   template: `
-    <h1 mat-dialog-title>
-      <mat-icon>{{ data.employee ? 'edit' : 'person_add' }}</mat-icon>
-      {{ data.employee ? '従業員を編集' : '従業員を追加' }}
+    <h1 mat-dialog-title class="dialog-title">
+      <mat-icon color="primary">{{ data.employee ? 'edit' : 'person_add' }}</mat-icon>
+      <span>{{ data.employee ? '従業員を編集' : '従業員を追加' }}</span>
     </h1>
-    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content autocomplete="off">
+    <form class="dense-form" [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content autocomplete="off">
       <div class="form-section">
-        <h3 class="section-title">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>person</mat-icon>
           基本情報
         </h3>
@@ -168,7 +168,7 @@ export interface EmployeeDialogData {
       </div>
 
       <div class="form-section">
-        <h3 class="section-title">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>work</mat-icon>
           就労条件
         </h3>
@@ -224,7 +224,7 @@ export interface EmployeeDialogData {
       </div>
 
       <div class="form-section">
-        <h3 class="section-title">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>account_balance</mat-icon>
           社会保険関連
         </h3>
@@ -261,7 +261,7 @@ export interface EmployeeDialogData {
       </div>
 
       <div class="form-section">
-        <h3 class="section-title">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>account_balance_wallet</mat-icon>
           給与振込口座情報
         </h3>
@@ -332,7 +332,7 @@ export interface EmployeeDialogData {
       </div>
 
       <div class="form-section">
-        <h3 class="section-title">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>payments</mat-icon>
           給与情報（保険用）
         </h3>
@@ -381,12 +381,12 @@ export interface EmployeeDialogData {
           <mat-form-field appearance="outline" class="full-row">
             <mat-label>補足メモ</mat-label>
             <textarea matInput rows="2" formControlName="payrollNote"></textarea>
-          </mat-form-field>
+      </mat-form-field>
         </div>
       </div>
 
       <div class="form-section">
-        <h3 class="section-title">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>local_hospital</mat-icon>
           資格情報（健康保険）
         </h3>
@@ -426,7 +426,7 @@ export interface EmployeeDialogData {
       </div>
 
       <div class="form-section">
-        <h3 class="section-title">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>account_balance</mat-icon>
           資格情報（厚生年金）
         </h3>
@@ -466,7 +466,7 @@ export interface EmployeeDialogData {
       </div>
 
       <div class="form-section">
-        <h3 class="section-title">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>event</mat-icon>
           就業状態
         </h3>
@@ -514,7 +514,7 @@ export interface EmployeeDialogData {
         <mat-icon>close</mat-icon>
         キャンセル
       </button>
-      <button mat-raised-button color="primary" (click)="submit()" [disabled]="form.invalid">
+      <button mat-flat-button color="primary" (click)="submit()" [disabled]="form.invalid">
         <mat-icon>save</mat-icon>
         保存
       </button>
@@ -522,62 +522,41 @@ export interface EmployeeDialogData {
   `,
   styles: [
     `
-      h1[mat-dialog-title] {
+      .dialog-title {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 8px;
         margin: 0;
-        padding: 1.5rem 1.5rem 1rem;
+        padding: 16px 16px 12px;
         border-bottom: 1px solid #e0e0e0;
-      }
-
-      h1[mat-dialog-title] mat-icon {
-        color: #667eea;
       }
 
       form[mat-dialog-content] {
         max-height: 70vh;
         overflow-y: auto;
-        padding: 1.5rem;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
       }
 
       .form-section {
-        margin-bottom: 2rem;
-      }
-
-      .form-section:last-child {
-        margin-bottom: 0;
-      }
-
-      .section-title {
         display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0 0 1rem 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #333;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e0e0e0;
-      }
-
-      .section-title mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        color: #667eea;
+        flex-direction: column;
+        gap: 16px;
+        margin: 0;
       }
 
       .form-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
       }
 
       .field-help-button {
         width: 24px;
         height: 24px;
-        margin-left: 0.25rem;
+        margin-left: 6px;
       }
 
       .field-help-button mat-icon {
@@ -587,7 +566,7 @@ export interface EmployeeDialogData {
       .toggle-field {
         display: flex;
         align-items: center;
-        padding: 0.5rem 0;
+        padding: 4px 0;
       }
 
       .full-row {
@@ -595,25 +574,15 @@ export interface EmployeeDialogData {
       }
 
       .dialog-actions {
-        padding: 1rem 1.5rem;
+        padding: 12px 16px;
         border-top: 1px solid #e0e0e0;
         background: #fafafa;
       }
 
       .dialog-actions button {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-      }
-
-      button[mat-raised-button] {
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s ease;
-      }
-
-      button[mat-raised-button]:hover:not(:disabled) {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        transform: translateY(-1px);
+        gap: 8px;
       }
     `
   ]

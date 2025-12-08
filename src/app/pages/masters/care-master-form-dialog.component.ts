@@ -34,156 +34,74 @@ export interface CareMasterDialogData {
   ],
   template: `
     <h1 mat-dialog-title>
-      <mat-icon>{{ data.table ? 'edit' : 'add' }}</mat-icon>
+      <mat-icon class="mr-2">{{ data.table ? 'edit' : 'add' }}</mat-icon>
       {{ data.table ? '介護保険マスタを編集' : '介護保険マスタを作成' }}
     </h1>
-    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
-      <div class="form-section">
-        <h3 class="section-title">基本情報</h3>
-        <div class="form-row">
-      <mat-form-field appearance="outline">
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <div class="form-section mb-4">
+        <h3 class="mat-h3 mb-2 flex-row align-center gap-2">
+          <mat-icon color="primary">info</mat-icon> 基本情報
+        </h3>
+        <div class="form-row flex-row gap-2 flex-wrap">
+          <mat-form-field appearance="outline" class="flex-1">
         <mat-label>適用開始年</mat-label>
         <input matInput type="number" formControlName="effectiveYear" required />
-        <mat-hint>何年分からの料率か</mat-hint>
+            <span matTextSuffix>年</span>
+            <mat-hint>例: 2025</mat-hint>
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="flex-1">
         <mat-label>適用開始月</mat-label>
         <mat-select formControlName="effectiveMonth" required>
           <mat-option *ngFor="let month of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="month">
             {{ month }}月
           </mat-option>
         </mat-select>
-        <mat-hint>何月分からの料率か</mat-hint>
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="flex-1">
         <mat-label>介護保険料率（合計）</mat-label>
         <input matInput type="number" formControlName="careRate" step="0.0001" />
             <mat-hint>例: 0.0191 (1.91%)</mat-hint>
       </mat-form-field>
         </div>
-        <div class="help-text">
-          <p>
-            例）2025年3月分から改定される場合：<br>
-            「適用開始年」= 2025、「適用開始月」= 3 を選択してください。<br>
-            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。
-          </p>
+        
+        <div class="flex-row justify-end mb-2">
+          <button mat-stroked-button color="primary" type="button" (click)="loadPreset()">
+            <mat-icon>download</mat-icon>
+            初期値を読み込む
+          </button>
         </div>
 
-      <div class="actions">
-        <button mat-stroked-button color="accent" type="button" (click)="loadPreset()">
-            <mat-icon>download</mat-icon>
-          初期値を読み込む
-        </button>
+        <div class="screen-rules">
+          <p>
+            <strong>設定ヒント:</strong><br>
+            例）2025年3月分から改定される場合：「適用開始年」= 2025、「適用開始月」= 3。<br>
+            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。
+          </p>
         </div>
       </div>
     </form>
 
-    <div mat-dialog-actions align="end" class="dialog-actions">
-      <button mat-button mat-dialog-close>
-        <mat-icon>close</mat-icon>
-        キャンセル
-      </button>
-      <button mat-raised-button color="primary" (click)="submit()" [disabled]="form.invalid">
-        <mat-icon>save</mat-icon>
-        保存
-      </button>
+    <div mat-dialog-actions align="end">
+      <button mat-stroked-button mat-dialog-close>キャンセル</button>
+      <button mat-flat-button color="primary" (click)="submit()" [disabled]="form.invalid">保存する</button>
     </div>
   `,
   styles: [
     `
-      h1[mat-dialog-title] {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0;
-        padding: 1.5rem 1.5rem 1rem;
-        border-bottom: 1px solid #e0e0e0;
-      }
+      .mr-2 { margin-right: 8px; }
+      .flex-1 { flex: 1; }
 
-      h1[mat-dialog-title] mat-icon {
-        color: #667eea;
-      }
-
-      form[mat-dialog-content] {
-        padding: 1.5rem;
-      }
-
-      .form-section {
-        margin-bottom: 0;
-      }
-
-      .section-title {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0 0 1rem 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #333;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e0e0e0;
-      }
-
-      .form-row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1rem;
-      }
-
-      .help-text {
-        margin-top: 1rem;
-        padding: 1rem;
-        background: #f5f5f5;
-        border-radius: 8px;
-        border-left: 4px solid #667eea;
-      }
-
-      .help-text p {
-        margin: 0.5rem 0;
-        font-size: 0.875rem;
+      .screen-rules {
+        padding: 12px;
+        background: #f5f7fa;
+        border-radius: 4px;
+        font-size: 13px;
         color: #666;
-        line-height: 1.6;
-      }
-
-      .help-text p:first-child {
-        margin-top: 0;
-      }
-
-      .help-text p:last-child {
-        margin-bottom: 0;
-      }
-
-      .actions {
-        margin-top: 1rem;
-        display: flex;
-        justify-content: flex-end;
-      }
-
-      .dialog-actions {
-        padding: 1rem 1.5rem;
-        border-top: 1px solid #e0e0e0;
-        background: #fafafa;
-      }
-
-      .dialog-actions button {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      button[mat-raised-button],
-      button[mat-stroked-button] {
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s ease;
-      }
-
-      button[mat-raised-button]:hover:not(:disabled),
-      button[mat-stroked-button]:hover:not(:disabled) {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        transform: translateY(-1px);
+        border-left: 3px solid #1a237e;
+        
+        p { margin: 0; line-height: 1.5; }
       }
     `
   ]

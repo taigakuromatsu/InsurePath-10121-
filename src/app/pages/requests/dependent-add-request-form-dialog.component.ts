@@ -41,10 +41,13 @@ export interface DependentAddRequestFormDialogData {
     NgFor
   ],
   template: `
-    <h1 mat-dialog-title>扶養家族追加申請</h1>
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div mat-dialog-content>
-        <mat-form-field appearance="outline" class="full-width">
+    <h1 mat-dialog-title>
+      <mat-icon class="mr-2">person_add</mat-icon>
+      扶養家族追加申請
+    </h1>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <div class="form-section">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>氏名（漢字）</mat-label>
           <input matInput formControlName="name" required />
           <mat-error *ngIf="form.get('name')?.hasError('required')">
@@ -55,79 +58,83 @@ export interface DependentAddRequestFormDialogData {
           </mat-error>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>氏名（カナ）</mat-label>
           <input matInput formControlName="kana" />
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>続柄</mat-label>
-          <mat-select formControlName="relationship" required>
-            <mat-option [value]="''">未選択</mat-option>
-            <mat-option *ngFor="let rel of relationships" [value]="rel">
-              {{ getDependentRelationshipLabel(rel) }}
-            </mat-option>
-          </mat-select>
-          <mat-error *ngIf="form.get('relationship')?.hasError('required')">
-            続柄を選択してください
-          </mat-error>
-        </mat-form-field>
+        <div class="form-row flex-row gap-2 flex-wrap">
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>続柄</mat-label>
+            <mat-select formControlName="relationship" required>
+              <mat-option [value]="''">未選択</mat-option>
+              <mat-option *ngFor="let rel of relationships" [value]="rel">
+                {{ getDependentRelationshipLabel(rel) }}
+              </mat-option>
+            </mat-select>
+            <mat-error *ngIf="form.get('relationship')?.hasError('required')">
+              続柄を選択してください
+            </mat-error>
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>生年月日</mat-label>
-          <input matInput formControlName="dateOfBirth" type="date" required />
-          <mat-error *ngIf="form.get('dateOfBirth')?.hasError('required')">
-            生年月日を入力してください
-          </mat-error>
-          <mat-error *ngIf="form.get('dateOfBirth')?.hasError('pattern')">
-            YYYY-MM-DD形式で入力してください
-          </mat-error>
-        </mat-form-field>
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>生年月日</mat-label>
+            <input matInput formControlName="dateOfBirth" type="date" required />
+            <mat-error *ngIf="form.get('dateOfBirth')?.hasError('required')">
+              生年月日を入力してください
+            </mat-error>
+            <mat-error *ngIf="form.get('dateOfBirth')?.hasError('pattern')">
+              YYYY-MM-DD形式で入力してください
+            </mat-error>
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>性別</mat-label>
-          <mat-select formControlName="sex">
-            <mat-option [value]="null">未選択</mat-option>
-            <mat-option value="male">男性</mat-option>
-            <mat-option value="female">女性</mat-option>
-            <mat-option value="other">その他</mat-option>
-          </mat-select>
-        </mat-form-field>
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>性別</mat-label>
+            <mat-select formControlName="sex">
+              <mat-option [value]="null">未選択</mat-option>
+              <mat-option value="male">男性</mat-option>
+              <mat-option value="female">女性</mat-option>
+              <mat-option value="other">その他</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>郵便番号</mat-label>
-          <input
-            matInput
-            formControlName="postalCode"
-            placeholder="1234567"
-            maxlength="7"
-            inputmode="numeric"
-          />
-          <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
-          <mat-error *ngIf="form.get('postalCode')?.hasError('pattern')">
-            7桁の数字を入力してください
-          </mat-error>
-        </mat-form-field>
+        <div class="form-row flex-row gap-2 flex-wrap">
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>郵便番号</mat-label>
+            <input
+              matInput
+              formControlName="postalCode"
+              placeholder="1234567"
+              maxlength="7"
+              inputmode="numeric"
+            />
+            <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
+            <mat-error *ngIf="form.get('postalCode')?.hasError('pattern')">
+              7桁の数字を入力してください
+            </mat-error>
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>同居／別居</mat-label>
+            <mat-select formControlName="cohabitationFlag">
+              <mat-option [value]="null">未選択</mat-option>
+              <mat-option value="cohabiting">同居</mat-option>
+              <mat-option value="separate">別居</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>住所</mat-label>
           <textarea matInput formControlName="address" rows="2"></textarea>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>同居／別居</mat-label>
-          <mat-select formControlName="cohabitationFlag">
-            <mat-option [value]="null">未選択</mat-option>
-            <mat-option value="cohabiting">同居</mat-option>
-            <mat-option value="separate">別居</mat-option>
-          </mat-select>
         </mat-form-field>
 
         <mat-checkbox formControlName="isWorking">就労している</mat-checkbox>
       </div>
 
       <div mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close type="button">キャンセル</button>
+        <button mat-stroked-button mat-dialog-close type="button">キャンセル</button>
         <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
           <mat-icon>send</mat-icon>
           申請する
@@ -137,9 +144,8 @@ export interface DependentAddRequestFormDialogData {
   `,
   styles: [
     `
-      .full-width {
-        width: 100%;
-      }
+      .mr-2 { margin-right: 8px; }
+      .flex-1 { flex: 1; }
 
       mat-checkbox {
         margin-top: 0.5rem;

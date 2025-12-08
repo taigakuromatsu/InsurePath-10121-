@@ -38,12 +38,12 @@ export interface ReviewFormDialogData {
   ],
   template: `
     <h1 mat-dialog-title>
-      <mat-icon>{{ data.review ? 'edit' : 'post_add' }}</mat-icon>
+      <mat-icon class="mr-2">{{ data.review ? 'edit' : 'post_add' }}</mat-icon>
       {{ data.review ? '確認結果を編集' : '確認結果を登録' }}
     </h1>
 
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div mat-dialog-content class="form-grid">
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <div class="form-grid">
         <mat-form-field appearance="outline">
           <mat-label>対象従業員</mat-label>
           <mat-select formControlName="employeeId" (selectionChange)="onEmployeeChange()">
@@ -88,7 +88,7 @@ export interface ReviewFormDialogData {
       </div>
 
       <div mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close type="button">キャンセル</button>
+        <button mat-stroked-button mat-dialog-close type="button">キャンセル</button>
         <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
           保存
         </button>
@@ -97,6 +97,7 @@ export interface ReviewFormDialogData {
   `,
   styles: [
     `
+      .mr-2 { margin-right: 8px; }
       .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

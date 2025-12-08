@@ -48,24 +48,25 @@ interface DependentWithReview extends Dependent {
     DatePipe
   ],
   template: `
-    <section class="page">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>family_restroom</mat-icon>
-          </div>
-          <div class="header-text">
+    <div class="page-container">
+      <header class="page-header">
+        <div>
             <h1>扶養状況確認・年次見直し</h1>
-            <p>被扶養者の年次見直しや「被扶養者状況リスト」への回答作業を支援します。</p>
-          </div>
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+            被扶養者の年次見直しや「被扶養者状況リスト」への回答作業を支援します。
+          </p>
         </div>
-      </mat-card>
+      </header>
 
       <mat-card class="content-card">
-        <div class="card-header">
-          <h2>基準年月日時点での被扶養者抽出</h2>
-          <div class="extraction-controls">
-            <mat-form-field appearance="outline">
+        <div class="flex-row justify-between align-center mb-4">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">search</mat-icon> 基準年月日時点での被扶養者抽出
+            </h2>
+          </div>
+          <div class="extraction-controls flex-row gap-3 align-center flex-wrap">
+            <mat-form-field appearance="outline" class="dense-form-field">
               <mat-label>基準年月日</mat-label>
               <input matInput type="date" [value]="referenceDate" (change)="referenceDate = $any($event.target).value" />
             </mat-form-field>
@@ -78,7 +79,7 @@ interface DependentWithReview extends Dependent {
 
         <div *ngIf="extractedDependents$ | async as dependents; else noExtraction">
           <div class="table-container" *ngIf="dependents && dependents.length > 0; else empty">
-            <table mat-table [dataSource]="dependents" class="dependents-table">
+            <table mat-table [dataSource]="dependents" class="admin-table">
               <!-- 行番号列 -->
               <ng-container matColumnDef="index">
                 <th mat-header-cell *matHeaderCellDef>No.</th>
@@ -189,11 +190,11 @@ interface DependentWithReview extends Dependent {
       </mat-card>
 
       <mat-card class="content-card">
-        <div class="card-header">
-          <h2>確認結果一覧</h2>
-          <div class="filters">
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <div class="flex-row gap-2 align-center flex-wrap">
+            <h2 class="mat-h2 mb-0">確認結果一覧</h2>
             <div class="session-controls">
-              <mat-form-field appearance="outline" class="filter-select session-select">
+              <mat-form-field appearance="outline" class="filter-select session-select dense-form-field">
                 <mat-label>セッション</mat-label>
                 <mat-select [value]="selectedSessionId$.value" (selectionChange)="selectedSessionId$.next($event.value || null)">
                   <mat-option [value]="null">すべての確認結果</mat-option>
@@ -208,7 +209,7 @@ interface DependentWithReview extends Dependent {
                 セッションを作成
               </button>
             </div>
-            <mat-form-field appearance="outline" class="filter-select">
+            <mat-form-field appearance="outline" class="filter-select dense-form-field">
               <mat-label>確認結果</mat-label>
               <mat-select [value]="resultFilter$.value" (selectionChange)="resultFilter$.next($event.value)">
                 <mat-option value="all">すべて</mat-option>
@@ -226,7 +227,7 @@ interface DependentWithReview extends Dependent {
 
         <div *ngIf="reviewsViewModel$ | async as reviewsViewModel; else loading">
           <div class="table-container" *ngIf="reviewsViewModel.length > 0; else emptyReviews">
-            <table mat-table [dataSource]="reviewsViewModel" class="reviews-table">
+            <table mat-table [dataSource]="reviewsViewModel" class="admin-table">
               <!-- 確認日列 -->
               <ng-container matColumnDef="reviewDate">
                 <th mat-header-cell *matHeaderCellDef>確認日</th>
@@ -299,64 +300,42 @@ interface DependentWithReview extends Dependent {
           </div>
         </ng-template>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1rem;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-
-      .header-icon {
-        width: 56px;
-        height: 56px;
-        display: grid;
-        place-items: center;
-        border-radius: 12px;
-        background: #e0e7ff;
-        color: #4338ca;
-      }
-
-      .header-text h1 {
-        margin: 0;
-        font-size: 1.5rem;
-      }
-
-      .header-text p {
-        margin: 0;
-        color: #4b5563;
+        flex-direction: column;
+        gap: 24px;
       }
 
       .content-card {
-        padding: 1.5rem;
-        margin-bottom: 1rem;
+        padding: 24px;
+        border-radius: 8px;
       }
 
-      .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
-      }
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
+      .mr-2 { margin-right: 8px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .flex-wrap { flex-wrap: wrap; }
+      .dense-form-field { font-size: 14px; min-width: 180px; }
 
       .extraction-controls {
         display: flex;
         gap: 1rem;
         align-items: center;
-      }
-
-      .filters {
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
       }
 
       .session-controls {
@@ -378,57 +357,11 @@ interface DependentWithReview extends Dependent {
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         overflow: hidden;
-      }
-
-      .dependents-table {
-        width: 100%;
-      }
-
-      .dependents-table th,
-      .dependents-table td {
-        padding: 8px 12px;
-        font-size: 0.875rem;
-      }
-
-      .dependents-table th {
-        background: #f9fafb;
-        border-bottom: 1px solid #e5e7eb;
-        color: #374151;
-        text-align: left;
-      }
-
-      .dependents-table td {
-        border-bottom: 1px solid #f3f4f6;
-      }
-
-      .dependents-table .result-cell {
-        text-align: center;
-      }
-
-      .dependents-table .no-review {
-        color: #9ca3af;
-        font-style: italic;
-      }
-
-      .dependents-table .note-cell {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        background: #fff;
       }
 
       table {
         width: 100%;
-      }
-
-      th,
-      td {
-        padding: 12px 16px;
-      }
-
-      th {
-        background: #f9fafb;
-        color: #374151;
-        text-align: left;
       }
 
       .actions-header,
@@ -438,9 +371,13 @@ interface DependentWithReview extends Dependent {
       }
 
       .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 24px;
         text-align: center;
-        padding: 2rem 1rem;
-        color: #6b7280;
+        color: #999;
       }
 
       .empty-state mat-icon {
@@ -450,6 +387,7 @@ interface DependentWithReview extends Dependent {
         font-size: 48px;
         width: 48px;
         height: 48px;
+        opacity: 0.3;
       }
 
       .review-chip {

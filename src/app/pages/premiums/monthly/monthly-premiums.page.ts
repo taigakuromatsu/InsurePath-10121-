@@ -45,20 +45,19 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
     PercentPipe
   ],
   template: `
-    <section class="page monthly-premiums">
+    <div class="page-container">
       <mat-card class="content-card selection-card">
-        <div class="page-header">
-          <div class="page-title-section">
-            <h2>
-              <mat-icon>calendar_month</mat-icon>
-              対象年月を選択
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">calendar_month</mat-icon> 対象年月を選択
             </h2>
-            <p>直近12ヶ月から閲覧する年月を選択できます。</p>
+            <p class="mat-body-2" style="color: #666">直近12ヶ月から閲覧する年月を選択できます。</p>
           </div>
         </div>
 
-        <div class="year-month-selector">
-          <mat-form-field appearance="outline">
+        <div class="year-month-selector dense-form">
+          <mat-form-field appearance="outline" class="dense-form-field">
             <mat-label>対象年月</mat-label>
             <mat-select
               [value]="selectedYearMonth()"
@@ -70,13 +69,9 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         </div>
       </mat-card>
 
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>account_balance_wallet</mat-icon>
-          </div>
-          <div class="header-text">
-        <h1>
+      <header class="page-header">
+        <div class="flex-row align-center gap-2">
+          <h1 class="m-0">
           月次保険料 一覧・再計算
           <button
             mat-icon-button
@@ -88,26 +83,23 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
             <mat-icon>help_outline</mat-icon>
           </button>
         </h1>
-        <p>
-          対象年月を指定し、マスタで定義された保険料率を用いて
-          現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
-        </p>
-          </div>
         </div>
-      </mat-card>
+        <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+          対象年月を指定し、マスタで定義された保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
+        </p>
+      </header>
 
       <mat-card class="content-card">
-        <div class="page-header">
-          <div class="page-title-section">
-            <h2>
-              <mat-icon>calculate</mat-icon>
-              保険料計算
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">calculate</mat-icon> 保険料計算
             </h2>
-            <p>対象年月とマスタ設定に基づいて月次保険料を計算します。</p>
+            <p class="mat-body-2" style="color: #666">対象年月とマスタ設定に基づいて月次保険料を計算します。</p>
           </div>
         </div>
 
-        <form [formGroup]="form" (ngSubmit)="onCalculateAndSave()" class="premium-form">
+        <form [formGroup]="form" (ngSubmit)="onCalculateAndSave()" class="premium-form dense-form">
           <div class="form-section">
           <div class="form-grid">
             <mat-form-field appearance="outline">
@@ -146,7 +138,7 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
 
           <div class="actions">
             <button
-              mat-raised-button
+              mat-flat-button
               color="primary"
               type="submit"
               [disabled]="form.invalid || !(officeId$ | async) || loading()"
@@ -159,12 +151,13 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         </form>
       </mat-card>
 
-      <mat-card class="result-card">
-        <div class="result-header">
-          <h2>
-            <mat-icon>list</mat-icon>
-            計算結果一覧（{{ selectedYearMonth() }}）
+      <mat-card class="content-card">
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">list</mat-icon> 計算結果一覧（{{ selectedYearMonth() }}）
           </h2>
+          </div>
           <button
             mat-stroked-button
             color="primary"
@@ -178,7 +171,7 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         </div>
 
         <div class="filter-section">
-          <mat-form-field appearance="outline" class="filter-input">
+          <mat-form-field appearance="outline" class="filter-input dense-form-field">
             <mat-label>従業員名で絞り込む</mat-label>
             <input
               matInput
@@ -200,7 +193,7 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         </div>
 
         <div class="table-container">
-        <table mat-table [dataSource]="filteredRows()" class="premiums-table">
+          <table mat-table [dataSource]="filteredRows()" class="admin-table">
           <ng-container matColumnDef="employeeName">
             <th mat-header-cell *matHeaderCellDef>氏名</th>
             <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
@@ -251,8 +244,8 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
             <td mat-cell *matCellDef="let row">{{ row.totalEmployer | number }}</td>
           </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumns" class="table-header-row"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns" class="table-row"></tr>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
         </table>
         </div>
 
@@ -273,107 +266,40 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
           </div>
         </div>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .header-card ::ng-deep .mat-mdc-card-content {
-        padding: 0;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 2rem;
-      }
-
-      .header-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 64px;
-        height: 64px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-      }
-
-      .header-icon mat-icon {
-        font-size: 36px;
-        width: 36px;
-        height: 36px;
-        color: white;
-      }
-
-        .header-text h1 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.75rem;
-          font-weight: 600;
-        }
-
-        .help-button {
-          width: 36px;
-          height: 36px;
-          margin-left: 0.25rem;
-          color: white;
-        }
-
-        .help-button mat-icon {
-          font-size: 22px;
-        }
-
-      .header-text p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 1rem;
+        flex-direction: column;
+        gap: 24px;
       }
 
       .content-card {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1.5rem;
+        padding: 24px;
+        border-radius: 8px;
       }
 
-      .page-header {
-        margin-bottom: 2rem;
-        padding-bottom: 1.5rem;
-        border-bottom: 2px solid #e0e0e0;
-      }
+      /* ユーティリティ */
+      .m-0 { margin: 0; }
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .flex-wrap { flex-wrap: wrap; }
+      .dense-form-field { font-size: 14px; }
 
       .selection-card {
-        margin-bottom: 1.5rem;
-      }
-
-      .page-title-section h2 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0 0 0.5rem 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .page-title-section h2 mat-icon {
-        color: #667eea;
-      }
-
-      .page-title-section p {
-        margin: 0;
-        color: #666;
-        font-size: 0.95rem;
-      }
-
-      .premium-form {
-        margin-top: 1rem;
-      }
-
-      .form-section {
         margin-bottom: 1.5rem;
       }
 
@@ -381,58 +307,62 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         max-width: 240px;
       }
 
+      .premium-form {
+        margin-top: 1rem;
+      }
+
+      .form-section {
+        margin-bottom: 16px;
+      }
+
       .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        gap: 16px;
+        margin-bottom: 16px;
       }
 
       .rate-summary {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 1.5rem;
+        background: #f5f7fa;
+        padding: 16px;
         border-radius: 8px;
-        margin-top: 1rem;
+        border: 1px solid #e0e0e0;
       }
 
       .rate-summary-title {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin: 0 0 1rem 0;
+        gap: 8px;
+        margin: 0 0 12px 0;
         font-size: 1.1rem;
         font-weight: 600;
         color: #333;
       }
 
-      .rate-summary-title mat-icon {
-        color: #667eea;
-      }
-
       .rate-list {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
+        gap: 12px;
       }
 
       .rate-item {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-        padding: 1rem;
-        background: white;
+        gap: 8px;
+        padding: 12px;
+        background: #fff;
         border-radius: 6px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
       }
 
       .rate-label {
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         color: #666;
         font-weight: 500;
       }
 
       .rate-value {
-        font-size: 1.25rem;
+        font-size: 1.2rem;
         font-weight: 700;
         color: #1976d2;
       }
@@ -445,7 +375,7 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
       .actions {
         display: flex;
         justify-content: flex-end;
-        padding-top: 1.5rem;
+        padding-top: 16px;
         border-top: 1px solid #e0e0e0;
       }
 
@@ -453,58 +383,18 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         margin-right: 8px;
       }
 
-      button[mat-raised-button] {
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      button[mat-raised-button]:hover:not(:disabled) {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        transform: translateY(-1px);
-      }
-
-      .result-card {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-
-      .result-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid #e0e0e0;
-      }
-
-      .result-header h2 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .result-header h2 mat-icon {
-        color: #667eea;
-      }
-
       .table-container {
-        position: relative;
-        overflow-x: auto;
         border-radius: 8px;
         border: 1px solid #e0e0e0;
-        margin-bottom: 1.5rem;
+        overflow: hidden;
+        background: #fff;
+        margin-bottom: 16px;
       }
 
       .filter-section {
         display: flex;
         justify-content: flex-end;
-        margin-bottom: 1rem;
+        margin-bottom: 12px;
       }
 
       .filter-input {
@@ -512,106 +402,52 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         max-width: 100%;
       }
 
-      table.premiums-table {
-        width: 100%;
-        background: white;
-      }
-
-      .table-header-row {
-        background: #f5f5f5;
-      }
-
-      table.premiums-table th {
-        font-weight: 600;
-        color: #555;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 16px;
-      }
-
-      table.premiums-table td {
-        padding: 16px;
-        border-bottom: 1px solid #f0f0f0;
-      }
-
-      .table-row {
-        transition: background-color 0.2s ease;
-      }
-
-      .table-row:hover {
-        background-color: #f9f9f9;
-      }
-
-      .table-row:last-child td {
-        border-bottom: none;
+      .no-results {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #666;
+        margin-bottom: 12px;
       }
 
       .totals {
-        display: flex;
-        gap: 2rem;
-        padding: 1.5rem;
-        background: #f5f5f5;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        padding: 16px;
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
         border-radius: 8px;
-        flex-wrap: wrap;
       }
 
       .total-item {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-        flex: 1;
-        min-width: 200px;
+        gap: 6px;
       }
 
       .total-label {
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         color: #666;
         font-weight: 500;
       }
 
       .total-value {
-        font-size: 1.75rem;
+        font-size: 1.4rem;
         font-weight: 700;
       }
 
-      .total-value.employee {
-        color: #1976d2;
-      }
-
-      .total-value.employer {
-        color: #2e7d32;
-      }
+      .total-value.employee { color: #1976d2; }
+      .total-value.employer { color: #2e7d32; }
 
       .total-note {
         color: #666;
         font-size: 0.9rem;
       }
 
-      .no-results {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: #666;
-        margin-bottom: 1rem;
-      }
-
       @media (max-width: 768px) {
-        .header-content {
-          flex-direction: column;
-          text-align: center;
-        }
-
-        .rate-list {
-          grid-template-columns: 1fr;
-        }
-
         .filter-section {
           justify-content: flex-start;
-        }
-
-        .totals {
-          flex-direction: column;
         }
       }
     `

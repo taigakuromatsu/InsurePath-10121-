@@ -28,27 +28,35 @@ import { getBankAccountTypeLabel } from '../../utils/label-utils';
     NgIf
   ],
   template: `
-    <h1 mat-dialog-title>口座情報の変更申請</h1>
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div mat-dialog-content class="dialog-content">
-        <div class="current-info" *ngIf="data.currentBankAccount; else noCurrent">
-          <h3>現在の口座情報</h3>
-          <p class="muted">
-            {{ data.currentBankAccount.bankName }} {{ data.currentBankAccount.branchName }}
+    <h1 mat-dialog-title>
+      <mat-icon class="mr-2">account_balance</mat-icon>
+      口座情報の変更申請
+    </h1>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <div class="form-section mb-4" *ngIf="data.currentBankAccount; else noCurrent">
+        <h3 class="mat-h3 mb-2 flex-row align-center gap-2">
+          <mat-icon color="primary">info</mat-icon> 現在の口座情報
+        </h3>
+        <div class="screen-rules">
+          <p>
+            <strong>金融機関・支店:</strong> {{ data.currentBankAccount.bankName }} {{ data.currentBankAccount.branchName }}<br>
+            <strong>口座種別・番号:</strong> {{ getBankAccountTypeLabel(data.currentBankAccount.accountType) }} / {{ data.currentBankAccount.accountNumber }}<br>
+            <strong>名義:</strong> {{ data.currentBankAccount.accountHolderName }}
           </p>
-          <p class="muted">
-            {{ getBankAccountTypeLabel(data.currentBankAccount.accountType) }} /
-            {{ data.currentBankAccount.accountNumber }}
-          </p>
-          <p class="muted">名義: {{ data.currentBankAccount.accountHolderName }}</p>
+        </div>
         </div>
         <ng-template #noCurrent>
-          <p class="muted">現在の口座情報は登録されていません。</p>
+        <div class="screen-rules mb-4">
+          <p>現在の口座情報は登録されていません。</p>
+        </div>
         </ng-template>
 
-        <h3 class="section-title">新しい口座情報</h3>
-        <div class="form-grid">
-          <mat-form-field appearance="outline">
+      <div class="form-section">
+        <h3 class="mat-h3 mb-2 flex-row align-center gap-2">
+          <mat-icon color="primary">edit</mat-icon> 新しい口座情報
+        </h3>
+        <div class="form-row flex-row gap-3 flex-wrap">
+          <mat-form-field appearance="outline" class="flex-1">
             <mat-label>金融機関名</mat-label>
             <input matInput formControlName="bankName" required />
             <mat-error *ngIf="form.get('bankName')?.hasError('required')">
@@ -56,12 +64,14 @@ import { getBankAccountTypeLabel } from '../../utils/label-utils';
             </mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="flex-1">
             <mat-label>金融機関コード</mat-label>
             <input matInput formControlName="bankCode" />
           </mat-form-field>
+        </div>
 
-          <mat-form-field appearance="outline">
+        <div class="form-row flex-row gap-3 flex-wrap">
+          <mat-form-field appearance="outline" class="flex-1">
             <mat-label>支店名</mat-label>
             <input matInput formControlName="branchName" required />
             <mat-error *ngIf="form.get('branchName')?.hasError('required')">
@@ -69,12 +79,14 @@ import { getBankAccountTypeLabel } from '../../utils/label-utils';
             </mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="flex-1">
             <mat-label>支店コード</mat-label>
             <input matInput formControlName="branchCode" />
           </mat-form-field>
+        </div>
 
-          <mat-form-field appearance="outline">
+        <div class="form-row flex-row gap-3 flex-wrap">
+          <mat-form-field appearance="outline" style="flex: 0 0 160px">
             <mat-label>口座種別</mat-label>
             <mat-select formControlName="accountType" required>
               <mat-option value="ordinary">普通</mat-option>
@@ -87,7 +99,7 @@ import { getBankAccountTypeLabel } from '../../utils/label-utils';
             </mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="flex-1">
             <mat-label>口座番号</mat-label>
             <input matInput formControlName="accountNumber" required />
             <mat-error *ngIf="form.get('accountNumber')?.hasError('required')">
@@ -97,8 +109,10 @@ import { getBankAccountTypeLabel } from '../../utils/label-utils';
               数字のみで入力してください
             </mat-error>
           </mat-form-field>
+        </div>
 
-          <mat-form-field appearance="outline">
+        <div class="form-row flex-row gap-3 flex-wrap">
+          <mat-form-field appearance="outline" class="flex-1">
             <mat-label>名義</mat-label>
             <input matInput formControlName="accountHolderName" required />
             <mat-error *ngIf="form.get('accountHolderName')?.hasError('required')">
@@ -106,7 +120,7 @@ import { getBankAccountTypeLabel } from '../../utils/label-utils';
             </mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="flex-1">
             <mat-label>名義カナ</mat-label>
             <input matInput formControlName="accountHolderKana" />
           </mat-form-field>
@@ -114,7 +128,7 @@ import { getBankAccountTypeLabel } from '../../utils/label-utils';
       </div>
 
       <div mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close type="button">キャンセル</button>
+        <button mat-stroked-button mat-dialog-close type="button">キャンセル</button>
         <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
           <mat-icon>send</mat-icon>
           申請する
@@ -124,30 +138,29 @@ import { getBankAccountTypeLabel } from '../../utils/label-utils';
   `,
   styles: [
     `
-      .dialog-content {
+      .mr-2 { margin-right: 8px; }
+      
+      /* フォームのレイアウト調整 */
+      .form-row {
         display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        min-width: 420px;
+        flex-wrap: wrap;
+        gap: 16px; /* gapを広げて見やすく */
       }
 
-      .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
+      .flex-1 {
+        flex: 1 1 200px; /* 最小幅を200px確保して、狭くなりすぎないようにする */
+        min-width: 0; /* Flexboxの縮小ルール対策 */
       }
 
-      .section-title {
-        margin: 1rem 0 0.25rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-      }
-
-      .muted {
-        color: #6b7280;
-        margin: 0;
+      .screen-rules {
+        padding: 12px;
+        background: #f5f7fa;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #666;
+        border-left: 3px solid #1a237e;
+        
+        p { margin: 0; line-height: 1.5; }
       }
     `
   ]

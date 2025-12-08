@@ -36,12 +36,12 @@ export interface PaymentFormDialogData {
   ],
   template: `
     <h1 mat-dialog-title>
-      <mat-icon>{{ data.payment ? 'edit' : 'post_add' }}</mat-icon>
+      <mat-icon class="mr-2">{{ data.payment ? 'edit' : 'post_add' }}</mat-icon>
       {{ data.payment ? '納付状況を編集' : '納付状況を登録' }}
     </h1>
 
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div mat-dialog-content class="form-grid">
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <div class="form-grid">
         <mat-form-field appearance="outline">
           <mat-label>対象年月</mat-label>
           <input matInput type="month" formControlName="targetYearMonth" [readonly]="!!data.payment" />
@@ -168,7 +168,7 @@ export interface PaymentFormDialogData {
       </div>
 
       <div mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close type="button">キャンセル</button>
+        <button mat-stroked-button mat-dialog-close type="button">キャンセル</button>
         <button
           mat-flat-button
           color="primary"
@@ -182,10 +182,11 @@ export interface PaymentFormDialogData {
   `,
   styles: [
     `
+      .mr-2 { margin-right: 8px; }
       .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 1rem;
+        gap: 16px;
         align-items: end;
       }
 

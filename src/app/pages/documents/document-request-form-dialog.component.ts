@@ -35,10 +35,13 @@ export interface DocumentRequestFormDialogData {
     NgFor
   ],
   template: `
-    <h1 mat-dialog-title>書類アップロード依頼</h1>
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div mat-dialog-content>
-        <mat-form-field appearance="outline" class="full-width">
+    <h1 mat-dialog-title>
+      <mat-icon class="mr-2">mail</mat-icon>
+      書類アップロード依頼
+    </h1>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <div class="form-section">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>対象従業員</mat-label>
           <mat-select formControlName="employeeId" required>
             <mat-option *ngFor="let emp of employees" [value]="emp.id">
@@ -50,7 +53,7 @@ export interface DocumentRequestFormDialogData {
           </mat-error>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>書類カテゴリ</mat-label>
           <mat-select formControlName="category" required>
             <mat-option *ngFor="let cat of categories" [value]="cat">
@@ -62,7 +65,7 @@ export interface DocumentRequestFormDialogData {
           </mat-error>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>タイトル</mat-label>
           <input matInput formControlName="title" required maxlength="200" />
           <mat-hint>{{ form.get('title')?.value?.length || 0 }}/200</mat-hint>
@@ -74,7 +77,7 @@ export interface DocumentRequestFormDialogData {
           </mat-error>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>メッセージ（任意）</mat-label>
           <textarea
             matInput
@@ -88,14 +91,14 @@ export interface DocumentRequestFormDialogData {
           </mat-error>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>締め切り日（任意）</mat-label>
           <input matInput formControlName="dueDate" type="date" />
         </mat-form-field>
       </div>
       <div mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close>キャンセル</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || submitting">
+        <button mat-stroked-button type="button" mat-dialog-close>キャンセル</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
           <mat-icon *ngIf="!submitting">send</mat-icon>
           <span *ngIf="submitting">作成中...</span>
           <span *ngIf="!submitting">依頼を作成</span>
@@ -105,9 +108,12 @@ export interface DocumentRequestFormDialogData {
   `,
   styles: [
     `
-      .full-width {
-        width: 100%;
-        margin-bottom: 1rem;
+      .mr-2 { margin-right: 8px; }
+      .w-100 { width: 100%; }
+      .form-section {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
     `
   ]

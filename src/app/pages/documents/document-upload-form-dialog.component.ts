@@ -37,10 +37,14 @@ export interface DocumentUploadFormDialogData {
     NgFor
   ],
   template: `
-    <h1 mat-dialog-title>書類をアップロード</h1>
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div mat-dialog-content>
-        <mat-form-field appearance="outline" class="full-width">
+    <h1 mat-dialog-title>
+      <mat-icon class="mr-2">upload</mat-icon>
+      書類をアップロード
+    </h1>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <div class="form-section">
+        <div class="form-row flex-row gap-3 flex-wrap">
+          <mat-form-field appearance="outline" class="flex-1">
           <mat-label>対象従業員</mat-label>
           <mat-select formControlName="employeeId" required>
             <mat-option *ngFor="let emp of employees" [value]="emp.id">
@@ -50,9 +54,9 @@ export interface DocumentUploadFormDialogData {
           <mat-error *ngIf="form.get('employeeId')?.hasError('required')">
             対象従業員を選択してください
           </mat-error>
-        </mat-form-field>
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+          <mat-form-field appearance="outline" class="flex-1">
           <mat-label>書類カテゴリ</mat-label>
           <mat-select formControlName="category" required>
             <mat-option *ngFor="let cat of categories" [value]="cat">
@@ -62,9 +66,10 @@ export interface DocumentUploadFormDialogData {
           <mat-error *ngIf="form.get('category')?.hasError('required')">
             書類カテゴリを選択してください
           </mat-error>
-        </mat-form-field>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>タイトル</mat-label>
           <input matInput formControlName="title" required maxlength="200" />
           <mat-hint>{{ form.get('title')?.value?.length || 0 }}/200</mat-hint>
@@ -76,19 +81,19 @@ export interface DocumentUploadFormDialogData {
           </mat-error>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>メモ（任意）</mat-label>
           <textarea matInput formControlName="note" rows="3"></textarea>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>有効期限（任意）</mat-label>
           <input matInput formControlName="expiresAt" type="date" />
         </mat-form-field>
 
                 <!-- ここを差し替え -->
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>ファイル</mat-label>
           <!-- 表示用のテキスト入力（matInput） -->
           <input
@@ -135,8 +140,8 @@ export interface DocumentUploadFormDialogData {
 
       </div>
       <div mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close [disabled]="submitting">キャンセル</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || submitting">
+        <button mat-stroked-button type="button" mat-dialog-close [disabled]="submitting">キャンセル</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
           <mat-icon *ngIf="!submitting">upload</mat-icon>
           <span *ngIf="submitting">アップロード中...</span>
           <span *ngIf="!submitting">アップロード</span>
@@ -146,19 +151,26 @@ export interface DocumentUploadFormDialogData {
   `,
   styles: [
     `
-      .full-width {
-        width: 100%;
-        margin-bottom: 1rem;
+      .mr-2 { margin-right: 8px; }
+      .w-100 { width: 100%; }
+      .flex-1 { flex: 1 1 200px; min-width: 0; }
+      .form-section {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
-
+      .form-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
       .file-info {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem;
+        gap: 8px;
+        padding: 8px;
         background-color: #f5f5f5;
         border-radius: 4px;
-        margin-bottom: 1rem;
       }
     `
   ]

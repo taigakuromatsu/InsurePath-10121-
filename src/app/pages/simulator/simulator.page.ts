@@ -37,37 +37,30 @@ import { Employee } from '../../types';
     NgIf
   ],
   template: `
-    <section class="page simulator">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>calculate</mat-icon>
-          </div>
-          <div class="header-text">
+    <div class="page-container">
+      <header class="page-header">
+        <div>
             <h1>保険料シミュレーター</h1>
-            <p>
-              報酬月額や等級を入力して、社会保険料を試算できます。
-              実際の月次保険料計算と同じロジックを使用します。
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+            報酬月額や等級を入力して、社会保険料を試算できます。実際の月次保険料計算と同じロジックを使用します。
             </p>
-          </div>
         </div>
-      </mat-card>
+      </header>
 
-      <mat-card class="content-card">
-        <div class="page-header">
-          <div class="page-title-section">
-            <h2>
-              <mat-icon>input</mat-icon>
-              入力項目
+      <mat-card class="content-card mb-4">
+        <div class="flex-row justify-between align-center mb-4">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">input</mat-icon> 入力項目
             </h2>
-            <p>報酬月額や等級を入力して、シミュレーションを実行してください。</p>
+            <p class="mat-body-2" style="color: #666">報酬月額や等級を入力して、シミュレーションを実行してください。</p>
           </div>
         </div>
 
-        <form [formGroup]="form" (ngSubmit)="onSimulate()" class="simulator-form">
+        <form [formGroup]="form" (ngSubmit)="onSimulate()" class="dense-form">
           <div class="form-section">
-            <div class="form-grid">
-              <mat-form-field appearance="outline">
+            <div class="form-row flex-row gap-3 flex-wrap mb-3">
+              <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>対象年月</mat-label>
                 <input matInput type="month" formControlName="yearMonth" required />
                 <mat-error *ngIf="form.get('yearMonth')?.hasError('required')">
@@ -75,7 +68,7 @@ import { Employee } from '../../types';
                 </mat-error>
               </mat-form-field>
 
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>報酬月額（円）</mat-label>
                 <input matInput type="number" formControlName="monthlyWage" required />
                 <mat-error *ngIf="form.get('monthlyWage')?.hasError('required')">
@@ -85,8 +78,10 @@ import { Employee } from '../../types';
                   1円以上の値を入力してください
                 </mat-error>
               </mat-form-field>
+            </div>
 
-              <mat-form-field appearance="outline">
+            <div class="form-row flex-row gap-3 flex-wrap mb-3">
+              <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>健康保険等級</mat-label>
                 <input matInput type="number" formControlName="healthGrade" required />
                 <mat-error *ngIf="form.get('healthGrade')?.hasError('required')">
@@ -102,7 +97,7 @@ import { Employee } from '../../types';
                 </mat-error>
               </mat-form-field>
 
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>厚生年金等級</mat-label>
                 <input matInput type="number" formControlName="pensionGrade" required />
                 <mat-error *ngIf="form.get('pensionGrade')?.hasError('required')">
@@ -126,7 +121,7 @@ import { Employee } from '../../types';
 
           <div class="actions">
             <button
-              mat-raised-button
+              mat-flat-button
               color="primary"
               type="submit"
               [disabled]="form.invalid || loading()"
@@ -140,105 +135,126 @@ import { Employee } from '../../types';
       </mat-card>
 
       <ng-container *ngIf="calculationResult() as result; else noResult">
-        <mat-card class="result-card">
-          <div class="result-header">
-            <h2>
-              <mat-icon>assessment</mat-icon>
-              計算結果
+        <mat-card class="content-card">
+          <div class="flex-row justify-between align-center mb-4">
+            <div>
+              <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+                <mat-icon color="primary">assessment</mat-icon> 計算結果
             </h2>
+            </div>
           </div>
 
           <div class="result-content">
-            <div class="result-section">
-              <h3>等級・標準報酬月額</h3>
-              <div class="result-grid">
-                <div class="result-item">
-                  <span class="result-label">健康保険等級</span>
-                  <span class="result-value">{{ result.healthGrade }}</span>
+            <div class="info-section">
+              <div class="info-section-header">
+                <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                  等級・標準報酬月額
+                </h3>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">健康保険等級</span>
+                  <span class="value">{{ result.healthGrade }}</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">健康保険標準報酬月額</span>
-                  <span class="result-value">{{ result.healthStandardMonthly | number }}円</span>
+                <div class="info-item">
+                  <span class="label">健康保険標準報酬月額</span>
+                  <span class="value">{{ result.healthStandardMonthly | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">厚生年金等級</span>
-                  <span class="result-value">{{ result.pensionGrade }}</span>
+                <div class="info-item">
+                  <span class="label">厚生年金等級</span>
+                  <span class="value">{{ result.pensionGrade }}</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">厚生年金標準報酬月額</span>
-                  <span class="result-value">{{ result.pensionStandardMonthly | number }}円</span>
+                <div class="info-item">
+                  <span class="label">厚生年金標準報酬月額</span>
+                  <span class="value">{{ result.pensionStandardMonthly | number }}円</span>
                 </div>
               </div>
             </div>
 
-            <div class="result-section">
-              <h3>健康保険</h3>
-              <div class="result-grid">
-                <div class="result-item">
-                  <span class="result-label">本人負担額</span>
-                  <span class="result-value employee">{{ result.amounts.healthEmployee | number }}円</span>
+            <div class="info-section">
+              <div class="info-section-header">
+                <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                  健康保険
+                </h3>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">本人負担額</span>
+                  <span class="value employee">{{ result.amounts.healthEmployee | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">会社負担額</span>
-                  <span class="result-value employer">{{ result.amounts.healthEmployer | number }}円</span>
+                <div class="info-item">
+                  <span class="label">会社負担額</span>
+                  <span class="value employer">{{ result.amounts.healthEmployer | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">合計</span>
-                  <span class="result-value">{{ result.amounts.healthTotal | number }}円</span>
+                <div class="info-item">
+                  <span class="label">合計</span>
+                  <span class="value">{{ result.amounts.healthTotal | number }}円</span>
                 </div>
               </div>
             </div>
 
-            <div class="result-section" *ngIf="result.amounts.careTotal > 0">
-              <h3>介護保険</h3>
-              <div class="result-grid">
-                <div class="result-item">
-                  <span class="result-label">本人負担額</span>
-                  <span class="result-value employee">{{ result.amounts.careEmployee | number }}円</span>
+            <div class="info-section" *ngIf="result.amounts.careTotal > 0">
+              <div class="info-section-header">
+                <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                  介護保険
+                </h3>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">本人負担額</span>
+                  <span class="value employee">{{ result.amounts.careEmployee | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">会社負担額</span>
-                  <span class="result-value employer">{{ result.amounts.careEmployer | number }}円</span>
+                <div class="info-item">
+                  <span class="label">会社負担額</span>
+                  <span class="value employer">{{ result.amounts.careEmployer | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">合計</span>
-                  <span class="result-value">{{ result.amounts.careTotal | number }}円</span>
+                <div class="info-item">
+                  <span class="label">合計</span>
+                  <span class="value">{{ result.amounts.careTotal | number }}円</span>
                 </div>
               </div>
             </div>
 
-            <div class="result-section">
-              <h3>厚生年金</h3>
-              <div class="result-grid">
-                <div class="result-item">
-                  <span class="result-label">本人負担額</span>
-                  <span class="result-value employee">{{ result.amounts.pensionEmployee | number }}円</span>
+            <div class="info-section">
+              <div class="info-section-header">
+                <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                  厚生年金
+                </h3>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">本人負担額</span>
+                  <span class="value employee">{{ result.amounts.pensionEmployee | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">会社負担額</span>
-                  <span class="result-value employer">{{ result.amounts.pensionEmployer | number }}円</span>
+                <div class="info-item">
+                  <span class="label">会社負担額</span>
+                  <span class="value employer">{{ result.amounts.pensionEmployer | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">合計</span>
-                  <span class="result-value">{{ result.amounts.pensionTotal | number }}円</span>
+                <div class="info-item">
+                  <span class="label">合計</span>
+                  <span class="value">{{ result.amounts.pensionTotal | number }}円</span>
                 </div>
               </div>
             </div>
 
-            <div class="result-section total-section">
-              <h3>トータル</h3>
-              <div class="result-grid">
-                <div class="result-item">
-                  <span class="result-label">本人負担合計</span>
-                  <span class="result-value employee large">{{ result.amounts.totalEmployee | number }}円</span>
+            <div class="info-section total-section">
+              <div class="info-section-header">
+                <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                  トータル
+                </h3>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">本人負担合計</span>
+                  <span class="value employee large">{{ result.amounts.totalEmployee | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">会社負担合計</span>
-                  <span class="result-value employer large">{{ result.amounts.totalEmployer | number }}円</span>
+                <div class="info-item">
+                  <span class="label">会社負担合計</span>
+                  <span class="value employer large">{{ result.amounts.totalEmployer | number }}円</span>
                 </div>
-                <div class="result-item">
-                  <span class="result-label">合計額</span>
-                  <span class="result-value large">
+                <div class="info-item">
+                  <span class="label">合計額</span>
+                  <span class="value large">
                     {{ (result.amounts.totalEmployee + result.amounts.totalEmployer) | number }}円
                   </span>
                 </div>
@@ -249,13 +265,7 @@ import { Employee } from '../../types';
       </ng-container>
 
       <ng-template #noResult>
-        <mat-card class="result-card placeholder">
-          <div class="result-header">
-            <h2>
-              <mat-icon>assessment</mat-icon>
-              計算結果
-            </h2>
-          </div>
+        <mat-card class="content-card placeholder-card">
           <div class="placeholder-content">
             <mat-icon>info</mat-icon>
             <p>
@@ -264,100 +274,48 @@ import { Employee } from '../../types';
           </div>
         </mat-card>
       </ng-template>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .header-card ::ng-deep .mat-mdc-card-content {
-        padding: 0;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 2rem;
-      }
+        flex-direction: column;
+        gap: 24px;
 
-      .header-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 64px;
-        height: 64px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-      }
-
-      .header-icon mat-icon {
-        font-size: 36px;
-        width: 36px;
-        height: 36px;
-        color: white;
-      }
-
-      .header-text h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-      }
-
-      .header-text p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 1rem;
+        @media (max-width: 600px) {
+          padding: 16px;
+          gap: 16px;
+        }
       }
 
       .content-card {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1.5rem;
+        padding: 24px;
+        border-radius: 8px;
+        /* box-shadowはAngular Materialのデフォルトを使用 */
       }
 
-      .page-header {
-        margin-bottom: 2rem;
-        padding-bottom: 1.5rem;
-        border-bottom: 2px solid #e0e0e0;
-      }
+      .m-0 { margin: 0; }
+      
+      /* 共通ユーティリティ */
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
 
-      .page-title-section h2 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0 0 0.5rem 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #333;
-      }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
 
-      .page-title-section h2 mat-icon {
-        color: #667eea;
-      }
-
-      .page-title-section p {
-        margin: 0;
-        color: #666;
-        font-size: 0.95rem;
-      }
-
-      .simulator-form {
-        margin-top: 1rem;
-      }
-
-      .form-section {
-        margin-bottom: 1.5rem;
-      }
-
-      .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1rem;
+      .flex-1 {
+        flex: 1 1 200px;
+        min-width: 0;
       }
 
       .actions {
@@ -371,136 +329,86 @@ import { Employee } from '../../types';
         margin-right: 8px;
       }
 
-      button[mat-raised-button] {
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      button[mat-raised-button]:hover:not(:disabled) {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        transform: translateY(-1px);
-      }
-
-      .result-card {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-
-      .result-header {
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid #e0e0e0;
-      }
-
-      .result-header h2 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .result-header h2 mat-icon {
-        color: #667eea;
-      }
-
-      .result-content {
-        display: flex;
-        flex-direction: column;
-        gap: 2rem;
-      }
-
-      .result-section {
-        padding: 1.5rem;
-        background: #f5f5f5;
+      /* 結果表示エリアのデザイン */
+      .info-section {
+        margin-bottom: 24px;
+        padding: 24px;
         border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        background-color: #fafafa;
       }
 
-      .result-section h3 {
-        margin: 0 0 1rem 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #333;
+      .info-section:last-child {
+        margin-bottom: 0;
       }
 
-      .result-grid {
+      .info-section-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .info-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
+        gap: 24px;
       }
 
-      .result-item {
+      .info-item {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 4px;
       }
 
-      .result-label {
-        font-size: 0.875rem;
-        color: #666;
+      .info-item .label {
+        color: #6b7280;
+        font-size: 0.85rem;
+      }
+
+      .info-item .value {
         font-weight: 500;
+        color: #111827;
+        font-size: 1.1rem;
       }
 
-      .result-value {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #333;
-      }
-
-      .result-value.employee {
+      .value.employee {
         color: #1976d2;
       }
 
-      .result-value.employer {
+      .value.employer {
         color: #2e7d32;
       }
 
-      .result-value.large {
+      .value.large {
         font-size: 1.5rem;
+        font-weight: 700;
       }
 
       .total-section {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background-color: #f0f4f8; /* 少しトーンを変える */
+        border-color: #d1d9e6;
       }
 
       .placeholder-content {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 1rem;
-        padding: 3rem;
-        color: #999;
+        justify-content: center;
+        padding: 48px 24px;
         text-align: center;
-      }
+        color: #999;
 
-      .placeholder-content mat-icon {
+        mat-icon {
         font-size: 48px;
         width: 48px;
         height: 48px;
-        color: #ccc;
+          margin-bottom: 16px;
+          opacity: 0.3;
       }
 
-      .placeholder-content p {
+        p {
         margin: 0;
-        font-size: 1rem;
-      }
-
-      @media (max-width: 768px) {
-        .header-content {
-          flex-direction: column;
-          text-align: center;
-        }
-
-        .form-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .result-grid {
-          grid-template-columns: 1fr;
+          font-size: 14px;
         }
       }
     `

@@ -61,17 +61,18 @@ interface PreviewColumn {
     NgClass
   ],
   template: `
-    <h1 mat-dialog-title>
-      <mat-icon>upload</mat-icon>
+    <h1 mat-dialog-title class="dialog-title">
+      <mat-icon color="primary">upload</mat-icon>
       従業員CSVインポート
     </h1>
 
     <div mat-dialog-content class="dialog-content">
-      <section class="file-section">
-        <h3>
+      <section class="file-section content-card">
+        <h3 class="mat-h3 flex-row align-center gap-2 m-0">
           <mat-icon>description</mat-icon>
           CSVファイルを選択
         </h3>
+        <div class="file-input-row">
         <label class="file-input-label">
           <input type="file" accept=".csv" (change)="onFileSelected($event)" />
           <span class="file-input-button">
@@ -80,9 +81,6 @@ interface PreviewColumn {
           </span>
           <span class="file-name" *ngIf="selectedFileName">{{ selectedFileName }}</span>
         </label>
-        <p class="helper-text">
-          エクスポートした形式、またはCSVテンプレートに従業員情報を入力したファイルを指定してください。
-        </p>
         <button
           mat-stroked-button
           type="button"
@@ -90,8 +88,12 @@ interface PreviewColumn {
           class="template-download-button"
         >
           <mat-icon>download</mat-icon>
-          CSVテンプレートをダウンロード
+            CSVテンプレート
         </button>
+        </div>
+        <p class="helper-text">
+          エクスポートした形式、またはCSVテンプレートに従業員情報を入力したファイルを指定してください。
+        </p>
         <div class="import-rules">
           <h4>主な入力ルール</h4>
           <ul>
@@ -105,9 +107,9 @@ interface PreviewColumn {
         </div>
       </section>
 
-      <section *ngIf="previewRows.length" class="preview-section">
+      <section *ngIf="previewRows.length" class="preview-section content-card">
         <div class="section-header">
-          <h3>
+          <h3 class="mat-h3 flex-row align-center gap-2 m-0">
             <mat-icon>preview</mat-icon>
             プレビュー (最大10件)
           </h3>
@@ -116,7 +118,7 @@ interface PreviewColumn {
           </span>
         </div>
         <div class="preview-table-container">
-          <table mat-table [dataSource]="previewRows" class="preview-table">
+          <table mat-table [dataSource]="previewRows" class="admin-table preview-table">
             <ng-container *ngFor="let column of previewColumns" [matColumnDef]="getColumnKey(column)">
               <th mat-header-cell *matHeaderCellDef>{{ column.label }}</th>
               <td
@@ -138,8 +140,8 @@ interface PreviewColumn {
         </div>
       </section>
 
-      <section *ngIf="totalErrorCount" class="error-section">
-        <h3>
+      <section *ngIf="totalErrorCount" class="error-section content-card">
+        <h3 class="mat-h3 flex-row align-center gap-2 m-0">
           <mat-icon color="warn">error</mat-icon>
           エラー {{ totalErrorCount }} 件
         </h3>
@@ -152,8 +154,8 @@ interface PreviewColumn {
         </mat-list>
       </section>
 
-      <section *ngIf="importResult" class="result-section">
-        <h3>
+      <section *ngIf="importResult" class="result-section content-card">
+        <h3 class="mat-h3 flex-row align-center gap-2 m-0">
           <mat-icon>task_alt</mat-icon>
           インポート結果
         </h3>
@@ -188,12 +190,12 @@ interface PreviewColumn {
     </div>
 
     <div mat-dialog-actions class="dialog-actions">
-      <button mat-stroked-button mat-dialog-close [disabled]="isImporting" *ngIf="!importResult">
+      <button mat-button mat-dialog-close [disabled]="isImporting" *ngIf="!importResult">
         <mat-icon>close</mat-icon>
         キャンセル
       </button>
       <button
-        mat-raised-button
+        mat-flat-button
         color="primary"
         (click)="importResult ? closeWithResult() : confirmImport()"
         [disabled]="isImporting || !parsedData.length"

@@ -75,10 +75,10 @@ export interface EmployeeDetailDialogData {
     DecimalPipe // ★ 追加済み
   ],
   template: `
-    <h1 mat-dialog-title>
-      <mat-icon>person</mat-icon>
-      従業員詳細
-      <span class="subtitle">{{ data.employee.name }}</span>
+    <h1 mat-dialog-title class="dialog-title">
+      <mat-icon color="primary">person</mat-icon>
+      <span>従業員詳細</span>
+      <span class="subtitle mat-body-2">{{ data.employee.name }}</span>
     </h1>
 
     <div mat-dialog-content class="content" #contentRef>
@@ -98,7 +98,7 @@ export interface EmployeeDetailDialogData {
 
       <!-- 基本情報 -->
       <div class="form-section" id="basic" #sectionBlock>
-      <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>person</mat-icon>
         基本情報
       </h2>
@@ -151,7 +151,7 @@ export interface EmployeeDetailDialogData {
 
       <!-- 就労条件 -->
       <div class="form-section" id="work" #sectionBlock>
-      <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>work</mat-icon>
         就労条件
       </h2>
@@ -178,12 +178,11 @@ export interface EmployeeDetailDialogData {
 
       <!-- 社会保険情報 -->
       <div class="form-section" id="insurance" #sectionBlock>
-      <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>account_balance</mat-icon>
         社会保険情報
       </h2>
       <div class="grid">
-        <!-- ★ フォームのラベル「社会保険対象」に合わせる -->
         <div class="label">社会保険対象</div>
         <div class="value">
           {{ data.employee.isInsured ? '加入' : '対象外' }}
@@ -201,18 +200,14 @@ export interface EmployeeDetailDialogData {
         <div class="label">健康保険 等級</div>
         <div class="value">{{ data.employee.healthGrade ?? '-' }}</div>
 
-        <!-- ★ healthStandardMonthly はフォームに無いので削除 -->
-
         <div class="label">厚生年金 等級</div>
         <div class="value">{{ data.employee.pensionGrade ?? '-' }}</div>
-
-        <!-- ★ pensionStandardMonthly もフォームに無いので削除 -->
       </div>
       </div>
 
       <!-- 資格情報（健康保険） -->
       <div class="form-section" id="health-qualification" #sectionBlock>
-      <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>local_hospital</mat-icon>
         資格情報（健康保険）
       </h2>
@@ -245,7 +240,7 @@ export interface EmployeeDetailDialogData {
 
       <!-- 資格情報（厚生年金） -->
       <div class="form-section" id="pension-qualification" #sectionBlock>
-      <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>account_balance</mat-icon>
         資格情報（厚生年金）
       </h2>
@@ -278,7 +273,7 @@ export interface EmployeeDetailDialogData {
 
       <!-- 就業状態 -->
       <div class="form-section" id="working-status" #sectionBlock>
-      <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>event</mat-icon>
         就業状態
       </h2>
@@ -302,7 +297,7 @@ export interface EmployeeDetailDialogData {
 
       <!-- 給与振込口座 -->
       <div class="form-section" id="bankAccount" #sectionBlock>
-        <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>account_balance_wallet</mat-icon>
           給与振込口座
         </h2>
@@ -332,7 +327,7 @@ export interface EmployeeDetailDialogData {
 
       <!-- 給与情報（保険用） -->
       <div class="form-section" id="payrollSettings" #sectionBlock>
-        <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>payments</mat-icon>
           給与情報（保険用）
         </h2>
@@ -356,15 +351,15 @@ export interface EmployeeDetailDialogData {
             <div class="label">給与情報</div>
             <div class="value">未登録</div>
           </ng-template>
-        </div>
+      </div>
       </div>
 
       <!-- 標準報酬履歴 -->
       <div class="form-section" id="standard-reward-history" #sectionBlock>
         <div class="section-title standard-reward-title">
-          <div class="section-title-left">
+          <div class="flex-row align-center gap-2">
             <mat-icon>trending_up</mat-icon>
-            標準報酬履歴
+            <span class="mat-h3 m-0">標準報酬履歴</span>
           </div>
 
           <ng-container *ngIf="canManageStandardRewardHistory$ | async">
@@ -390,7 +385,7 @@ export interface EmployeeDetailDialogData {
             <ng-container
               *ngIf="canManageStandardRewardHistory$ | async as canManageStandardRewardHistory"
             >
-              <table mat-table [dataSource]="histories">
+              <table mat-table [dataSource]="histories" class="admin-table">
                 <ng-container matColumnDef="decisionYearMonth">
                   <th mat-header-cell *matHeaderCellDef>決定年月</th>
                   <td mat-cell *matCellDef="let history">
@@ -475,9 +470,9 @@ export interface EmployeeDetailDialogData {
       <!-- 扶養家族 -->
       <div class="form-section" id="dependents" #sectionBlock>
         <div class="section-title dependents-title">
-          <div class="section-title-left">
+          <div class="flex-row align-center gap-2">
             <mat-icon>family_restroom</mat-icon>
-            扶養家族
+            <span class="mat-h3 m-0">扶養家族</span>
           </div>
           <ng-container *ngIf="canManageDependents$ | async">
             <button mat-stroked-button color="primary" (click)="openAddDependent()">
@@ -530,9 +525,9 @@ export interface EmployeeDetailDialogData {
         </ng-container>
       </div>
 
-      <!-- システム情報（フォームに無いが、メタ情報として残す） -->
+      <!-- システム情報 -->
       <div class="form-section" id="system" #sectionBlock>
-      <h2 class="section-title">
+        <h2 class="mat-h3 section-title">
           <mat-icon>info</mat-icon>
         システム情報
       </h2>
@@ -579,168 +574,127 @@ export interface EmployeeDetailDialogData {
     `,
   styles: [
     `
-      h1[mat-dialog-title] {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0;
-        padding: 1.5rem 1.5rem 1rem;
-        border-bottom: 1px solid #e0e0e0;
+
+       /* 標準報酬履歴テーブル：セクションナビより前面に出ないようにする */
+      .standard-reward-table {
+        position: relative;
+        z-index: 0;
       }
 
-      h1[mat-dialog-title] mat-icon {
-        color: #667eea;
+      .standard-reward-table .admin-table {
+        width: 100%;
+      }
+
+      /* グローバルの sticky ヘッダー設定を、このダイアログ内では無効化 */
+      .standard-reward-table .admin-table .mat-mdc-header-row {
+        position: static !important;
+        top: auto !important;
+        z-index: auto !important;
+      }
+
+      .dialog-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 16px 16px 12px;
+        border-bottom: 1px solid #e0e0e0;
       }
 
       .subtitle {
         margin-left: auto;
-        font-size: 0.9rem;
         color: #666;
-        font-weight: 400;
       }
 
       .content {
         display: flex;
         flex-direction: column;
-        gap: 0;
+        gap: 24px;
         max-height: 70vh;
         overflow-y: auto;
-        padding: 1.5rem;
+        padding: 16px;
+        position: relative;
       }
 
       .section-nav {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 0.5rem;
-        margin-bottom: 1rem;
+        gap: 8px;
         position: sticky;
         top: 0;
         background: #fff;
-        padding-bottom: 0.5rem;
-        z-index: 1;
+        padding-bottom: 8px;
+        z-index: 20;
       }
 
       .section-nav button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.35rem;
-        text-align: center;
+        gap: 8px;
         white-space: nowrap;
       }
 
       .form-section {
-        margin-bottom: 2rem;
-      }
-
-      .form-section:last-child {
-        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
 
       .section-title {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin: 0 0 1rem 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #333;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e0e0e0;
-      }
-
-      .section-title mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        color: #667eea;
+        gap: 8px;
+        margin: 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e0e0e0;
       }
 
       .grid {
         display: grid;
-        grid-template-columns: 160px 1fr;
-        row-gap: 0.75rem;
-        column-gap: 1rem;
+        grid-template-columns: 170px 1fr;
+        row-gap: 8px;
+        column-gap: 12px;
         font-size: 0.95rem;
-        padding: 0.5rem 0;
       }
 
       .label {
         color: #666;
         font-weight: 500;
-        justify-self: flex-start;
       }
 
       .value {
         color: #333;
         word-break: break-word;
-        font-weight: 400;
       }
 
       .dialog-actions {
-        padding: 1rem 1.5rem;
+        padding: 12px 16px;
         border-top: 1px solid #e0e0e0;
         background: #fafafa;
       }
 
       .dialog-actions button {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-      }
-
-      button[mat-button] {
-        transition: all 0.2s ease;
-      }
-
-      button[mat-button]:hover {
-        background: rgba(0, 0, 0, 0.04);
+        gap: 8px;
       }
 
       .standard-reward-title {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 0.75rem;
+        gap: 12px;
       }
 
-      .standard-reward-title button {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-      }
-
-      .standard-reward-empty {
+      .standard-reward-empty,
+      .dependents-empty {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.35rem;
+        gap: 8px;
         color: #666;
-        padding: 1rem 0;
-      }
-
-      .standard-reward-empty mat-icon {
-        color: #9ca3af;
-      }
-
-      .standard-reward-table table {
-        width: 100%;
-      }
-
-      .standard-reward-table th,
-      .standard-reward-table td {
-        padding: 0.75rem;
-      }
-
-      .standard-reward-table th {
-        font-weight: 600;
-        color: #374151;
-        border-bottom: 2px solid #e5e7eb;
-      }
-
-      .standard-reward-table td {
-        border-bottom: 1px solid #e5e7eb;
-        color: #111827;
+        padding: 12px 0;
       }
 
       .standard-reward-note {
@@ -752,60 +706,36 @@ export interface EmployeeDetailDialogData {
         text-align: right;
       }
 
-      .actions-cell button {
-        margin-left: 0.25rem;
-      }
-
-      .dependents-title {
+      .actions-cell {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .dependents-title button {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-      }
-
-      .dependents-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.35rem;
-        color: #666;
-        padding: 1rem 0;
-      }
-
-      .dependents-empty mat-icon {
-        color: #9ca3af;
+        justify-content: flex-end;
+        gap: 4px;
       }
 
       .dependents-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 1rem;
+        gap: 12px;
       }
 
       .dependent-card {
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px;
         background: #fff;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       }
 
       .dependent-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
+        gap: 8px;
+        margin-bottom: 8px;
       }
 
       .dependent-name {
         font-weight: 700;
-        font-size: 1.05rem;
+        font-size: 1rem;
       }
 
       .dependent-relationship {
@@ -816,14 +746,14 @@ export interface EmployeeDetailDialogData {
       .dependent-actions {
         display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 4px;
       }
 
       .dependent-row {
         display: flex;
         justify-content: space-between;
         font-size: 0.95rem;
-        padding: 0.25rem 0;
+        padding: 4px 0;
       }
 
       .dependent-row .label {
@@ -912,7 +842,8 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     if (this.data.focusSection) {
-      setTimeout(() => this.scrollToSection(this.data.focusSection!), 0);
+      // 少し待ってからスクロールを実行（ダイアログのアニメーションやレンダリング待ち）
+      setTimeout(() => this.scrollToSection(this.data.focusSection!), 300);
     }
   }
 
@@ -993,10 +924,16 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
 
     const nav = container.querySelector('.section-nav') as HTMLElement | null;
     const navHeight = nav?.offsetHeight ?? 0;
-    const margin = 12; // 余白（8〜16px程度）
+    const margin = 12;
 
-    const targetTop = target.offsetTop;
-    const scrollTop = targetTop - navHeight - margin;
+    // コンテナ内での相対位置を計算（現在のスクロール量を加味）
+    // offsetTop は position: relative でない場合、祖先要素基準になる可能性があるため
+    // getBoundingClientRect を使用して計算する
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const relativeTop = targetRect.top - containerRect.top + container.scrollTop;
+
+    const scrollTop = relativeTop - navHeight - margin;
 
     container.scrollTo({
       top: Math.max(scrollTop, 0),
@@ -1075,7 +1012,8 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   openAddDependent(): void {
     this.dialog
       .open(DependentFormDialogComponent, {
-        width: '480px',
+        width: '1200px',
+        maxWidth: '95vw',
         data: {
           officeId: this.data.employee.officeId,
           employeeId: this.data.employee.id
@@ -1092,7 +1030,8 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   openEditDependent(dependent: Dependent): void {
     this.dialog
       .open(DependentFormDialogComponent, {
-        width: '480px',
+        width: '1200px',
+        maxWidth: '95vw',
         data: {
           officeId: this.data.employee.officeId,
           employeeId: this.data.employee.id,

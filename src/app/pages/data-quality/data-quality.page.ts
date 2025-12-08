@@ -14,28 +14,30 @@ import { DataQualityIssue, DataQualityIssueType } from '../../types';
   standalone: true,
   imports: [MatCardModule, MatTableModule, MatIconModule, AsyncPipe, NgIf],
   template: `
-    <section class="page data-quality">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>fact_check</mat-icon>
-          </div>
-          <div class="header-text">
-            <h1>社会保険情報の異常値チェック</h1>
-            <p>現在のデータから自動検出された要確認レコードを一覧表示します。</p>
-          </div>
+    <div class="page-container">
+      <header class="page-header">
+        <div>
+          <h1 class="m-0">社会保険情報の異常値チェック</h1>
+          <p class="mb-0 mat-body-2" style="color: var(--app-text-sub);">
+            現在のデータから自動検出された要確認レコードを一覧表示します。
+          </p>
         </div>
-      </mat-card>
+      </header>
 
       <mat-card class="content-card">
-        <div class="card-header">
-          <h2>異常値チェック結果</h2>
-          <p class="caption">画面表示時に最新データを計算します（保存はしません）。</p>
+        <div class="flex-row justify-between align-center flex-wrap gap-2 mb-2">
+          <h2 class="mat-h2 m-0 flex-row align-center gap-2">
+            <mat-icon color="primary">fact_check</mat-icon>
+            異常値チェック結果
+          </h2>
         </div>
+        <p class="mat-body-2 mb-3" style="color: #666;">
+          画面表示時に最新データを計算します（保存はしません）。
+        </p>
 
         <ng-container *ngIf="issues$ | async as issues; else loading">
           <div *ngIf="issues.length > 0; else empty" class="table-container">
-            <table mat-table [dataSource]="issues">
+            <table mat-table [dataSource]="issues" class="admin-table">
               <ng-container matColumnDef="employeeName">
                 <th mat-header-cell *matHeaderCellDef>対象者</th>
                 <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
@@ -68,85 +70,28 @@ import { DataQualityIssue, DataQualityIssueType } from '../../types';
         </ng-container>
 
         <ng-template #empty>
-          <div class="empty-state">
+          <div class="empty-state-simple">
             <mat-icon>check_circle</mat-icon>
             <p>異常は見つかりませんでした。</p>
           </div>
         </ng-template>
 
         <ng-template #loading>
-          <div class="empty-state">
+          <div class="empty-state-simple">
             <mat-icon>hourglass_empty</mat-icon>
             <p>読み込み中...</p>
           </div>
         </ng-template>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1rem;
-      }
-      .header-content {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-      .header-icon {
-        width: 56px;
-        height: 56px;
-        display: grid;
-        place-items: center;
-        border-radius: 12px;
-        background: #eef2ff;
-        color: #4338ca;
-      }
-      .header-text h1 {
-        margin: 0;
-        font-size: 1.5rem;
-      }
-      .header-text p {
-        margin: 0;
-        color: #4b5563;
-      }
-      .content-card {
-        padding: 1.5rem;
-      }
-      .card-header {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 1rem;
-        margin-bottom: 1rem;
-      }
-      .card-header .caption {
-        margin: 0;
-        color: #6b7280;
-        font-size: 0.9rem;
-      }
       .table-container {
-        border: 1px solid #e5e7eb;
+        border: 1px solid #e0e0e0;
         border-radius: 8px;
         overflow: hidden;
-      }
-      table {
-        width: 100%;
-      }
-      th,
-      td {
-        padding: 0.75rem 1rem;
-      }
-      .empty-state {
-        padding: 2rem;
-        text-align: center;
-        color: #6b7280;
-        display: grid;
-        place-items: center;
-        gap: 0.5rem;
-      }
-      .empty-state mat-icon {
-        font-size: 40px;
+        background: #fff;
       }
     `
   ]

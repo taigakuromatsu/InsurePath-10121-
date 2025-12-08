@@ -58,15 +58,10 @@ interface EmployeeWithUpdatedBy extends Employee {
     DatePipe
   ],
   template: `
-    <section class="page employees">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>people</mat-icon>
-          </div>
-          <div class="header-text">
-            <h1>
-              従業員台帳
+    <div class="page-container">
+      <header class="page-header">
+        <div class="flex-row align-center gap-2">
+          <h1 class="m-0">従業員台帳</h1>
               <button
                 mat-icon-button
                 class="help-button"
@@ -75,22 +70,21 @@ interface EmployeeWithUpdatedBy extends Employee {
               >
                 <mat-icon>help_outline</mat-icon>
               </button>
-            </h1>
-            <p>現在の事業所に紐づく従業員を登録・更新できます。</p>
-          </div>
         </div>
-      </mat-card>
+        <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+          現在の事業所に紐づく従業員を登録・更新できます。
+        </p>
+      </header>
 
       <mat-card class="content-card">
-        <div class="page-header">
-          <div class="page-title-section">
-            <h2>
-              <mat-icon>list</mat-icon>
-              従業員一覧
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">list</mat-icon> 従業員一覧
             </h2>
-            <p>登録されている従業員の一覧を表示します。</p>
+            <p class="mat-body-2" style="color: #666">登録されている従業員の一覧を表示します。</p>
           </div>
-          <div class="header-actions">
+          <div class="header-actions flex-row gap-2 flex-wrap">
             <button
               mat-stroked-button
               color="primary"
@@ -121,7 +115,7 @@ interface EmployeeWithUpdatedBy extends Employee {
               CSVエクスポート
             </button>
             <button
-              mat-raised-button
+              mat-flat-button
               color="primary"
               (click)="openDialog()"
               [disabled]="!(officeId$ | async)"
@@ -137,7 +131,7 @@ interface EmployeeWithUpdatedBy extends Employee {
           <table
             mat-table
             [dataSource]="(employeesWithUpdatedBy$ | async) || []"
-            class="employee-table"
+              class="admin-table"
           >
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef>氏名</th>
@@ -203,7 +197,6 @@ interface EmployeeWithUpdatedBy extends Employee {
               </td>
             </ng-container>
 
-            <!-- 社会保険列 -->
             <ng-container matColumnDef="isInsured">
               <th mat-header-cell *matHeaderCellDef class="center">社会保険</th>
               <td mat-cell *matCellDef="let row" class="center">
@@ -234,10 +227,10 @@ interface EmployeeWithUpdatedBy extends Employee {
               </td>
             </ng-container>
 
-            <!-- 操作列 -->
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
-              <td mat-cell *matCellDef="let row" class="actions-cell">
+              <td mat-cell *matCellDef="let row">
+                <div class="flex-row gap-2 justify-center">
                 <button
                   mat-icon-button
                   (click)="openDetail(row)"
@@ -264,11 +257,12 @@ interface EmployeeWithUpdatedBy extends Employee {
                 >
                   <mat-icon>delete</mat-icon>
                 </button>
+                </div>
               </td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumns" class="table-header-row"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns" class="table-row"></tr>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
           </table>
           <div class="empty-state" *ngIf="(employeesWithUpdatedBy$ | async)?.length === 0">
             <mat-icon>people_outline</mat-icon>
@@ -289,94 +283,42 @@ interface EmployeeWithUpdatedBy extends Employee {
           </div>
         </ng-template>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .header-card ::ng-deep .mat-mdc-card-content {
-        padding: 0;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 2rem;
-      }
-
-      .header-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 64px;
-        height: 64px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-      }
-
-      .header-icon mat-icon {
-        font-size: 36px;
-        width: 36px;
-        height: 36px;
-        color: white;
-      }
-
-      .header-text h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-      }
-
-      .header-text p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 1rem;
+        flex-direction: column;
+        gap: 24px;
       }
 
       .content-card {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+        border-radius: 8px;
       }
 
-      .page-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-        padding-bottom: 1.5rem;
-        border-bottom: 2px solid #e0e0e0;
-      }
-
-      .page-title-section h2 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0 0 0.5rem 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .page-title-section h2 mat-icon {
-        color: #667eea;
-      }
-
-      .page-title-section p {
-        margin: 0;
-        color: #666;
-        font-size: 0.95rem;
-      }
+      /* ユーティリティ */
+      .m-0 { margin: 0; }
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .flex-wrap { flex-wrap: wrap; }
 
       .header-actions {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 8px;
       }
 
       .table-container {
@@ -384,46 +326,10 @@ interface EmployeeWithUpdatedBy extends Employee {
         overflow-x: auto;
         border-radius: 8px;
         border: 1px solid #e0e0e0;
+        background: #fff;
       }
 
-      table.employee-table {
-        width: 100%;
-        background: white;
-      }
-
-      .table-header-row {
-        background: #f5f5f5;
-      }
-
-      table.employee-table th {
-        font-weight: 600;
-        color: #555;
-        font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 16px;
-      }
-
-      table.employee-table td {
-        padding: 16px;
-        border-bottom: 1px solid #f0f0f0;
-      }
-
-      .table-row {
-        transition: background-color 0.2s ease;
-      }
-
-      .table-row:hover {
-        background-color: #f9f9f9;
-      }
-
-      .table-row:last-child td {
-        border-bottom: none;
-      }
-
-      .center {
-        text-align: center;
-      }
+      .center { text-align: center; }
 
       .status-badge {
         display: inline-block;
@@ -431,17 +337,11 @@ interface EmployeeWithUpdatedBy extends Employee {
         border-radius: 16px;
         font-weight: 500;
         font-size: 0.875rem;
+        white-space: nowrap;
       }
 
-      .status-badge.insured {
-        background: #e8f5e9;
-        color: #2e7d32;
-      }
-
-      .status-badge.not-insured {
-        background: #ffebee;
-        color: #c62828;
-      }
+      .status-badge.insured { background: #e8f5e9; color: #2e7d32; }
+      .status-badge.not-insured { background: #ffebee; color: #c62828; }
 
       .status-text {
         color: #333;
@@ -451,36 +351,22 @@ interface EmployeeWithUpdatedBy extends Employee {
       .dependents-button {
         display: inline-flex;
         align-items: center;
-        gap: 0.35rem;
+        gap: 6px;
         min-width: 140px;
         justify-content: center;
       }
 
-      .dependents-count {
-        font-weight: 600;
-        color: #333;
-      }
+      .dependents-count { font-weight: 600; color: #333; }
+      .dependents-label { color: #555; }
 
-      .dependents-label {
-        color: #555;
-      }
-
-      .actions-header {
-        text-align: center;
-      }
-
-      .actions-cell {
-        display: flex;
-        gap: 0.5rem;
-        justify-content: center;
-      }
+      .actions-header { text-align: center; }
 
       .empty-state {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 4rem 2rem;
+        padding: 48px 24px;
         text-align: center;
         color: #999;
       }
@@ -489,13 +375,13 @@ interface EmployeeWithUpdatedBy extends Employee {
         font-size: 64px;
         width: 64px;
         height: 64px;
-        margin-bottom: 1rem;
+        margin-bottom: 16px;
         opacity: 0.5;
       }
 
       .empty-state p {
-        margin: 0 0 1.5rem 0;
-        font-size: 1.1rem;
+        margin: 0 0 16px 0;
+        font-size: 1.05rem;
       }
 
       .empty-office-state {
@@ -503,7 +389,7 @@ interface EmployeeWithUpdatedBy extends Employee {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 4rem 2rem;
+        padding: 48px 24px;
         text-align: center;
         color: #999;
       }
@@ -512,13 +398,13 @@ interface EmployeeWithUpdatedBy extends Employee {
         font-size: 64px;
         width: 64px;
         height: 64px;
-        margin-bottom: 1rem;
+        margin-bottom: 16px;
         opacity: 0.5;
         color: #667eea;
       }
 
       .empty-office-state h3 {
-        margin: 0 0 0.5rem 0;
+        margin: 0 0 8px 0;
         font-size: 1.25rem;
         color: #666;
       }
@@ -528,48 +414,15 @@ interface EmployeeWithUpdatedBy extends Employee {
         font-size: 1rem;
       }
 
-      button[mat-raised-button] {
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s ease;
-      }
-
-      button[mat-raised-button]:hover:not(:disabled) {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        transform: translateY(-1px);
-      }
-
-      button[mat-icon-button] {
-        transition: all 0.2s ease;
-      }
-
-      button[mat-icon-button]:hover {
-        transform: scale(1.1);
-      }
-
       .help-button {
         width: 36px;
         height: 36px;
-        margin-left: 0.25rem;
-        color: white;
-      }
-
-      .help-button mat-icon {
-        font-size: 22px;
       }
 
       @media (max-width: 768px) {
-        .page-header {
-          flex-direction: column;
-          align-items: stretch;
-        }
-
-        .page-header button {
+        .header-actions {
           width: 100%;
-        }
-
-        .header-content {
-          flex-direction: column;
-          text-align: center;
+          justify-content: flex-start;
         }
       }
     `
@@ -672,14 +525,16 @@ export class EmployeesPage {
   // 🔍 詳細ダイアログを開く
   openDetail(employee: Employee): void {
     this.dialog.open(EmployeeDetailDialogComponent, {
-      width: '720px',
+      width: '1200px',
+      maxWidth: '95vw',
       data: { employee }
     });
   }
 
   openDetailWithFocus(employee: Employee, focusSection: DialogFocusSection): void {
     this.dialog.open(EmployeeDetailDialogComponent, {
-      width: '720px',
+      width: '1200px',
+      maxWidth: '95vw',
       data: { employee, focusSection }
     });
   }
@@ -697,7 +552,8 @@ export class EmployeesPage {
     }
 
     const dialogRef = this.dialog.open(EmployeeImportDialogComponent, {
-      width: '720px',
+      width: '1200px',
+      maxWidth: '95vw',
       data: { officeId }
     });
 
@@ -755,7 +611,8 @@ export class EmployeesPage {
     }
 
     const dialogRef = this.dialog.open(EmployeeFormDialogComponent, {
-      width: '720px',
+      width: '1200px',
+      maxWidth: '95vw',
       data: { employee, officeId }
     });
 

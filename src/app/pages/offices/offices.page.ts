@@ -30,31 +30,27 @@ import { HealthPlanType, Office } from '../../types';
     NgIf
   ],
   template: `
-    <section class="page offices">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>business</mat-icon>
-          </div>
-          <div class="header-text">
-        <h1>事業所情報</h1>
-        <p>協会けんぽ / 健康保険組合の設定や所在地情報を管理します。</p>
-          </div>
+    <div class="page-container">
+      <header class="page-header">
+        <div>
+          <h1 class="m-0">事業所情報</h1>
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+            協会けんぽ / 健康保険組合の設定や所在地情報を管理します。
+          </p>
         </div>
-      </mat-card>
+      </header>
 
       <mat-card class="content-card">
-        <div class="page-header">
-          <div class="page-title-section">
-            <h2>
-              <mat-icon>settings</mat-icon>
-              事業所設定
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">settings</mat-icon> 事業所設定
             </h2>
-            <p>事業所の基本情報と健康保険プランの設定を行います。</p>
+            <p class="mat-body-2" style="color: #666">事業所の基本情報と健康保険プランの設定を行います。</p>
           </div>
         </div>
 
-        <form [formGroup]="form" (ngSubmit)="save()" *ngIf="form" class="office-form">
+        <form [formGroup]="form" (ngSubmit)="save()" *ngIf="form" class="office-form dense-form">
           <div class="form-section">
             <h3 class="section-title">基本情報</h3>
           <div class="form-grid">
@@ -151,14 +147,14 @@ import { HealthPlanType, Office } from '../../types';
           </div>
 
           <div class="actions">
-            <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || loading()">
+            <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || loading()">
               <mat-icon>save</mat-icon>
               保存
             </button>
           </div>
         </form>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `

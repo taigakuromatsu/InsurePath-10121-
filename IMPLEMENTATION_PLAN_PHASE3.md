@@ -703,25 +703,6 @@ Phase3では、**12月10日までの完成を目指し、残り5機能すべて�
 
 ---
 
-### Phase3-12: 多言語対応機能 📋 未実装（優先度：低）
-
-**優先度**: 🟢 低（拡張機能）  
-**依存関係**: なし  
-**目標完了日**: 2025年12月8日
-
-**目的**: 日本語に加え、英語UIへの切り替えに対応し、日本語が母語でない従業員・担当者も利用しやすい画面を提供する
-
-**実装予定内容**:
-1. **英語UIの実装**
-   - Angular i18nまたはngx-translateを使用
-   - 表示言語の設定機能
-
-**実装予定ファイル**:
-- `src/app/i18n/`（多言語リソースファイル）
-- `src/app/services/i18n.service.ts`（新規作成）
-
----
-
 ### Phase3-13: 社会保険情報の異常値チェック・ギャップ検知機能 ✅ 実装済み（優先度：中）
 
 **優先度**: 🟡 中（データ品質向上）  
@@ -807,26 +788,46 @@ Phase3では、**12月10日までの完成を目指し、残り5機能すべて�
 ---
 
 
-### Phase3-15: 口座情報・給与情報管理機能 📋 未実装（優先度：低）
+### Phase3-15: 口座情報・給与情報管理機能 ✅ 実装完了
 
 **優先度**: 🟢 低（拡張機能）  
 **依存関係**: Phase2-1  
 **目標完了日**: 2025年12月6日
+**完了日**: 2025年12月8日
 
-**目的**: 従業員ごとに、給与振込口座情報を台帳として登録・管理できる
+**目的**: 従業員ごとに給与振込口座と給与基本情報を台帳として管理し、従業員からの口座変更申請を承認・反映できるようにする
 
-**実装予定内容**:
-1. **口座情報の型定義**
-   - `BankAccount`型の定義
-   - Firestoreコレクション構造の設計
+**実装内容**:
+1. **型定義の追加**
+   - `BankAccountType` / `BankAccount`
+   - `PayrollPayType` / `PayrollPayCycle` / `PayrollSettings`
+   - `BankAccountChangePayload`、`ChangeRequestKind`に`'bankAccount'`を追加
+2. **UI拡張（admin/hr）**
+   - 従業員フォームに「給与振込口座」「給与情報（保険用）」セクション追加（必須項目揃いチェック、8桁までの口座番号）
+   - 従業員詳細ダイアログに口座・給与情報セクション追加、フォーカスナビに `bankAccount` / `payrollSettings` 追加
+3. **マイページ拡張（employee）**
+   - 口座カード（未登録時は登録申請ボタンを表示）、給与情報カード（閲覧のみ）
+   - 口座変更申請フォーム（`bank-account-change-request-form-dialog`）を開く導線追加
+   - 申請履歴テーブルで口座申請の payload を表示
+4. **申請ワークフロー拡張**
+   - 申請種別選択に「口座情報を変更」を追加
+   - 申請一覧（requests.page）で口座申請の現在値/申請値を表示、承認時に `employees.bankAccount` へ反映
+5. **Firestoreルール**
+   - `validEmployeeExtendedFields()` に `validBankAccount` / `validPayrollSettings` を追加し、必須キー揃いの場合のみ書き込み許可
+6. **保存ロジック強化**
+   - `EmployeesService.save()` で bankAccount / payrollSettings のネスト内 `undefined` を除去してから書き込み
 
-2. **口座情報の登録・編集機能**
-   - 従業員詳細ダイアログに口座情報セクション追加
-
-**実装予定ファイル**:
-- `src/app/types.ts`（`BankAccount`型追加）
-- `src/app/services/bank-accounts.service.ts`（新規作成）
-- `src/app/pages/employees/employee-detail-dialog.component.ts`（口座情報セクション追加）
+**実装ファイル**:
+- `src/app/types.ts`
+- `src/app/utils/label-utils.ts`
+- `src/app/services/employees.service.ts`
+- `src/app/pages/employees/employee-form-dialog.component.ts`
+- `src/app/pages/employees/employee-detail-dialog.component.ts`
+- `src/app/pages/me/my-page.ts`
+- `src/app/pages/requests/request-kind-selection-dialog.component.ts`
+- `src/app/pages/requests/bank-account-change-request-form-dialog.component.ts`
+- `src/app/pages/requests/requests.page.ts`
+- `firestore.rules`
 
 ---
 

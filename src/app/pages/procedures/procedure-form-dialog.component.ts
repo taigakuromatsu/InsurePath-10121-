@@ -38,11 +38,11 @@ export interface ProcedureFormDialogData {
   ],
   template: `
     <h1 mat-dialog-title>
-      <mat-icon>{{ data.procedure ? 'edit' : 'post_add' }}</mat-icon>
+      <mat-icon class="mr-2">{{ data.procedure ? 'edit' : 'post_add' }}</mat-icon>
       {{ data.procedure ? '手続きを編集' : '手続きを登録' }}
     </h1>
 
-    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
       <div class="form-grid">
         <mat-form-field appearance="outline">
           <mat-label>手続き種別</mat-label>
@@ -114,7 +114,7 @@ export interface ProcedureFormDialogData {
       </div>
 
       <div mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close type="button">キャンセル</button>
+        <button mat-stroked-button mat-dialog-close type="button">キャンセル</button>
         <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
           保存
         </button>
@@ -123,6 +123,7 @@ export interface ProcedureFormDialogData {
   `,
   styles: [
     `
+      .mr-2 { margin-right: 8px; }
       .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

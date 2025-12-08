@@ -33,30 +33,29 @@ import { todayYmd } from '../../utils/date-helpers';
     NgIf
   ],
   template: `
-    <section class="page">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>assignment_turned_in</mat-icon>
-          </div>
-          <div class="header-text">
-            <h1>社会保険手続き履歴</h1>
-            <p>従業員・被扶養者ごとの社会保険手続きの履歴を管理できます。</p>
-          </div>
+    <div class="page-container">
+      <header class="page-header">
+        <div>
+          <h1>社会保険手続き状況・履歴</h1>
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+            従業員・被扶養者ごとの社会保険手続きの状況と履歴を管理できます。
+          </p>
         </div>
-      </mat-card>
+      </header>
 
       <mat-card class="content-card">
-        <div class="card-header">
-          <h2>手続き一覧</h2>
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <h2 class="mat-h2 mb-0 flex-row align-center gap-2">
+            <mat-icon color="primary">assignment_turned_in</mat-icon> 手続き一覧
+          </h2>
           <button mat-flat-button color="primary" (click)="openCreateDialog()">
             <mat-icon>post_add</mat-icon>
             手続きを登録
           </button>
         </div>
 
-        <div class="filters">
-          <mat-form-field appearance="outline">
+        <div class="filters dense-form">
+          <mat-form-field appearance="outline" class="filter-field dense-form-field">
             <mat-label>ステータス</mat-label>
             <mat-select [value]="statusFilter$.value" (selectionChange)="statusFilter$.next($event.value)">
               <mat-option value="all">すべて</mat-option>
@@ -67,7 +66,7 @@ import { todayYmd } from '../../utils/date-helpers';
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="filter-field dense-form-field">
             <mat-label>期限</mat-label>
             <mat-select [value]="deadlineFilter$.value" (selectionChange)="deadlineFilter$.next($event.value)">
               <mat-option value="all">すべて</mat-option>
@@ -78,7 +77,7 @@ import { todayYmd } from '../../utils/date-helpers';
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="filter-field dense-form-field">
             <mat-label>手続き種別</mat-label>
             <mat-select
               [value]="procedureTypeFilter$.value"
@@ -97,7 +96,7 @@ import { todayYmd } from '../../utils/date-helpers';
 
         <div *ngIf="proceduresWithNames$ | async as procedures; else loading">
           <div class="table-container" *ngIf="procedures.length > 0; else empty">
-            <table mat-table [dataSource]="procedures" class="procedures-table">
+            <table mat-table [dataSource]="procedures" class="admin-table">
               <ng-container matColumnDef="procedureType">
                 <th mat-header-cell *matHeaderCellDef>手続き種別</th>
                 <td mat-cell *matCellDef="let row">{{ getProcedureTypeLabel(row.procedureType) }}</td>
@@ -156,7 +155,7 @@ import { todayYmd } from '../../utils/date-helpers';
           <ng-template #empty>
             <div class="empty-state">
               <mat-icon>inbox</mat-icon>
-              <p>手続き履歴がありません。</p>
+              <p>手続き状況・履歴がありません。</p>
             </div>
           </ng-template>
         </div>
@@ -168,101 +167,66 @@ import { todayYmd } from '../../utils/date-helpers';
           </div>
         </ng-template>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1rem;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-
-      .header-icon {
-        width: 56px;
-        height: 56px;
-        display: grid;
-        place-items: center;
-        border-radius: 12px;
-        background: #ecfeff;
-        color: #0ea5e9;
-      }
-
-      .header-text h1 {
-        margin: 0;
-        font-size: 1.5rem;
-      }
-
-      .header-text p {
-        margin: 0;
-        color: #4b5563;
+        flex-direction: column;
+        gap: 24px;
       }
 
       .content-card {
-        padding: 1.5rem;
+        padding: 24px;
+        border-radius: 8px;
       }
 
-      .card-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        margin-bottom: 1rem;
-      }
+      /* ユーティリティ */
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
+      .mr-2 { margin-right: 8px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .flex-wrap { flex-wrap: wrap; }
+      .filter-field { min-width: 200px; }
+      .dense-form-field { font-size: 14px; }
 
       .filters {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
       }
 
       .table-container {
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         overflow: hidden;
-      }
-
-      table {
-        width: 100%;
-      }
-
-      .procedures-table th,
-      .procedures-table td {
-        padding: 0.75rem 1rem;
+        background: #fff;
       }
 
       .status-chip {
         display: inline-block;
-        padding: 0.25rem 0.75rem;
+        padding: 2px 10px;
         border-radius: 9999px;
         font-size: 0.875rem;
         font-weight: 600;
       }
 
-      .status-not_started {
-        background: #eef2ff;
-        color: #4338ca;
-      }
-
-      .status-in_progress {
-        background: #ecfeff;
-        color: #0ea5e9;
-      }
-
-      .status-submitted {
-        background: #ecfdf3;
-        color: #15803d;
-      }
-
-      .status-rejected {
-        background: #fef2f2;
-        color: #b91c1c;
-      }
+      .status-not_started { background: #eef2ff; color: #4338ca; }
+      .status-in_progress { background: #ecfeff; color: #0ea5e9; }
+      .status-submitted { background: #ecfdf3; color: #15803d; }
+      .status-rejected { background: #fef2f2; color: #b91c1c; }
 
       .actions-header,
       .actions-cell {
@@ -270,16 +234,18 @@ import { todayYmd } from '../../utils/date-helpers';
       }
 
       .empty-state {
-        padding: 2rem;
+        padding: 48px 24px;
         text-align: center;
         color: #6b7280;
         display: grid;
         place-items: center;
-        gap: 0.5rem;
+        gap: 12px;
       }
 
       .empty-state mat-icon {
         font-size: 40px;
+        color: #9ca3af;
+        opacity: 0.5;
       }
 
       .overdue {

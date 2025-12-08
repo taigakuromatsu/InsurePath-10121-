@@ -27,24 +27,23 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
     DecimalPipe
   ],
   template: `
-    <section class="page">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>account_balance</mat-icon>
-          </div>
-          <div class="header-text">
+    <div class="page-container">
+      <header class="page-header">
+        <div>
             <h1>社会保険料納付状況</h1>
-            <p>事業所ごと・対象年月ごとの社会保険料の納付状況を管理できます。</p>
-          </div>
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+            事業所ごと・対象年月ごとの社会保険料の納付状況を管理できます。
+          </p>
         </div>
-      </mat-card>
+      </header>
 
       <mat-card class="content-card">
-        <div class="card-header">
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
           <div>
-            <h2>納付状況一覧</h2>
-            <p class="subtitle">対象年月ごとの予定額・納付額・ステータスを確認できます。</p>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">account_balance</mat-icon> 納付状況一覧
+            </h2>
+            <p class="mat-body-2" style="color: #666">対象年月ごとの予定額・納付額・ステータスを確認できます。</p>
           </div>
           <button mat-flat-button color="primary" (click)="openCreateDialog()">
             <mat-icon>add</mat-icon>
@@ -54,7 +53,7 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
 
         <ng-container *ngIf="payments$ | async as payments; else loading">
           <div *ngIf="payments.length > 0; else empty" class="table-container">
-            <table mat-table [dataSource]="payments" class="payments-table">
+            <table mat-table [dataSource]="payments" class="admin-table">
               <ng-container matColumnDef="targetYearMonth">
                 <th mat-header-cell *matHeaderCellDef>対象年月</th>
                 <td mat-cell *matCellDef="let row">{{ row.targetYearMonth }}</td>
@@ -131,70 +130,43 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
           </div>
         </ng-template>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1.5rem;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-
-      .header-icon {
-        width: 56px;
-        height: 56px;
-        display: grid;
-        place-items: center;
-        border-radius: 12px;
-        background: #e0f7fa;
-        color: #006064;
-      }
-
-      .header-text h1 {
-        margin: 0;
-        font-size: 1.6rem;
-      }
-
-      .header-text p {
-        margin: 0;
-        color: #555;
+        flex-direction: column;
+        gap: 24px;
       }
 
       .content-card {
-        padding: 1.5rem;
+        padding: 24px;
+        border-radius: 8px;
       }
 
-      .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
-      }
-
-      .subtitle {
-        margin: 0.25rem 0 0 0;
-        color: #666;
-      }
+      /* ユーティリティ */
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
+      .mr-2 { margin-right: 8px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .flex-wrap { flex-wrap: wrap; }
 
       .table-container {
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         overflow: hidden;
-      }
-
-      table {
-        width: 100%;
-      }
-
-      th.mat-header-cell {
-        background: #f9fafb;
-        font-weight: 600;
+        background: #fff;
       }
 
       .actions-header,
@@ -205,7 +177,7 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
       .actions-cell button {
         display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 6px;
       }
 
       .status-badge {
@@ -215,29 +187,19 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
         font-size: 0.85rem;
         font-weight: 600;
         color: white;
+        white-space: nowrap;
       }
 
-      .status-unpaid {
-        background: #ef4444;
-      }
-
-      .status-paid {
-        background: #22c55e;
-      }
-
-      .status-partially_paid {
-        background: #f59e0b;
-      }
-
-      .status-not_required {
-        background: #9ca3af;
-      }
+      .status-unpaid { background: #ef4444; }
+      .status-paid { background: #22c55e; }
+      .status-partially_paid { background: #f59e0b; }
+      .status-not_required { background: #9ca3af; }
 
       .empty-state {
         display: grid;
         place-items: center;
-        gap: 0.5rem;
-        padding: 2rem 1rem;
+        gap: 8px;
+        padding: 48px 24px;
         color: #666;
       }
 
@@ -245,12 +207,15 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
         font-size: 36px;
         width: 36px;
         height: 36px;
+        opacity: 0.5;
       }
 
       @media (max-width: 768px) {
-        .card-header {
-          flex-direction: column;
-          align-items: flex-start;
+        .actions-cell {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          justify-content: center;
         }
       }
     `

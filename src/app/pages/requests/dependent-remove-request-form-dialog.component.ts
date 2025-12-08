@@ -33,32 +33,27 @@ export interface DependentRemoveRequestFormDialogData {
     NgIf
   ],
   template: `
-    <h1 mat-dialog-title>扶養家族削除申請</h1>
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div mat-dialog-content>
-        <div class="current-info" *ngIf="currentDependent">
-          <h3>削除対象の被扶養者</h3>
-          <div class="info-item">
-            <span class="label">氏名:</span>
-            <span class="value">{{ currentDependent.name }}</span>
-          </div>
-          <div class="info-item" *ngIf="currentDependent.kana">
-            <span class="label">カナ:</span>
-            <span class="value">{{ currentDependent.kana }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">続柄:</span>
-            <span class="value">
-              {{ getDependentRelationshipLabel(currentDependent.relationship) }}
-            </span>
-          </div>
-          <div class="info-item">
-            <span class="label">生年月日:</span>
-            <span class="value">{{ currentDependent.dateOfBirth }}</span>
-          </div>
+    <h1 mat-dialog-title>
+      <mat-icon class="mr-2">delete</mat-icon>
+      扶養家族削除申請
+    </h1>
+    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content class="dense-form">
+      <div class="form-section mb-4" *ngIf="currentDependent">
+        <h3 class="mat-h3 mb-2 flex-row align-center gap-2">
+          <mat-icon color="primary">info</mat-icon> 削除対象の被扶養者
+        </h3>
+        <div class="screen-rules">
+          <p>
+            <strong>氏名:</strong> {{ currentDependent.name }}<br>
+            <span *ngIf="currentDependent.kana"><strong>カナ:</strong> {{ currentDependent.kana }}<br></span>
+            <strong>続柄:</strong> {{ getDependentRelationshipLabel(currentDependent.relationship) }}<br>
+            <strong>生年月日:</strong> {{ currentDependent.dateOfBirth }}
+          </p>
         </div>
+      </div>
 
-        <mat-form-field appearance="outline" class="full-width">
+      <div class="form-section">
+        <mat-form-field appearance="outline" class="w-100">
           <mat-label>削除理由（任意）</mat-label>
           <textarea
             matInput
@@ -73,7 +68,7 @@ export interface DependentRemoveRequestFormDialogData {
       </div>
 
       <div mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close type="button">キャンセル</button>
+        <button mat-stroked-button mat-dialog-close type="button">キャンセル</button>
         <button mat-flat-button color="warn" type="submit" [disabled]="form.invalid">
           <mat-icon>delete</mat-icon>
           削除を申請する
@@ -83,32 +78,17 @@ export interface DependentRemoveRequestFormDialogData {
   `,
   styles: [
     `
-      .full-width {
-        width: 100%;
-      }
-
-      .current-info {
-        background: #f5f5f5;
-        padding: 1rem;
+      .mr-2 { margin-right: 8px; }
+      
+      .screen-rules {
+        padding: 12px;
+        background: #f5f7fa;
         border-radius: 4px;
-        margin-bottom: 1rem;
-      }
-
-      .current-info h3 {
-        margin: 0 0 0.5rem 0;
-        font-size: 0.875rem;
-        font-weight: 600;
-      }
-
-      .info-item {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 0.25rem;
-      }
-
-      .info-item .label {
-        font-weight: 600;
-        min-width: 80px;
+        font-size: 13px;
+        color: #666;
+        border-left: 3px solid #1a237e;
+        
+        p { margin: 0; line-height: 1.5; }
       }
     `
   ]

@@ -25,204 +25,193 @@ Chart.register(...registerables);
   standalone: true,
   imports: [MatCardModule, MatIconModule, MatTableModule, BaseChartDirective, DecimalPipe, NgIf, AsyncPipe],
   template: `
-    <section class="page dashboard">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>dashboard</mat-icon>
-          </div>
-          <div class="header-text">
-            <h1>ダッシュボード</h1>
-            <p>事業所全体の社会保険料負担や直近トレンドを集約して可視化します。</p>
-          </div>
+    <div class="page-container">
+      <header class="page-header">
+        <div>
+          <h1 class="m-0">ダッシュボード</h1>
+          <p class="mat-body-2 mb-0" style="color: var(--app-text-sub);">
+            事業所の社会保険料負担・納付状況・手続き期限をひと目で把握できます。
+          </p>
+        </div>
+      </header>
+
+      <mat-card class="content-card">
+        <div class="dashboard-grid">
+          <mat-card class="stat-card">
+            <div class="stat-icon stat-icon-blue">
+              <mat-icon>people</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>従業員数</h3>
+              <p class="stat-value">
+                <ng-container *ngIf="insuredEmployeeCount() !== null; else allEmployees">
+                  {{ insuredEmployeeCount() }}人
+                </ng-container>
+                <ng-template #allEmployees>
+                  {{ employeeCount() ?? '-' }}
+                  <ng-container *ngIf="employeeCount() !== null">人</ng-container>
+                </ng-template>
+              </p>
+              <p class="stat-label">
+                <ng-container *ngIf="insuredEmployeeCount() !== null">社会保険加入者</ng-container>
+                <ng-container *ngIf="insuredEmployeeCount() === null">登録済み従業員</ng-container>
+              </p>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-icon stat-icon-green">
+              <mat-icon>account_balance_wallet</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>月次保険料</h3>
+              <p class="stat-value">
+                <ng-container *ngIf="currentMonthTotalEmployer() !== null; else noData">
+                  ¥{{ currentMonthTotalEmployer() | number }}
+                </ng-container>
+                <ng-template #noData>-</ng-template>
+              </p>
+              <p class="stat-label">今月の会社負担額</p>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-icon stat-icon-orange">
+              <mat-icon>trending_up</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>トレンド</h3>
+              <p class="stat-value" [style.color]="trendColor()">
+                {{ trendDisplay() }}
+              </p>
+              <p class="stat-label">前月比の変化</p>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-icon stat-icon-purple">
+              <mat-icon>account_balance</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>今月納付予定の社会保険料</h3>
+              <p class="stat-value">
+                <ng-container *ngIf="currentPayment$ | async as payment">
+                  <ng-container *ngIf="payment; else notRegistered">
+                    ¥{{ payment.plannedTotalCompany | number }}
+                  </ng-container>
+                </ng-container>
+                <ng-template #notRegistered>未登録</ng-template>
+              </p>
+              <p class="stat-label">会社負担額（予定）</p>
+            </div>
+          </mat-card>
+
+          <mat-card
+            class="stat-card"
+            [class.warning]="thisWeekDeadlinesCount() > 0"
+            (click)="navigateToProcedures('thisWeek')"
+          >
+            <div class="stat-icon stat-icon-warning">
+              <mat-icon>assignment_turned_in</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>今週提出期限の手続き</h3>
+              <p class="stat-value" [style.color]="thisWeekDeadlinesCount() > 0 ? '#ff9800' : '#333'">
+                {{ thisWeekDeadlinesCount() }}件
+              </p>
+              <p class="stat-label">対応が必要</p>
+            </div>
+          </mat-card>
+
+          <mat-card
+            class="stat-card"
+            [class.danger]="overdueDeadlinesCount() > 0"
+            (click)="navigateToProcedures('overdue')"
+          >
+            <div class="stat-icon stat-icon-danger">
+              <mat-icon>warning</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>期限超過の手続き</h3>
+              <p class="stat-value" [style.color]="overdueDeadlinesCount() > 0 ? '#b91c1c' : '#333'">
+                {{ overdueDeadlinesCount() }}件
+              </p>
+              <p class="stat-label">緊急対応が必要</p>
+            </div>
+          </mat-card>
+
+          <mat-card
+            class="stat-card"
+            [class.warning]="dataQualityIssuesCount() > 0"
+            (click)="navigateToDataQuality()"
+          >
+            <div class="stat-icon stat-icon-warning">
+              <mat-icon>fact_check</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>要確認データ</h3>
+              <p class="stat-value" [style.color]="dataQualityIssuesCount() > 0 ? '#f97316' : '#333'">
+                {{ dataQualityIssuesCount() }}件
+              </p>
+              <p class="stat-label">社会保険情報の異常検知</p>
+            </div>
+          </mat-card>
         </div>
       </mat-card>
 
-      <div class="dashboard-grid">
-        <mat-card class="stat-card">
-          <div class="stat-icon" style="background: #e3f2fd;">
-            <mat-icon style="color: #1976d2;">people</mat-icon>
-          </div>
-          <div class="stat-content">
-            <h3>従業員数</h3>
-            <p class="stat-value">
-              <ng-container *ngIf="insuredEmployeeCount() !== null; else allEmployees">
-                {{ insuredEmployeeCount() }}人
-              </ng-container>
-              <ng-template #allEmployees>
-                {{ employeeCount() ?? '-' }}
-                <ng-container *ngIf="employeeCount() !== null">人</ng-container>
-              </ng-template>
-            </p>
-            <p class="stat-label">
-              <ng-container *ngIf="insuredEmployeeCount() !== null">社会保険加入者</ng-container>
-              <ng-container *ngIf="insuredEmployeeCount() === null">登録済み従業員</ng-container>
-            </p>
-          </div>
-        </mat-card>
+      <mat-card class="content-card">
+        <div class="charts-grid">
+          <mat-card class="chart-card">
+            <div class="chart-header">
+              <h3>
+                <mat-icon>show_chart</mat-icon>
+                過去12ヶ月の月次保険料推移（会社負担額）
+              </h3>
+            </div>
+            <div class="chart-container">
+              <canvas baseChart [data]="monthlyTrendData()" [options]="lineChartOptions" type="line"></canvas>
+            </div>
+          </mat-card>
 
-        <mat-card class="stat-card">
-          <div class="stat-icon" style="background: #e8f5e9;">
-            <mat-icon style="color: #2e7d32;">account_balance_wallet</mat-icon>
-          </div>
-          <div class="stat-content">
-            <h3>月次保険料</h3>
-            <p class="stat-value">
-              <ng-container *ngIf="currentMonthTotalEmployer() !== null; else noData">
-                ¥{{ currentMonthTotalEmployer() | number }}
-              </ng-container>
-              <ng-template #noData>-</ng-template>
-            </p>
-            <p class="stat-label">今月の会社負担額</p>
-          </div>
-        </mat-card>
+          <mat-card class="chart-card">
+            <div class="chart-header">
+              <h3>
+                <mat-icon>bar_chart</mat-icon>
+                今月の保険料負担（会社負担額）
+              </h3>
+            </div>
+            <div class="chart-container">
+              <canvas
+                baseChart
+                [data]="currentMonthComparisonData()"
+                [options]="barChartOptions"
+                type="bar"
+              ></canvas>
+            </div>
+          </mat-card>
 
-        <mat-card class="stat-card">
-          <div class="stat-icon" style="background: #fff3e0;">
-            <mat-icon style="color: #e65100;">trending_up</mat-icon>
-          </div>
-          <div class="stat-content">
-            <h3>トレンド</h3>
-            <p class="stat-value" [style.color]="trendColor()">
-              {{ trendDisplay() }}
-            </p>
-            <p class="stat-label">前月比の変化</p>
-          </div>
-        </mat-card>
+          <mat-card class="chart-card">
+            <div class="chart-header">
+              <h3>
+                <mat-icon>assessment</mat-icon>
+                年度別保険料負担（会社負担額）
+              </h3>
+            </div>
+            <div class="chart-container">
+              <canvas
+                baseChart
+                [data]="fiscalYearComparisonData()"
+                [options]="barChartOptions"
+                type="bar"
+              ></canvas>
+            </div>
+          </mat-card>
 
-        <mat-card class="stat-card">
-          <div class="stat-icon" style="background: #ede7f6;">
-            <mat-icon style="color: #5e35b1;">account_balance</mat-icon>
-          </div>
-          <div class="stat-content">
-            <h3>今月納付予定の社会保険料</h3>
-            <p class="stat-value">
-              <ng-container *ngIf="currentPayment$ | async as payment">
-                <ng-container *ngIf="payment; else notRegistered">
-                  ¥{{ payment.plannedTotalCompany | number }}
-                </ng-container>
-              </ng-container>
-              <ng-template #notRegistered>未登録</ng-template>
-            </p>
-            <p class="stat-label">会社負担額（予定）</p>
-          </div>
-        </mat-card>
-
-        <mat-card
-          class="stat-card"
-          [class.warning]="thisWeekDeadlinesCount() > 0"
-          (click)="navigateToProcedures('thisWeek')"
-          style="cursor: pointer;"
-        >
-          <div class="stat-icon" style="background: #fff3e0;">
-            <mat-icon style="color: #ff9800;">assignment_turned_in</mat-icon>
-          </div>
-          <div class="stat-content">
-            <h3>今週提出期限の手続き</h3>
-            <p class="stat-value" [style.color]="thisWeekDeadlinesCount() > 0 ? '#ff9800' : '#333'">
-              {{ thisWeekDeadlinesCount() }}件
-            </p>
-            <p class="stat-label">対応が必要</p>
-          </div>
-        </mat-card>
-
-        <mat-card
-          class="stat-card"
-          [class.danger]="overdueDeadlinesCount() > 0"
-          (click)="navigateToProcedures('overdue')"
-          style="cursor: pointer;"
-        >
-          <div class="stat-icon" style="background: #fef2f2;">
-            <mat-icon style="color: #b91c1c;">warning</mat-icon>
-          </div>
-          <div class="stat-content">
-            <h3>期限超過の手続き</h3>
-            <p class="stat-value" [style.color]="overdueDeadlinesCount() > 0 ? '#b91c1c' : '#333'">
-              {{ overdueDeadlinesCount() }}件
-            </p>
-            <p class="stat-label">緊急対応が必要</p>
-          </div>
-        </mat-card>
-
-        <mat-card class="info-card">
-          <h3>
-            <mat-icon>insights</mat-icon>
-            グラフとランキングで可視化
-          </h3>
-          <p>
-            過去12ヶ月の推移・賞与を含めた当月比較・年度別合計をグラフ表示し、従業員別負担ランキングを併せて確認できます。
-        </p>
+        </div>
       </mat-card>
-      </div>
 
-      <div class="charts-grid">
-        <mat-card class="chart-card">
-          <div class="chart-header">
-            <h3>
-              <mat-icon>show_chart</mat-icon>
-              過去12ヶ月の月次保険料推移（会社負担額）
-            </h3>
-          </div>
-          <div class="chart-container">
-            <canvas baseChart [data]="monthlyTrendData()" [options]="lineChartOptions" type="line"></canvas>
-          </div>
-        </mat-card>
-
-        <mat-card class="chart-card">
-          <div class="chart-header">
-            <h3>
-              <mat-icon>bar_chart</mat-icon>
-              今月の保険料負担（会社負担額）
-            </h3>
-          </div>
-          <div class="chart-container">
-            <canvas
-              baseChart
-              [data]="currentMonthComparisonData()"
-              [options]="barChartOptions"
-              type="bar"
-            ></canvas>
-          </div>
-        </mat-card>
-
-        <mat-card class="chart-card">
-          <div class="chart-header">
-            <h3>
-              <mat-icon>assessment</mat-icon>
-              年度別保険料負担（会社負担額）
-            </h3>
-          </div>
-          <div class="chart-container">
-            <canvas
-              baseChart
-              [data]="fiscalYearComparisonData()"
-              [options]="barChartOptions"
-              type="bar"
-            ></canvas>
-          </div>
-        </mat-card>
-
-        <mat-card
-          class="stat-card"
-          [class.warning]="dataQualityIssuesCount() > 0"
-          (click)="navigateToDataQuality()"
-          style="cursor: pointer;"
-        >
-          <div class="stat-icon" style="background: #fff7ed;">
-            <mat-icon style="color: #f97316;">fact_check</mat-icon>
-          </div>
-          <div class="stat-content">
-            <h3>要確認レコード</h3>
-            <p class="stat-value" [style.color]="dataQualityIssuesCount() > 0 ? '#f97316' : '#333'">
-              {{ dataQualityIssuesCount() }}件
-            </p>
-            <p class="stat-label">社会保険情報の異常検知</p>
-          </div>
-        </mat-card>
-      </div>
-
-      <mat-card class="info-card">
-        <h3>
+      <mat-card class="content-card">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>account_balance</mat-icon>
           最近の納付状況（最大12件）
         </h3>
@@ -268,6 +257,7 @@ Chart.register(...registerables);
         </div>
       </mat-card>
 
+      <!-- ランキング表示（Phase3 では利用しないため一旦無効化）
       <div class="ranking-section">
         <mat-card class="ranking-card">
           <div class="chart-header">
@@ -333,54 +323,24 @@ Chart.register(...registerables);
           </table>
         </mat-card>
       </div>
-    </section>
+      -->
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .header-card ::ng-deep .mat-mdc-card-content {
-        padding: 0;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 2rem;
+        flex-direction: column;
+        gap: 24px;
       }
 
-      .header-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 64px;
-        height: 64px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-      }
-
-      .header-icon mat-icon {
-        font-size: 36px;
-        width: 36px;
-        height: 36px;
-        color: white;
-      }
-
-      .header-text h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-      }
-
-      .header-text p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 1rem;
+      .content-card {
+        padding: 24px;
+        border-radius: 8px;
       }
 
       .dashboard-grid {
@@ -406,17 +366,25 @@ Chart.register(...registerables);
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 64px;
-        height: 64px;
+        width: 48px;
+        height: 48px;
         border-radius: 12px;
         flex-shrink: 0;
+        color: #fff;
       }
 
       .stat-icon mat-icon {
-        font-size: 32px;
-        width: 32px;
-        height: 32px;
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
       }
+
+      .stat-icon-blue { background: #1976d2; }
+      .stat-icon-green { background: #2e7d32; }
+      .stat-icon-orange { background: #fb8c00; }
+      .stat-icon-purple { background: #5e35b1; }
+      .stat-icon-warning { background: #ff9800; }
+      .stat-icon-danger { background: #b91c1c; }
 
       .stat-content {
         flex: 1;
@@ -442,31 +410,6 @@ Chart.register(...registerables);
         margin: 0;
         font-size: 0.875rem;
         color: #999;
-      }
-
-      .info-card {
-        grid-column: 1 / -1;
-        padding: 1.5rem;
-      }
-
-      .info-card h3 {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0 0 1rem 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .info-card h3 mat-icon {
-        color: #667eea;
-      }
-
-      .info-card p {
-        margin: 0;
-        color: #666;
-        line-height: 1.6;
       }
 
       .payment-list table {
@@ -815,7 +758,8 @@ export class DashboardPage implements OnInit {
       await this.loadMonthlyTrendData(officeId);
       await this.loadCurrentMonthComparisonData(officeId);
       await this.loadFiscalYearComparisonData(officeId);
-      await this.loadRankingData(officeId);
+      // ランキング機能は今回のMVPでは使用しないため呼び出しを停止
+      // await this.loadRankingData(officeId);
     } catch (error) {
       console.error('ダッシュボードデータの取得に失敗しました', error);
     }

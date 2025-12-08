@@ -22,7 +22,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
   standalone: true,
   imports: [MatDialogModule, MatButtonModule, MatIconModule],
   template: `
-    <h1 mat-dialog-title>申請種別を選択</h1>
+    <h1 mat-dialog-title>
+      <mat-icon class="mr-2">add</mat-icon>
+      申請種別を選択
+    </h1>
     <div mat-dialog-content>
       <div class="kind-options">
         <button
@@ -30,7 +33,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
           class="kind-option"
           (click)="openProfileChangeForm()"
         >
-          <mat-icon>person</mat-icon>
+          <mat-icon color="primary">person</mat-icon>
           <div class="option-content">
             <div class="option-title">プロフィール変更</div>
             <div class="option-description">住所・連絡先などの変更を申請</div>
@@ -42,7 +45,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
           class="kind-option"
           (click)="openBankAccountChangeForm()"
         >
-          <mat-icon>account_balance</mat-icon>
+          <mat-icon color="primary">account_balance</mat-icon>
           <div class="option-content">
             <div class="option-title">口座情報を変更</div>
             <div class="option-description">給与振込口座の変更を申請</div>
@@ -54,7 +57,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
           class="kind-option"
           (click)="openDependentAddForm()"
         >
-          <mat-icon>person_add</mat-icon>
+          <mat-icon color="primary">person_add</mat-icon>
           <div class="option-content">
             <div class="option-title">扶養家族を追加</div>
             <div class="option-description">新しい被扶養者の追加を申請</div>
@@ -66,7 +69,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
           class="kind-option"
           (click)="openDependentUpdateForm()"
         >
-          <mat-icon>edit</mat-icon>
+          <mat-icon color="primary">edit</mat-icon>
           <div class="option-content">
             <div class="option-title">扶養家族を変更</div>
             <div class="option-description">既存の被扶養者情報の変更を申請</div>
@@ -78,7 +81,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
           class="kind-option"
           (click)="openDependentRemoveForm()"
         >
-          <mat-icon>delete</mat-icon>
+          <mat-icon color="warn">delete</mat-icon>
           <div class="option-content">
             <div class="option-title">扶養家族を削除</div>
             <div class="option-description">被扶養者の削除を申請</div>
@@ -87,11 +90,13 @@ import { MatSnackBar } from '@angular/material/snack-bar';
       </div>
     </div>
     <div mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>キャンセル</button>
+      <button mat-stroked-button mat-dialog-close>キャンセル</button>
     </div>
   `,
   styles: [
     `
+      .mr-2 { margin-right: 8px; }
+      
       .kind-options {
         display: flex;
         flex-direction: column;
@@ -113,7 +118,6 @@ import { MatSnackBar } from '@angular/material/snack-bar';
         font-size: 32px;
         width: 32px;
         height: 32px;
-        color: #667eea;
       }
 
       .option-content {

@@ -34,7 +34,13 @@ body {
   margin: 0;
 }
 
-// ここから下は InsurePath 用のグローバルレイアウト調整
+// --- InsurePath UI Design Guidelines Implementation ---
+
+:root {
+  --app-bg: #F5F7FA;
+  --table-header-bg: #FAFAFA;
+  --table-hover-bg: #E3F2FD;
+}
 
 html,
 body {
@@ -44,10 +50,207 @@ body {
 body {
   font-family: 'Roboto', 'Noto Sans JP', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     sans-serif;
-  background-color: #f5f7fb;
+  background-color: var(--app-bg);
+  margin: 0;
 }
 
-mat-card h1 {
+/* =========================================
+   Layout Utilities
+   ========================================= */
+
+.page-container {
+  max-width: 1366px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+
+  @media (max-width: 600px) {
+    padding: 16px;
+  }
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+
+  h1 {
+    font-size: 24px;
+    font-weight: 500;
+    margin: 0;
+    color: #333;
+  }
+}
+
+/* =========================================
+   Component Utilities (Opt-in)
+   ========================================= */
+
+/* 1. Forms (.dense-form) */
+.dense-form {
+  .mat-mdc-form-field {
+    font-size: 14px;
+    
+    // 密度調整
+    .mat-mdc-text-field-wrapper {
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+    
+    // サブスクリプト（エラーメッセージ等）のサイズ
+    .mat-mdc-form-field-subscript-wrapper {
+      font-size: 12px;
+    }
+  }
+}
+
+/* 2. Tables (.admin-table) */
+.admin-table {
+  width: 100%;
+  
+  // ヘッダー
+  .mat-mdc-header-row {
+    background-color: var(--table-header-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .mat-mdc-header-cell {
+    font-weight: 600;
+    color: #555;
+    font-size: 13px;
+  }
+
+  // 行
+  .mat-mdc-row {
+    height: 48px;
+    
+    &:hover {
+      background-color: var(--table-hover-bg);
+    }
+  }
+  
+  .mat-mdc-cell {
+    font-size: 14px;
+    border-bottom-color: rgba(0,0,0,0.08);
+}
+}
+
+/* 3. Cards (.content-card) */
+.content-card {
+  padding: 24px;
+  
+  @media (max-width: 600px) {
+    padding: 16px;
+  }
+  
+  // カード内の見出し調整
+  h2, h3 {
+    margin-top: 0;
+    margin-bottom: 16px;
+  }
+}
+
+/* =========================================
+   Helpers
+   ========================================= */
+.w-100 { width: 100%; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 16px; }
+.mb-4 { margin-bottom: 24px; }
+
+// Gap utility for flex containers
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 16px; }
+
+.flex-row { display: flex; flex-direction: row; }
+.flex-col { display: flex; flex-direction: column; }
+.align-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.flex-1 { flex: 1; }
+.flex-wrap { flex-wrap: wrap; }
+
+/* =========================================
+   Editable Table (.editable-table)
+   ========================================= */
+.editable-table-container {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #fff;
+
+  .editable-table-header {
+    display: flex;
+    background-color: #fafafa;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 8px 16px; // 行パディングと合わせる
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    align-items: center; // 垂直中央揃え
+
+    .col {
+      padding: 0 4px;
+    }
+  }
+
+  .editable-table-body {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .editable-table-row {
+    display: flex;
+    padding: 8px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    align-items: flex-start; // エラーメッセージが出ても位置ずれしにくいように上揃え
+
+    &:last-child {
+      border-bottom: none;
+    }
+    
+    // 入力フィールドの余白調整
+    .mat-mdc-form-field {
+      width: 100%;
+      
+      .mat-mdc-form-field-subscript-wrapper {
+         // テーブル内ではエラー表示のスペースを詰め気味に
   margin-top: 0;
 }
+    }
+    
+    .col {
+      padding: 0 4px;
+    }
+  }
+
+  // 列幅の定義（プロジェクトに合わせて調整）
+  .col-index { width: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #999; margin-top: 14px; flex-shrink: 0; }
+  .col-grade { width: 70px; flex-shrink: 0; }
+  .col-currency { flex: 1; min-width: 0; } // min-width: 0 でフレックスアイテムの縮小を許可
+  .col-separator { width: 20px; display: flex; align-items: center; justify-content: center; margin-top: 14px; color: #999; flex-shrink: 0; }
+  .col-action { width: 40px; display: flex; align-items: center; justify-content: center; margin-top: 4px; flex-shrink: 0; }
+}
+
+.empty-state-simple {
+  padding: 32px;
+  text-align: center;
+  color: #999;
+  background: #f9f9f9;
+  
+  mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+    opacity: 0.5;
+    margin-bottom: 8px;
+  }
+  p { margin: 0; font-size: 13px; }
+}
+
 

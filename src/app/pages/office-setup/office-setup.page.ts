@@ -32,27 +32,24 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     AsyncPipe
   ],
   template: `
-    <section class="page office-setup">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>business_center</mat-icon>
-          </div>
-          <div class="header-text">
-        <h1>所属する事業所を設定してください</h1>
-        <p>既存の事業所を選択するか、新しく作成できます。</p>
-          </div>
+    <div class="page-container">
+      <header class="page-header">
+        <div>
+          <h1 class="m-0">所属する事業所を設定してください</h1>
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+            既存の事業所を選択するか、新しく作成できます。
+          </p>
         </div>
-      </mat-card>
+      </header>
 
         <div class="setup-grid">
-        <mat-card class="setup-card">
-          <div class="card-header">
-            <mat-icon>group_add</mat-icon>
-            <h2>既存の事業所に参加</h2>
+        <mat-card class="content-card setup-card">
+          <div class="card-header flex-row align-center gap-2 mb-3">
+            <mat-icon color="primary">group_add</mat-icon>
+            <h2 class="mat-h2 mb-0">既存の事業所に参加</h2>
           </div>
-          <div class="card-content">
-            <mat-form-field appearance="outline" class="full">
+          <div class="card-content dense-form">
+            <mat-form-field appearance="outline" class="full dense-form-field">
               <mat-label>参加する事業所</mat-label>
               <mat-select [formControl]="existingOfficeControl">
                 <mat-option *ngFor="let office of offices$ | async" [value]="office.id">
@@ -61,7 +58,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
               </mat-select>
             </mat-form-field>
             <button
-              mat-raised-button
+              mat-flat-button
               color="primary"
               (click)="joinExistingOffice()"
               [disabled]="joinDisabled() || loading()"
@@ -73,24 +70,24 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
           </div>
         </mat-card>
 
-        <mat-card class="setup-card">
-          <div class="card-header">
-            <mat-icon>add_business</mat-icon>
-            <h2>新規事業所を作成</h2>
+        <mat-card class="content-card setup-card">
+          <div class="card-header flex-row align-center gap-2 mb-3">
+            <mat-icon color="primary">add_business</mat-icon>
+            <h2 class="mat-h2 mb-0">新規事業所を作成</h2>
           </div>
-          <div class="card-content">
+          <div class="card-content dense-form">
             <form [formGroup]="form" (ngSubmit)="createOffice()">
-              <mat-form-field appearance="outline" class="full">
+              <mat-form-field appearance="outline" class="full dense-form-field">
                 <mat-label>事業所名</mat-label>
                 <input matInput formControlName="name" required />
               </mat-form-field>
 
-              <mat-form-field appearance="outline" class="full">
+              <mat-form-field appearance="outline" class="full dense-form-field">
                 <mat-label>所在地</mat-label>
                 <input matInput formControlName="address" />
               </mat-form-field>
 
-              <mat-form-field appearance="outline" class="full">
+              <mat-form-field appearance="outline" class="full dense-form-field">
                 <mat-label>健康保険プラン</mat-label>
                 <mat-select formControlName="healthPlanType" required>
                   <mat-option value="kyokai">協会けんぽ</mat-option>
@@ -98,7 +95,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                 </mat-select>
               </mat-form-field>
 
-              <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || loading()" class="action-button">
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="form.invalid || loading()"
+                class="action-button"
+              >
                 <mat-icon>add</mat-icon>
                 事業所を作成
               </button>
@@ -106,125 +109,79 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
           </div>
         </mat-card>
         </div>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .header-card ::ng-deep .mat-mdc-card-content {
-        padding: 0;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 2rem;
+        flex-direction: column;
+        gap: 24px;
       }
 
-      .header-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 64px;
-        height: 64px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
+      .content-card {
+        padding: 24px;
+        border-radius: 8px;
       }
 
-      .header-icon mat-icon {
-        font-size: 36px;
-        width: 36px;
-        height: 36px;
-        color: white;
-      }
-
-      .header-text h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-      }
-
-      .header-text p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 1rem;
-      }
+      /* ユーティリティ */
+      .m-0 { margin: 0; }
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .flex-wrap { flex-wrap: wrap; }
+      .dense-form-field { font-size: 14px; }
 
       .setup-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
       }
 
       .setup-card {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s ease;
-      }
-
-      .setup-card:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateY(-2px);
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
       }
 
       .card-header {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        padding: 1.5rem 1.5rem 1rem;
-        border-bottom: 2px solid #e0e0e0;
+        gap: 8px;
+        padding: 0 0 8px 0;
+        border-bottom: 1px solid #e0e0e0;
       }
 
       .card-header mat-icon {
-        color: #667eea;
-        font-size: 28px;
-        width: 28px;
-        height: 28px;
-      }
-
-      .card-header h2 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #333;
+        color: #1a237e;
       }
 
       .card-content {
-        padding: 1.5rem;
+        padding-top: 8px;
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 12px;
       }
 
-      .full {
-        width: 100%;
-      }
+      .full { width: 100%; }
 
       .action-button {
-        margin-top: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s ease;
-        display: flex;
+        width: fit-content;
+        display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-      }
-
-      .action-button:hover:not(:disabled) {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        transform: translateY(-1px);
+        gap: 8px;
       }
 
       @media (max-width: 768px) {
-        .header-content {
-          flex-direction: column;
-          text-align: center;
-        }
-
         .setup-grid {
           grid-template-columns: 1fr;
         }

@@ -57,23 +57,22 @@ import {
     DatePipe
   ],
   template: `
-    <section class="page">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>pending_actions</mat-icon>
-          </div>
-          <div class="header-text">
+    <div class="page-container">
+      <header class="page-header">
+        <div>
             <h1>変更申請一覧</h1>
-            <p>従業員からのプロフィール・口座情報・扶養家族変更申請を承認・却下できます。</p>
-          </div>
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+            従業員からのプロフィール・口座情報・扶養家族変更申請を承認・却下できます。
+          </p>
         </div>
-      </mat-card>
+      </header>
 
       <mat-card class="content-card">
-        <div class="card-header">
-          <h2>申請一覧</h2>
-          <mat-form-field appearance="outline" class="status-filter">
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <h2 class="mat-h2 mb-0 flex-row align-center gap-2">
+            <mat-icon color="primary">pending_actions</mat-icon> 申請一覧
+          </h2>
+          <mat-form-field appearance="outline" class="status-filter dense-form-field">
             <mat-label>ステータス</mat-label>
             <mat-select
               [value]="selectedStatus$.value"
@@ -90,7 +89,7 @@ import {
 
         <div *ngIf="requestsWithEmployee$ | async as requests; else loading">
           <div class="table-container" *ngIf="requests.length > 0; else empty">
-            <table mat-table [dataSource]="requests" class="requests-table">
+            <table mat-table [dataSource]="requests" class="admin-table">
               <ng-container matColumnDef="requestedAt">
                 <th mat-header-cell *matHeaderCellDef>申請日時</th>
                 <td mat-cell *matCellDef="let row">
@@ -99,18 +98,18 @@ import {
               </ng-container>
 
               <ng-container matColumnDef="employee">
-                <th mat-header-cell *matHeaderCellDef>申請者</th>
-                <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
+                <th mat-header-cell *matHeaderCellDef class="nowrap">申請者</th>
+                <td mat-cell *matCellDef="let row" class="nowrap">{{ row.employeeName }}</td>
               </ng-container>
 
               <ng-container matColumnDef="kind">
-                <th mat-header-cell *matHeaderCellDef>申請種別</th>
-                <td mat-cell *matCellDef="let row">{{ getKindLabel(row.kind) }}</td>
+                <th mat-header-cell *matHeaderCellDef class="nowrap">申請種別</th>
+                <td mat-cell *matCellDef="let row" class="nowrap">{{ getKindLabel(row.kind) }}</td>
               </ng-container>
 
               <ng-container matColumnDef="field">
-                <th mat-header-cell *matHeaderCellDef>変更項目</th>
-                <td mat-cell *matCellDef="let row">
+                <th mat-header-cell *matHeaderCellDef class="nowrap">変更項目</th>
+                <td mat-cell *matCellDef="let row" class="nowrap">
                   {{
                     row.kind === 'profile'
                       ? getFieldLabel(row.field)
@@ -171,8 +170,8 @@ import {
               </ng-container>
 
               <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>ステータス</th>
-                <td mat-cell *matCellDef="let row">
+                <th mat-header-cell *matHeaderCellDef class="nowrap">ステータス</th>
+                <td mat-cell *matCellDef="let row" class="nowrap">
                   <span [class]="'status-chip status-' + row.status">
                     {{ getStatusLabel(row.status) }}
                   </span>
@@ -222,74 +221,50 @@ import {
           </div>
         </ng-template>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1rem;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-
-      .header-icon {
-        width: 56px;
-        height: 56px;
-        display: grid;
-        place-items: center;
-        border-radius: 12px;
-        background: #e0e7ff;
-        color: #4338ca;
-      }
-
-      .header-text h1 {
-        margin: 0;
-        font-size: 1.5rem;
-      }
-
-      .header-text p {
-        margin: 0;
-        color: #4b5563;
+        flex-direction: column;
+        gap: 24px;
       }
 
       .content-card {
-        padding: 1.5rem;
+        padding: 24px;
+        border-radius: 8px;
       }
 
-      .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
-      }
+      /* ユーティリティ */
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
+      .mr-2 { margin-right: 8px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .flex-wrap { flex-wrap: wrap; }
+      .dense-form-field { font-size: 14px; min-width: 200px; }
 
       .status-filter {
-        width: 240px;
+        min-width: 200px;
       }
+
+      .nowrap { white-space: nowrap; }
 
       .table-container {
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         overflow: hidden;
-      }
-
-      table {
-        width: 100%;
-      }
-
-      th,
-      td {
-        padding: 12px 16px;
-      }
-
-      th {
-        background: #f9fafb;
-        color: #374151;
+        background: #fff;
       }
 
       .actions-header,
@@ -298,25 +273,26 @@ import {
       }
 
       .actions-cell button {
-        margin-left: 0.5rem;
+        margin-left: 8px;
       }
 
       .empty-state {
         text-align: center;
-        padding: 2rem 1rem;
+        padding: 48px 24px;
         color: #6b7280;
       }
 
       .empty-state mat-icon {
         display: block;
-        margin: 0 auto 0.5rem;
+        margin: 0 auto 8px;
         color: #9ca3af;
+        opacity: 0.5;
       }
 
       .status-chip {
         display: inline-flex;
         align-items: center;
-        padding: 0.25rem 0.75rem;
+        padding: 2px 10px;
         border-radius: 9999px;
         font-size: 0.875rem;
       }
@@ -336,20 +312,16 @@ import {
         color: #991b1b;
       }
 
+      .status-canceled {
+        background: #f3f4f6;
+        color: #4b5563;
+      }
+
       @media (max-width: 768px) {
-        .card-header {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        .status-filter {
-          width: 100%;
-        }
-
         .actions-cell {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.5rem;
+          gap: 8px;
           justify-content: flex-end;
         }
 

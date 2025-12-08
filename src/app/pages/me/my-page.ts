@@ -82,34 +82,29 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
     MatSnackBarModule
   ],
   template: `
-    <section class="page my-page">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>person</mat-icon>
-          </div>
-          <div class="header-text">
+    <div class="page-container">
+      <header class="page-header">
+        <div>
             <h1>マイページ</h1>
-            <p>自分の社員情報と保険料明細を確認できます</p>
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">自分の社員情報と保険料明細を確認できます</p>
           </div>
-        </div>
-      </mat-card>
+      </header>
 
       <mat-card class="content-card">
-        <div class="page-header">
-          <h2>
-            <mat-icon>info</mat-icon>
-            基本情報
+        <div class="flex-row justify-between align-center mb-4">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">info</mat-icon> 基本情報
           </h2>
+          </div>
         </div>
 
         <ng-container *ngIf="employee$ | async as employee; else noEmployee">
           <!-- 1. 基本プロフィールカード -->
-          <mat-card class="sub-card">
-            <div class="sub-card-header">
-              <h3>
-                <mat-icon>person</mat-icon>
-                基本プロフィール
+          <div class="info-section mb-4">
+            <div class="info-section-header">
+              <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                <mat-icon color="primary">person</mat-icon> 基本プロフィール
               </h3>
             </div>
             <div class="info-grid">
@@ -147,14 +142,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="value">{{ employee.retireDate | date: 'yyyy-MM-dd' }}</span>
               </div>
             </div>
-          </mat-card>
+          </div>
 
           <!-- 2. 住所・連絡先カード -->
-          <mat-card class="sub-card">
-            <div class="sub-card-header">
-              <h3>
-                <mat-icon>home</mat-icon>
-                住所・連絡先
+          <div class="info-section mb-4">
+            <div class="info-section-header">
+              <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                <mat-icon color="primary">home</mat-icon> 住所・連絡先
               </h3>
             </div>
             <div class="info-grid">
@@ -186,14 +180,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="value" style="color: #6b7280;">住所・連絡先情報が未設定です</span>
               </div>
             </div>
-          </mat-card>
+          </div>
 
           <!-- 2.5 給与振込口座 -->
-          <mat-card class="sub-card">
-            <div class="sub-card-header">
-              <h3>
-                <mat-icon>account_balance</mat-icon>
-                給与振込口座
+          <div class="info-section mb-4">
+            <div class="info-section-header flex-row justify-between align-center">
+              <h3 class="mat-h3 m-0 flex-row align-center gap-2">
+                <mat-icon color="primary">account_balance</mat-icon> 給与振込口座
               </h3>
               <button
                 mat-stroked-button
@@ -235,14 +228,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 </div>
               </div>
             </ng-template>
-          </mat-card>
+          </div>
 
           <!-- 2.6 給与情報（保険用） -->
-          <mat-card class="sub-card">
-            <div class="sub-card-header">
-              <h3>
-                <mat-icon>payments</mat-icon>
-                給与情報（保険用）
+          <div class="info-section mb-4">
+            <div class="info-section-header">
+              <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                <mat-icon color="primary">payments</mat-icon> 給与情報（保険用）
               </h3>
             </div>
             <ng-container *ngIf="employee.payrollSettings as payroll; else noPayrollSettings">
@@ -274,14 +266,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 </div>
               </div>
             </ng-template>
-          </mat-card>
+          </div>
 
           <!-- 3. 就労条件カード -->
-          <mat-card class="sub-card">
-            <div class="sub-card-header">
-              <h3>
-                <mat-icon>work</mat-icon>
-                就労条件
+          <div class="info-section mb-4">
+            <div class="info-section-header">
+              <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                <mat-icon color="primary">work</mat-icon> 就労条件
               </h3>
             </div>
             <div class="info-grid">
@@ -306,14 +297,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="value">学生アルバイト</span>
               </div>
             </div>
-          </mat-card>
+          </div>
 
           <!-- 4. 社会保険・資格情報（サマリ）カード -->
-          <mat-card class="sub-card">
-            <div class="sub-card-header">
-              <h3>
-                <mat-icon>health_and_safety</mat-icon>
-                社会保険・資格情報
+          <div class="info-section mb-4">
+            <div class="info-section-header">
+              <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                <mat-icon color="primary">health_and_safety</mat-icon> 社会保険・資格情報
               </h3>
             </div>
             <div class="info-grid">
@@ -350,14 +340,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="value">{{ employee.pensionQualificationDate | date: 'yyyy-MM-dd' }}</span>
               </div>
             </div>
-          </mat-card>
+          </div>
 
           <!-- 5. 就業状態カード -->
-          <mat-card class="sub-card" *ngIf="employee.workingStatus">
-            <div class="sub-card-header">
-              <h3>
-                <mat-icon>event</mat-icon>
-                就業状態
+          <div class="info-section mb-4" *ngIf="employee.workingStatus">
+            <div class="info-section-header">
+              <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                <mat-icon color="primary">event</mat-icon> 就業状態
               </h3>
             </div>
             <div class="info-grid">
@@ -374,7 +363,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="value">{{ getPremiumTreatmentLabel(employee.premiumTreatment) }}</span>
               </div>
             </div>
-          </mat-card>
+          </div>
 
           <!-- 6. 詳細情報（折りたたみセクション） -->
           <mat-expansion-panel class="detail-panel">
@@ -432,11 +421,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
           </mat-expansion-panel>
 
           <!-- 7. マイナンバー（マスク表示） -->
-          <mat-card class="sub-card" *ngIf="maskMyNumber(employee.myNumber) as maskedMyNumber">
-            <div class="sub-card-header">
-              <h3>
-                <mat-icon>lock</mat-icon>
-                マイナンバー
+          <div class="info-section mb-4" *ngIf="maskMyNumber(employee.myNumber) as maskedMyNumber">
+            <div class="info-section-header">
+              <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                <mat-icon color="primary">lock</mat-icon> マイナンバー
               </h3>
             </div>
             <div class="info-grid">
@@ -445,7 +433,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="value">{{ maskedMyNumber }}</span>
               </div>
             </div>
-          </mat-card>
+          </div>
         </ng-container>
 
         <ng-template #noEmployee>
@@ -457,15 +445,14 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       </mat-card>
 
       <mat-card class="content-card">
-        <div class="page-header">
+        <div class="flex-row justify-between align-center mb-4">
           <div>
-          <h2>
-            <mat-icon>family_restroom</mat-icon>
-              扶養家族（被扶養者）
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">family_restroom</mat-icon> 扶養家族（被扶養者）
           </h2>
-            <p class="sub-text">追加・変更・削除は申請フローから行います</p>
+            <p class="mat-body-2" style="color: #666">追加・変更・削除は申請フローから行います</p>
           </div>
-          <button mat-stroked-button color="primary" (click)="openDependentAddForm()">
+          <button mat-flat-button color="primary" (click)="openDependentAddForm()">
             <mat-icon>person_add</mat-icon>
             扶養家族を追加申請する
           </button>
@@ -531,16 +518,17 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       </mat-card>
 
       <mat-card class="content-card">
-        <div class="page-header">
-          <h2>
-            <mat-icon>account_balance_wallet</mat-icon>
-            月次保険料
+        <div class="flex-row justify-between align-center mb-4">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">account_balance_wallet</mat-icon> 月次保険料
           </h2>
+          </div>
         </div>
 
         <ng-container *ngIf="monthlyPremiums$ | async as premiums">
           <div class="table-container" *ngIf="premiums.length > 0; else noMonthlyPremiums">
-            <table mat-table [dataSource]="premiums" class="premium-table">
+            <table mat-table [dataSource]="premiums" class="admin-table">
               <ng-container matColumnDef="yearMonth">
                 <th mat-header-cell *matHeaderCellDef>年月</th>
                 <td mat-cell *matCellDef="let row">{{ row.yearMonth }}</td>
@@ -586,12 +574,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <td mat-cell *matCellDef="let row">{{ row.totalEmployer | number }}</td>
               </ng-container>
 
-              <tr
-                mat-header-row
-                *matHeaderRowDef="premiumDisplayedColumns"
-                class="table-header-row"
-              ></tr>
-              <tr mat-row *matRowDef="let row; columns: premiumDisplayedColumns" class="table-row"></tr>
+              <tr mat-header-row *matHeaderRowDef="premiumDisplayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: premiumDisplayedColumns"></tr>
             </table>
           </div>
 
@@ -605,16 +589,17 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       </mat-card>
 
       <mat-card class="content-card">
-        <div class="page-header">
-          <h2>
-            <mat-icon>workspace_premium</mat-icon>
-            賞与保険料
+        <div class="flex-row justify-between align-center mb-4">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">workspace_premium</mat-icon> 賞与保険料
           </h2>
+          </div>
         </div>
 
         <ng-container *ngIf="bonusPremiums$ | async as bonuses">
           <div class="table-container" *ngIf="bonuses.length > 0; else noBonusPremiums">
-            <table mat-table [dataSource]="bonuses" class="bonus-table">
+            <table mat-table [dataSource]="bonuses" class="admin-table">
               <ng-container matColumnDef="payDate">
                 <th mat-header-cell *matHeaderCellDef>支給日</th>
                 <td mat-cell *matCellDef="let row">{{ row.payDate | date: 'yyyy-MM-dd' }}</td>
@@ -660,8 +645,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <td mat-cell *matCellDef="let row">{{ row.totalEmployer | number }}</td>
               </ng-container>
 
-              <tr mat-header-row *matHeaderRowDef="bonusDisplayedColumns" class="table-header-row"></tr>
-              <tr mat-row *matRowDef="let row; columns: bonusDisplayedColumns" class="table-row"></tr>
+              <tr mat-header-row *matHeaderRowDef="bonusDisplayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: bonusDisplayedColumns"></tr>
             </table>
           </div>
 
@@ -675,16 +660,14 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       </mat-card>
 
       <mat-card class="content-card">
-        <div class="page-header">
-          <h2>
-            <mat-icon>edit</mat-icon>
-            申請・手続き
+        <div class="flex-row justify-between align-center mb-4">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">edit</mat-icon> 申請・手続き
           </h2>
         </div>
-
-        <div class="section-actions">
           <button
-            mat-stroked-button
+            mat-flat-button
             color="primary"
             (click)="openChangeRequestDialog()"
             [disabled]="!(employee$ | async)"
@@ -696,7 +679,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
         <ng-container *ngIf="myRequests$ | async as requests">
           <div class="table-container" *ngIf="requests.length > 0; else noChangeRequests">
-            <table mat-table [dataSource]="requests" class="request-history-table">
+            <table mat-table [dataSource]="requests" class="admin-table">
               <ng-container matColumnDef="requestedAt">
                 <th mat-header-cell *matHeaderCellDef>申請日時</th>
                 <td mat-cell *matCellDef="let row">{{ row.requestedAt | date: 'yyyy-MM-dd HH:mm' }}</td>
@@ -801,13 +784,14 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
       <!-- 書類アップロード依頼セクション -->
       <mat-card class="content-card" *ngIf="employee$ | async as employee">
-        <div class="page-header">
-          <h2>
-            <mat-icon>mail</mat-icon>
-            書類アップロード依頼
+        <div class="flex-row justify-between align-center mb-4">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">mail</mat-icon> 書類アップロード依頼
           </h2>
+            <p class="mat-body-2" style="color: #666">管理者から依頼された書類をアップロードしてください。</p>
         </div>
-        <p class="sub-text">管理者から依頼された書類をアップロードしてください。</p>
+        </div>
 
         <ng-container *ngIf="documentRequests$ | async as requests">
           <div class="document-requests-list" *ngIf="requests.length > 0; else noDocumentRequests">
@@ -818,7 +802,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                   <h3>{{ request.title }}</h3>
                 </div>
                 <button
-                  mat-raised-button
+                  mat-flat-button
                   color="primary"
                   (click)="openDocumentUploadDialog(request)"
                 >
@@ -857,113 +841,62 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
           </ng-template>
         </ng-container>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .header-card ::ng-deep .mat-mdc-card-content {
-        padding: 0;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 2rem;
-      }
+        flex-direction: column;
+        gap: 24px;
 
-      .header-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 64px;
-        height: 64px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-      }
-
-      .header-icon mat-icon {
-        font-size: 36px;
-        width: 36px;
-        height: 36px;
-        color: white;
-      }
-
-      .header-text h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-      }
-
-      .header-text p {
-        margin: 0;
-        opacity: 0.9;
+        @media (max-width: 600px) {
+          padding: 16px;
+          gap: 16px;
+        }
       }
 
       .content-card {
-        margin-bottom: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+        border-radius: 8px;
+        /* box-shadowはAngular Materialのデフォルトを使用 */
       }
 
-      .page-header {
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid #e0e0e0;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 1rem;
+      .m-0 { margin: 0; }
+
+      .info-section {
+        /* 旧 .sub-card に相当。よりフラットで区切りが明確なデザインへ */
+        margin-bottom: 24px;
+        padding: 24px;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        background-color: #fafafa;
+      }
+      
+      .info-section:last-child {
+        margin-bottom: 0;
       }
 
-      .page-header h2 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #333;
+      .info-section-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e0e0e0;
       }
 
-      .sub-text {
-        margin: 0.25rem 0 0 0;
-        font-size: 0.875rem;
-        color: #666;
-      }
+      /* 共通ユーティリティ */
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
 
-      .sub-card {
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-      }
-
-      .sub-card-header {
-        margin-bottom: 1rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid #e5e7eb;
-      }
-
-      .sub-card-header h3 {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #374151;
-      }
-
-      .sub-card-header mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        color: #6b7280;
-      }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .gap-2 { gap: 8px; }
 
       .age-badge {
         color: #6b7280;
@@ -988,40 +921,65 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       }
 
       .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 24px;
         text-align: center;
-        padding: 2rem 1rem;
-        color: #666;
-      }
+        color: #999;
+        background: #fff;
 
-      .empty-state mat-icon {
+        mat-icon {
         font-size: 48px;
-        height: 48px;
         width: 48px;
-        color: #9ca3af;
-        margin-bottom: 0.5rem;
+          height: 48px;
+          margin-bottom: 16px;
+          opacity: 0.3;
+        }
+
+        p {
+          margin: 0 0 16px 0;
+          font-size: 14px;
+        }
+
+        button {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            margin: 0;
+            opacity: 1;
+            vertical-align: middle;
+          }
+        }
       }
 
       .info-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
       }
 
       .info-item {
         display: flex;
         flex-direction: column;
-        gap: 0.25rem;
+        gap: 4px;
       }
 
       .info-item .label {
         color: #6b7280;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
       }
 
       .info-item .value {
-        font-weight: 600;
+        font-weight: 500;
         color: #111827;
-        font-size: 1.05rem;
+        font-size: 1rem;
       }
 
       .info-item .value.inactive {
@@ -1029,80 +987,61 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       }
 
       .table-container {
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        overflow: hidden;
-      }
-
-      table {
-        width: 100%;
-      }
-
-      th,
-      td {
-        padding: 12px 16px;
-      }
-
-      th {
-        background: #f9fafb;
-        color: #374151;
-        font-weight: 700;
-      }
-
-      .table-row:hover {
-        background: #f3f4f6;
+        position: relative;
+        overflow-x: auto;
+        border: 1px solid rgba(0,0,0,0.08);
+        border-radius: 4px;
       }
 
       .dependents-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
       }
 
       .dependent-card {
         border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 1rem;
+        border-radius: 8px;
+        padding: 16px;
         background: #fff;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         position: relative;
       }
 
       .dependent-actions {
         display: flex;
-        gap: 0.5rem;
-        margin-top: 0.75rem;
+        gap: 8px;
+        margin-top: 16px;
         justify-content: flex-end;
-      }
-
-      .dependent-actions button {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
+        padding-top: 12px;
+        border-top: 1px solid #f0f0f0;
       }
 
       .dependent-header {
         display: flex;
         justify-content: space-between;
         align-items: baseline;
-        margin-bottom: 0.5rem;
+        margin-bottom: 8px;
       }
 
       .dependent-name {
         font-weight: 700;
         color: #111827;
+        font-size: 1.1rem;
       }
 
       .dependent-relationship {
         color: #6b7280;
         font-size: 0.9rem;
+        background: #f3f4f6;
+        padding: 2px 8px;
+        border-radius: 4px;
       }
 
       .dependent-row {
         display: flex;
         justify-content: space-between;
         font-size: 0.95rem;
-        padding: 0.25rem 0;
+        padding: 4px 0;
       }
 
       .dependent-row .label {
@@ -1116,85 +1055,94 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
       .dependents-empty {
         text-align: center;
-        padding: 1rem 0;
-        color: #666;
+        padding: 48px 24px;
+        color: #999;
       }
 
       .dependents-empty mat-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
         color: #9ca3af;
+        opacity: 0.3;
         display: block;
-        margin: 0 auto 0.25rem;
+        margin: 0 auto 16px;
       }
 
       .document-requests-list {
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 16px;
       }
 
       .request-card {
         border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 1.5rem;
+        border-radius: 8px;
+        padding: 24px;
         background: #fff;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       }
 
       .request-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 1rem;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 16px;
       }
 
       .request-title-section {
         flex: 1;
+        min-width: 200px;
       }
 
       .category-badge {
         display: inline-block;
-        padding: 0.25rem 0.75rem;
+        padding: 2px 8px;
         background-color: #e3f2fd;
         color: #1976d2;
-        border-radius: 12px;
-        font-size: 0.875rem;
+        border-radius: 4px;
+        font-size: 12px;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 8px;
       }
 
       .request-title-section h3 {
         margin: 0;
-        font-size: 1.125rem;
+        font-size: 1.25rem;
         font-weight: 600;
         color: #111827;
       }
 
       .request-message {
-        margin-bottom: 1rem;
-        padding: 0.75rem;
-        background-color: #f9fafb;
-        border-radius: 8px;
+        margin-bottom: 16px;
+        padding: 16px;
+        background-color: #f5f7fa;
+        border-radius: 4px;
+        border-left: 4px solid #1a237e;
       }
 
       .request-message p {
         margin: 0;
-        color: #374151;
+        color: #555;
         font-size: 0.95rem;
-        line-height: 1.5;
+        line-height: 1.6;
       }
 
       .request-meta {
         display: flex;
         flex-wrap: wrap;
-        gap: 1rem;
-        font-size: 0.875rem;
+        gap: 16px;
+        font-size: 0.9rem;
         color: #6b7280;
+        padding-top: 16px;
+        border-top: 1px solid #f0f0f0;
       }
 
       .meta-item {
         display: flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 4px;
       }
 
       .meta-item mat-icon {
@@ -1206,20 +1154,16 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       .days-remaining {
         color: #f59e0b;
         font-weight: 600;
+        margin-left: 4px;
       }
 
-      .section-actions {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 1rem;
-      }
-
-      .request-history-table .status-chip {
+      .status-chip {
         display: inline-flex;
         align-items: center;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.85rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
       }
 
       .status-pending {
@@ -1240,13 +1184,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       .reject-reason {
         color: #991b1b;
         font-weight: 500;
-      }
-
-      @media (max-width: 768px) {
-        .header-content {
-          flex-direction: column;
-          align-items: flex-start;
-        }
       }
     `
   ]
@@ -1382,7 +1319,7 @@ export class MyPage {
     }
 
     this.dialog.open(DependentAddRequestFormDialogComponent, {
-      width: '600px',
+      width: '800px',
       data: {
         officeId,
         employeeId: profile.employeeId
@@ -1421,7 +1358,7 @@ export class MyPage {
     }
 
     this.dialog.open(DependentRemoveRequestFormDialogComponent, {
-      width: '600px',
+      width: '600px', // 削除確認なので少し狭くても良いが他と合わせてもOK。今回は600pxのままか、少し広げる。削除理由くらいしかないので600pxで十分か
       data: {
         officeId,
         employeeId: profile.employeeId,
@@ -1435,7 +1372,7 @@ export class MyPage {
     if (!officeId) return;
 
     this.dialog.open(BankAccountChangeRequestFormDialogComponent, {
-      width: '640px',
+      width: '800px',
       data: {
         officeId,
         employeeId: employee.id,

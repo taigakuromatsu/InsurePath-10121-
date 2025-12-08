@@ -38,15 +38,10 @@ interface BonusPremiumWithEmployee extends BonusPremium {
     DatePipe
   ],
   template: `
-    <section class="page bonus-premiums">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>workspace_premium</mat-icon>
-          </div>
-          <div class="header-text">
-            <h1>
-              賞与保険料管理
+    <div class="page-container">
+      <header class="page-header">
+        <div class="flex-row align-center gap-2">
+          <h1 class="m-0">賞与保険料管理</h1>
               <button
                 mat-icon-button
                 class="help-button"
@@ -56,24 +51,21 @@ interface BonusPremiumWithEmployee extends BonusPremium {
               >
                 <mat-icon>help_outline</mat-icon>
               </button>
-            </h1>
-            <p>
-              賞与支給額から標準賞与額を算出し、健康保険・厚生年金の賞与保険料を自動計算して保存します。
-            </p>
-          </div>
         </div>
-      </mat-card>
+        <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+          賞与支給額から標準賞与額を算出し、健康保険・厚生年金の賞与保険料を自動計算して保存します。
+        </p>
+      </header>
 
       <mat-card class="content-card">
-        <div class="page-header">
-          <div class="page-title-section">
-            <h2>
-              <mat-icon>list</mat-icon>
-              賞与支給履歴
+        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+          <div>
+            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+              <mat-icon color="primary">list</mat-icon> 賞与支給履歴
             </h2>
-            <p>登録済みの賞与と保険料の一覧です。</p>
+            <p class="mat-body-2" style="color: #666">登録済みの賞与と保険料の一覧です。</p>
           </div>
-          <div class="header-actions">
+          <div class="flex-row gap-2 flex-wrap">
             <button
               mat-stroked-button
               color="primary"
@@ -85,7 +77,7 @@ interface BonusPremiumWithEmployee extends BonusPremium {
               CSVエクスポート
             </button>
             <button
-              mat-raised-button
+              mat-flat-button
               color="primary"
               (click)="openDialog()"
               [disabled]="!(officeId$ | async)"
@@ -98,7 +90,7 @@ interface BonusPremiumWithEmployee extends BonusPremium {
 
         <ng-container *ngIf="viewModel$ | async as vm; else noOffice">
           <div class="table-container" *ngIf="vm.rows.length > 0; else emptyState">
-            <table mat-table [dataSource]="vm.rows" class="bonus-table">
+            <table mat-table [dataSource]="vm.rows" class="admin-table">
               <ng-container matColumnDef="payDate">
                 <th mat-header-cell *matHeaderCellDef>支給日</th>
                 <td mat-cell *matCellDef="let row">{{ row.payDate | date: 'yyyy-MM-dd' }}</td>
@@ -166,8 +158,8 @@ interface BonusPremiumWithEmployee extends BonusPremium {
                 </td>
               </ng-container>
 
-              <tr mat-header-row *matHeaderRowDef="displayedColumns" class="table-header-row"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns" class="table-row"></tr>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
             </table>
           </div>
 
@@ -202,160 +194,61 @@ interface BonusPremiumWithEmployee extends BonusPremium {
           </div>
         </ng-template>
       </mat-card>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .header-card {
-        margin-bottom: 1.5rem;
-        background: linear-gradient(135deg, #22c1c3 0%, #8a8bf9 100%);
-        color: white;
-      }
-
-      .header-card ::ng-deep .mat-mdc-card-content {
-        padding: 0;
-      }
-
-      .header-content {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 2rem;
-      }
-
-      .header-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 64px;
-        height: 64px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-      }
-
-      .header-icon mat-icon {
-        font-size: 36px;
-        width: 36px;
-        height: 36px;
-        color: white;
-      }
-
-      .header-text h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-      }
-
-        .help-button {
-          width: 36px;
-          height: 36px;
-          margin-left: 0.25rem;
-          color: white;
-        }
-
-        .help-button mat-icon {
-          font-size: 22px;
-        }
-
-      .header-text p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 1rem;
+        flex-direction: column;
+        gap: 24px;
       }
 
       .content-card {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+        border-radius: 8px;
       }
 
-      .page-header {
-        margin-bottom: 2rem;
-        padding-bottom: 1.5rem;
-        border-bottom: 2px solid #e0e0e0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        flex-wrap: wrap;
-      }
+      /* ユーティリティ */
+      .m-0 { margin: 0; }
+      .mb-0 { margin-bottom: 0; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mb-4 { margin-bottom: 24px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .flex-wrap { flex-wrap: wrap; }
 
-      .page-title-section h2 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0 0 0.5rem 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .page-title-section h2 mat-icon {
-        color: #22c1c3;
-      }
-
-      .page-title-section p {
-        margin: 0;
-        color: #666;
-        font-size: 0.95rem;
-      }
-
-      .header-actions {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
+      .help-button {
+        width: 36px;
+        height: 36px;
       }
 
       .table-container {
         border: 1px solid #e0e0e0;
         border-radius: 8px;
         overflow: hidden;
+        background: #fff;
       }
 
-      table {
-        width: 100%;
-      }
-
-      .bonus-table th,
-      .bonus-table td {
-        padding: 12px 16px;
-      }
-
-      .bonus-table .center {
+      .admin-table .actions-header,
+      .admin-table .actions-cell {
         text-align: center;
-      }
-
-      .bonus-table tr.table-row:hover {
-        background: #f8fafc;
-      }
-
-      .table-header-row {
-        background: #f3f4f6;
-      }
-
-      .actions-header,
-      .actions-cell {
-        text-align: center;
-      }
-
-      .empty-state {
-        text-align: center;
-        padding: 2rem 1rem;
-        color: #666;
-      }
-
-      .empty-state mat-icon {
-        font-size: 48px;
-        height: 48px;
-        width: 48px;
-        color: #9ca3af;
-        margin-bottom: 0.5rem;
       }
 
       .totals {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-        margin-top: 1.5rem;
-        padding: 1rem;
+        gap: 16px;
+        margin-top: 16px;
+        padding: 16px;
         background: #f8fafc;
         border: 1px solid #e5e7eb;
         border-radius: 8px;
@@ -374,18 +267,21 @@ interface BonusPremiumWithEmployee extends BonusPremium {
         font-weight: 500;
       }
 
+      .empty-state,
       .empty-office-state {
         text-align: center;
-        padding: 2rem 1rem;
+        padding: 48px 24px;
         color: #666;
       }
 
+      .empty-state mat-icon,
       .empty-office-state mat-icon {
         font-size: 48px;
         height: 48px;
         width: 48px;
         color: #9ca3af;
-        margin-bottom: 0.5rem;
+        opacity: 0.5;
+        margin-bottom: 8px;
       }
     `
   ]

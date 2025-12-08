@@ -33,11 +33,11 @@ export interface StandardRewardHistoryFormDialogData {
   ],
   template: `
     <h1 mat-dialog-title class="dialog-title">
-      <mat-icon>{{ data.history ? 'edit' : 'add' }}</mat-icon>
+      <mat-icon color="primary">{{ data.history ? 'edit' : 'add' }}</mat-icon>
       {{ data.history ? '標準報酬履歴を編集' : '標準報酬履歴を追加' }}
     </h1>
 
-    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
+    <form class="dense-form" [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>決定年月 *</mat-label>
         <input
@@ -120,14 +120,17 @@ export interface StandardRewardHistoryFormDialogData {
       .dialog-title {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 8px;
+        margin: 0;
+        padding: 16px 16px 12px;
+        border-bottom: 1px solid #e0e0e0;
       }
 
       form {
         display: flex;
         flex-direction: column;
-        gap: 1rem;
-        padding-top: 0.5rem;
+        gap: 12px;
+        padding: 12px 16px;
       }
 
       .full-width {
@@ -135,13 +138,15 @@ export interface StandardRewardHistoryFormDialogData {
       }
 
       .dialog-actions {
-        padding: 1rem 1.5rem 1.5rem;
+        padding: 12px 16px 16px;
+        border-top: 1px solid #e0e0e0;
+        background: #fafafa;
       }
 
       .dialog-actions button {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 8px;
       }
     `
   ]

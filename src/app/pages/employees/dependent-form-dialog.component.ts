@@ -34,11 +34,11 @@ export interface DependentFormDialogData {
   ],
   template: `
     <h1 mat-dialog-title class="dialog-title">
-      <mat-icon>{{ data.dependent ? 'edit' : 'person_add' }}</mat-icon>
+      <mat-icon color="primary">{{ data.dependent ? 'edit' : 'person_add' }}</mat-icon>
       {{ data.dependent ? '扶養家族を編集' : '扶養家族を追加' }}
     </h1>
 
-    <form [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
+    <form class="dense-form" [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>氏名 *</mat-label>
         <input matInput formControlName="name" required />
@@ -146,14 +146,12 @@ export interface DependentFormDialogData {
           inputmode="numeric"
         />
 
-        <!-- 左側ヒント：入力方法 -->
         <mat-hint align="start">12桁の数字（入力時は非表示）</mat-hint>
 
         <mat-error *ngIf="form.get('myNumber')?.hasError('invalidMyNumber')">
           正しい形式のマイナンバーを入力してください（12桁の数字）
         </mat-error>
 
-        <!-- 右側ヒント：登録済みのマスク表示 -->
         <mat-hint *ngIf="maskedMyNumber" align="end">
           登録済み: {{ maskedMyNumber }}
         </mat-hint>
@@ -177,14 +175,17 @@ export interface DependentFormDialogData {
       .dialog-title {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 8px;
+        margin: 0;
+        padding: 16px 16px 12px;
+        border-bottom: 1px solid #e0e0e0;
       }
 
       form {
         display: flex;
         flex-direction: column;
-        gap: 1rem;
-        padding-top: 0.5rem;
+        gap: 12px;
+        padding: 12px 16px;
       }
 
       .full-width {
@@ -196,13 +197,15 @@ export interface DependentFormDialogData {
       }
 
       .dialog-actions {
-        padding: 1rem 1.5rem 1.5rem;
+        padding: 12px 16px 16px;
+        border-top: 1px solid #e0e0e0;
+        background: #fafafa;
       }
 
       .dialog-actions button {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 8px;
       }
     `
   ]

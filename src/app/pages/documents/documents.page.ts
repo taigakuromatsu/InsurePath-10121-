@@ -49,29 +49,26 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
     DatePipe
   ],
   template: `
-    <section class="page documents">
-      <mat-card class="header-card">
-        <div class="header-content">
-          <div class="header-icon">
-            <mat-icon>description</mat-icon>
-          </div>
-          <div class="header-text">
-            <h1>書類管理</h1>
-            <p>従業員ごとの添付書類を管理し、書類アップロード依頼を作成できます。</p>
-          </div>
+    <div class="page-container">
+      <header class="page-header">
+        <div>
+          <h1>書類管理</h1>
+          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+            従業員ごとの添付書類を管理し、書類アップロード依頼を作成できます。
+          </p>
         </div>
-      </mat-card>
+      </header>
 
       <mat-card class="content-card" *ngIf="officeId$ | async as officeId; else noOffice">
         <div class="documents-layout">
           <!-- 左カラム: 従業員一覧 -->
           <div class="employee-list-column">
             <div class="employee-list-header">
-              <h2>
-                <mat-icon>people</mat-icon>
+              <h2 class="mat-h3 flex-row align-center gap-2">
+                <mat-icon color="primary">people</mat-icon>
                 従業員一覧
               </h2>
-              <mat-form-field appearance="outline" class="search-field">
+              <mat-form-field appearance="outline" class="search-field dense-form-field">
                 <mat-label>検索</mat-label>
                 <input
                   matInput
@@ -95,7 +92,7 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
                   <span *ngIf="emp.department" class="detail-item">{{ emp.department }}</span>
                 </div>
               </div>
-              <div class="empty-state" *ngIf="(filteredEmployees$ | async)?.length === 0">
+              <div class="empty-state-simple" *ngIf="(filteredEmployees$ | async)?.length === 0">
                 <mat-icon>people_outline</mat-icon>
                 <p>従業員が見つかりません</p>
               </div>
@@ -104,17 +101,18 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
 
           <!-- 右カラム: 選択中従業員の情報 -->
           <div class="document-detail-column" *ngIf="selectedEmployee$ | async as employee">
-            <div class="detail-header">
+            <div class="detail-header flex-row justify-between align-center mb-3">
               <div class="employee-info">
-                <h2>{{ employee.name }}</h2>
-                <div class="employee-meta" *ngIf="employee.kana || employee.department">
+                <h2 class="mat-h2 m-0">{{ employee.name }}</h2>
+                <div class="employee-meta flex-row gap-2 mt-1" *ngIf="employee.kana || employee.department">
                   <span *ngIf="employee.kana">{{ employee.kana }}</span>
+                  <span *ngIf="employee.department" class="separator">|</span>
                   <span *ngIf="employee.department">{{ employee.department }}</span>
                 </div>
               </div>
-              <div class="header-actions">
+              <div class="header-actions flex-row gap-2">
                 <button
-                  mat-raised-button
+                  mat-stroked-button
                   color="primary"
                   (click)="openRequestDialog(employee.id)"
                 >
@@ -122,8 +120,8 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
                   書類アップロードを依頼
                 </button>
                 <button
-                  mat-raised-button
-                  color="accent"
+                  mat-flat-button
+                  color="primary"
                   (click)="openUploadDialog(employee.id)"
                 >
                   <mat-icon>upload</mat-icon>
@@ -132,16 +130,16 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
               </div>
             </div>
 
-            <mat-tab-group class="document-tabs">
+            <mat-tab-group class="document-tabs" animationDuration="0ms">
               <!-- タブ1: 添付書類一覧 -->
               <mat-tab>
                 <ng-template mat-tab-label>
-                  <mat-icon class="tab-icon">attach_file</mat-icon>
+                  <mat-icon class="tab-icon mr-2">attach_file</mat-icon>
                   <span>添付書類</span>
                 </ng-template>
                 <div class="tab-content">
-                  <div class="tab-filters">
-                    <mat-form-field appearance="outline" class="filter-field">
+                  <div class="tab-filters flex-row gap-3 mb-3 align-center">
+                    <mat-form-field appearance="outline" class="filter-field dense-form-field">
                       <mat-label>カテゴリ</mat-label>
                       <mat-select
                         [value]="selectedCategory$.value"
@@ -153,7 +151,7 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
                         </mat-option>
                       </mat-select>
                     </mat-form-field>
-                    <mat-form-field appearance="outline" class="filter-field">
+                    <mat-form-field appearance="outline" class="filter-field dense-form-field">
                       <mat-label>有効期限</mat-label>
                       <mat-select
                         [value]="selectedExpiryFilter$.value"
@@ -171,36 +169,36 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
                     <table
                       mat-table
                       [dataSource]="(filteredAttachments$ | async) ?? []"
-                      class="documents-table"
+                      class="admin-table"
                     >
                       <ng-container matColumnDef="category">
-                        <th mat-header-cell *matHeaderCellDef>書類種別</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 140px;">書類種別</th>
                         <td mat-cell *matCellDef="let row">
-                          {{ getCategoryLabel(row.category) }}
+                          <span class="category-badge">{{ getCategoryLabel(row.category) }}</span>
                         </td>
                       </ng-container>
 
                       <ng-container matColumnDef="title">
                         <th mat-header-cell *matHeaderCellDef>タイトル</th>
-                        <td mat-cell *matCellDef="let row">{{ row.title }}</td>
+                        <td mat-cell *matCellDef="let row" class="font-medium">{{ row.title }}</td>
                       </ng-container>
 
                       <ng-container matColumnDef="uploadedAt">
-                        <th mat-header-cell *matHeaderCellDef>アップロード日</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 120px;">アップロード日</th>
                         <td mat-cell *matCellDef="let row">
                           {{ row.uploadedAt | date: 'yyyy-MM-dd' }}
                         </td>
                       </ng-container>
 
                       <ng-container matColumnDef="uploadedBy">
-                        <th mat-header-cell *matHeaderCellDef>アップロード者</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 140px;">アップロード者</th>
                         <td mat-cell *matCellDef="let row">{{ row.uploadedByDisplayName }}</td>
                       </ng-container>
 
                       <ng-container matColumnDef="expiresAt">
-                        <th mat-header-cell *matHeaderCellDef>有効期限</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 140px;">有効期限</th>
                         <td mat-cell *matCellDef="let row">
-                          <span *ngIf="row.expiresAt">
+                          <span *ngIf="row.expiresAt" [class.text-warn]="isExpiringSoon(row.expiresAt)">
                             {{ row.expiresAt | date: 'yyyy-MM-dd' }}
                             <mat-icon
                               class="warning-icon"
@@ -210,44 +208,46 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
                               warning
                             </mat-icon>
                           </span>
-                          <span *ngIf="!row.expiresAt">-</span>
+                          <span *ngIf="!row.expiresAt" class="text-muted">-</span>
                         </td>
                       </ng-container>
 
                       <ng-container matColumnDef="actions">
-                        <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
+                        <th mat-header-cell *matHeaderCellDef class="actions-header" style="width: 160px; text-align: center;">操作</th>
                         <td mat-cell *matCellDef="let row" class="actions-cell">
-                          <button
-                            mat-icon-button
-                            color="primary"
-                            (click)="downloadDocument(row)"
-                            title="ダウンロード"
-                          >
-                            <mat-icon>download</mat-icon>
-                          </button>
-                          <button
-                            mat-icon-button
-                            color="primary"
-                            (click)="previewDocument(row)"
-                            title="プレビュー"
-                          >
-                            <mat-icon>visibility</mat-icon>
-                          </button>
-                          <button
-                            mat-icon-button
-                            color="warn"
-                            (click)="deleteDocument(row)"
-                            title="削除"
-                          >
-                            <mat-icon>delete</mat-icon>
-                          </button>
+                          <div class="flex-row justify-center gap-1">
+                            <button
+                              mat-icon-button
+                              color="primary"
+                              (click)="downloadDocument(row)"
+                              matTooltip="ダウンロード"
+                            >
+                              <mat-icon>download</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              color="primary"
+                              (click)="previewDocument(row)"
+                              matTooltip="プレビュー"
+                            >
+                              <mat-icon>visibility</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              color="warn"
+                              (click)="deleteDocument(row)"
+                              matTooltip="削除"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
                         </td>
                       </ng-container>
 
-                      <tr mat-header-row *matHeaderRowDef="attachmentColumns" class="table-header-row"></tr>
-                      <tr mat-row *matRowDef="let row; columns: attachmentColumns" class="table-row"></tr>
+                      <tr mat-header-row *matHeaderRowDef="attachmentColumns"></tr>
+                      <tr mat-row *matRowDef="let row; columns: attachmentColumns"></tr>
                     </table>
-                    <div class="empty-state" *ngIf="(filteredAttachments$ | async)?.length === 0">
+                    <div class="empty-state-simple" *ngIf="(filteredAttachments$ | async)?.length === 0">
                       <mat-icon>inbox</mat-icon>
                       <p>書類が登録されていません</p>
                     </div>
@@ -258,12 +258,12 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
               <!-- タブ2: 書類アップロード依頼一覧 -->
               <mat-tab>
                 <ng-template mat-tab-label>
-                  <mat-icon class="tab-icon">mail</mat-icon>
+                  <mat-icon class="tab-icon mr-2">mail</mat-icon>
                   <span>アップロード依頼</span>
                 </ng-template>
                 <div class="tab-content">
-                  <div class="tab-filters">
-                    <mat-form-field appearance="outline" class="filter-field">
+                  <div class="tab-filters flex-row gap-3 mb-3 align-center">
+                    <mat-form-field appearance="outline" class="filter-field dense-form-field">
                       <mat-label>ステータス</mat-label>
                       <mat-select
                         [value]="selectedRequestStatus$.value"
@@ -281,63 +281,65 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
                     <table
                       mat-table
                       [dataSource]="(filteredRequests$ | async) ?? []"
-                      class="requests-table"
+                      class="admin-table"
                     >
                       <ng-container matColumnDef="category">
-                        <th mat-header-cell *matHeaderCellDef>カテゴリ</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 140px;">カテゴリ</th>
                         <td mat-cell *matCellDef="let row">
-                          {{ getCategoryLabel(row.category) }}
+                          <span class="category-badge">{{ getCategoryLabel(row.category) }}</span>
                         </td>
                       </ng-container>
 
                       <ng-container matColumnDef="title">
                         <th mat-header-cell *matHeaderCellDef>タイトル</th>
-                        <td mat-cell *matCellDef="let row">{{ row.title }}</td>
+                        <td mat-cell *matCellDef="let row" class="font-medium">{{ row.title }}</td>
                       </ng-container>
 
                       <ng-container matColumnDef="createdAt">
-                        <th mat-header-cell *matHeaderCellDef>依頼日</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 120px;">依頼日</th>
                         <td mat-cell *matCellDef="let row">
                           {{ row.createdAt | date: 'yyyy-MM-dd' }}
                         </td>
                       </ng-container>
 
                       <ng-container matColumnDef="requestedBy">
-                        <th mat-header-cell *matHeaderCellDef>依頼者</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 140px;">依頼者</th>
                         <td mat-cell *matCellDef="let row">{{ row.requestedByDisplayName }}</td>
                       </ng-container>
 
                       <ng-container matColumnDef="dueDate">
-                        <th mat-header-cell *matHeaderCellDef>締め切り日</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 120px;">締め切り日</th>
                         <td mat-cell *matCellDef="let row">
                           <span *ngIf="row.dueDate">
                             {{ row.dueDate | date: 'yyyy-MM-dd' }}
                           </span>
-                          <span *ngIf="!row.dueDate">-</span>
+                          <span *ngIf="!row.dueDate" class="text-muted">-</span>
                         </td>
                       </ng-container>
 
                       <ng-container matColumnDef="status">
-                        <th mat-header-cell *matHeaderCellDef>ステータス</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 140px;">ステータス</th>
                         <td mat-cell *matCellDef="let row">
-                          {{ getStatusLabel(row.status) }}
+                          <span class="status-chip" [class]="'status-' + row.status">
+                            {{ getStatusLabel(row.status) }}
+                          </span>
                         </td>
                       </ng-container>
 
                       <ng-container matColumnDef="resolvedAt">
-                        <th mat-header-cell *matHeaderCellDef>解決日</th>
+                        <th mat-header-cell *matHeaderCellDef style="width: 120px;">解決日</th>
                         <td mat-cell *matCellDef="let row">
                           <span *ngIf="row.resolvedAt">
                             {{ row.resolvedAt | date: 'yyyy-MM-dd' }}
                           </span>
-                          <span *ngIf="!row.resolvedAt">-</span>
+                          <span *ngIf="!row.resolvedAt" class="text-muted">-</span>
                         </td>
                       </ng-container>
 
-                      <tr mat-header-row *matHeaderRowDef="requestColumns" class="table-header-row"></tr>
-                      <tr mat-row *matRowDef="let row; columns: requestColumns" class="table-row"></tr>
+                      <tr mat-header-row *matHeaderRowDef="requestColumns"></tr>
+                      <tr mat-row *matRowDef="let row; columns: requestColumns"></tr>
                     </table>
-                    <div class="empty-state" *ngIf="(filteredRequests$ | async)?.length === 0">
+                    <div class="empty-state-simple" *ngIf="(filteredRequests$ | async)?.length === 0">
                       <mat-icon>inbox</mat-icon>
                       <p>依頼がありません</p>
                     </div>
@@ -356,61 +358,102 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
 
       <ng-template #noOffice>
         <mat-card class="content-card">
-          <div class="empty-office-state">
+          <div class="empty-state">
             <mat-icon>business</mat-icon>
-            <h3>事業所が未設定です</h3>
+            <p class="text-lg font-medium mb-2">事業所が未設定です</p>
             <p>まずは所属事業所を設定してください。</p>
           </div>
         </mat-card>
       </ng-template>
-    </section>
+    </div>
   `,
   styles: [
     `
-      .documents-layout {
+      .page-container {
+        max-width: 1366px;
+        margin: 0 auto;
+        padding: 24px;
+        box-sizing: border-box;
         display: flex;
-        gap: 1.5rem;
-        min-height: 600px;
+        flex-direction: column;
+        gap: 24px;
+
+        @media (max-width: 600px) {
+          padding: 16px;
+          gap: 16px;
+        }
       }
 
+      .content-card {
+        padding: 24px;
+        border-radius: 8px;
+      }
+
+      .m-0 { margin: 0; }
+      .mt-1 { margin-top: 4px; }
+      .mb-2 { margin-bottom: 8px; }
+      .mb-3 { margin-bottom: 16px; }
+      .mr-2 { margin-right: 8px; }
+      
+      .flex-row { display: flex; flex-direction: row; }
+      .align-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .justify-center { justify-content: center; }
+      .gap-1 { gap: 4px; }
+      .gap-2 { gap: 8px; }
+      .gap-3 { gap: 16px; }
+
+      .text-muted { color: #999; }
+      .text-warn { color: #f44336; }
+      .font-medium { font-weight: 500; }
+
+      .documents-layout {
+        display: flex;
+        gap: 24px;
+        min-height: 600px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      /* 左カラム: 従業員一覧 */
       .employee-list-column {
         width: 300px;
-        border-right: 1px solid #e0e0e0;
-        padding-right: 1.5rem;
+        padding: 16px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background: #fafafa;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
       }
 
       .employee-list-header {
-        margin-bottom: 1rem;
+        margin-bottom: 16px;
       }
 
-      .employee-list-header h2 {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-        font-size: 1.25rem;
-      }
-
-      .search-field {
+      .dense-form-field {
         width: 100%;
+        font-size: 14px;
       }
 
       .employee-list-content {
-        max-height: 600px;
+        flex: 1;
         overflow-y: auto;
       }
 
       .employee-item {
-        padding: 1rem;
+        padding: 12px;
         border: 1px solid #e0e0e0;
-        border-radius: 4px;
-        margin-bottom: 0.5rem;
+        border-radius: 6px;
+        margin-bottom: 8px;
         cursor: pointer;
-        transition: background-color 0.2s;
+        transition: all 0.2s;
+        background: #fff;
       }
 
       .employee-item:hover {
-        background-color: #f5f5f5;
+        background-color: #fafafa;
+        border-color: #bdbdbd;
       }
 
       .employee-item.selected {
@@ -420,105 +463,106 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
 
       .employee-name {
         font-weight: 600;
-        margin-bottom: 0.25rem;
+        margin-bottom: 4px;
+        font-size: 14px;
       }
 
       .employee-details {
         display: flex;
-        gap: 0.5rem;
-        font-size: 0.875rem;
+        flex-wrap: wrap;
+        gap: 4px;
+        font-size: 12px;
         color: #666;
       }
 
       .detail-item {
-        padding: 0.25rem 0.5rem;
-        background-color: #f5f5f5;
+        background: #f5f5f5;
+        padding: 2px 6px;
         border-radius: 4px;
       }
 
+      /* 右カラム: 詳細 */
       .document-detail-column {
         flex: 1;
+        min-width: 0; /* Flexboxの子要素がはみ出さないように */
       }
 
       .detail-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
         border-bottom: 1px solid #e0e0e0;
-      }
-
-      .employee-info h2 {
-        margin: 0 0 0.5rem 0;
+        padding-bottom: 16px;
       }
 
       .employee-meta {
-        display: flex;
-        gap: 1rem;
         color: #666;
-        font-size: 0.875rem;
+        font-size: 14px;
       }
 
-      .header-actions {
-        display: flex;
-        gap: 0.5rem;
-      }
-
-      .document-tabs {
-        margin-top: 1rem;
+      .separator {
+        color: #ccc;
       }
 
       .tab-content {
-        padding: 1rem 0;
-      }
-
-      .tab-filters {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1rem;
+        padding-top: 16px;
       }
 
       .filter-field {
-        min-width: 200px;
+        min-width: 180px;
       }
 
       .table-container {
-        overflow-x: auto;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        overflow: hidden;
+        background: #fff;
       }
 
-      .documents-table,
-      .requests-table {
-        width: 100%;
+      .category-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #e3f2fd;
+        color: #1976d2;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
       }
 
       .warning-icon {
         color: #ff9800;
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-        vertical-align: middle;
-        margin-left: 0.25rem;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        vertical-align: text-bottom;
+        margin-left: 4px;
       }
 
-      .actions-header,
-      .actions-cell {
-        text-align: center;
-        width: 150px;
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
       }
 
-      .empty-state {
-        text-align: center;
-        padding: 3rem 1rem;
+      .status-pending { background: #fffbeb; color: #92400e; }
+      .status-uploaded { background: #ecfdf3; color: #166534; }
+      .status-cancelled { background: #f3f4f6; color: #4b5563; }
+
+      .empty-state-simple {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 32px;
         color: #999;
-      }
-
-      .empty-state mat-icon {
-        font-size: 48px;
-        width: 48px;
-        height: 48px;
-        margin-bottom: 1rem;
-        color: #ccc;
+        
+        mat-icon {
+          font-size: 32px;
+          width: 32px;
+          height: 32px;
+          margin-bottom: 8px;
+          opacity: 0.5;
+        }
+        p { margin: 0; font-size: 13px; }
       }
 
       .no-selection {
@@ -528,29 +572,48 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
         align-items: center;
         justify-content: center;
         color: #999;
-        min-height: 400px;
+        background: #fafafa;
+        border-radius: 8px;
+        border: 1px dashed #e0e0e0;
+        min-height: 420px;
       }
 
       .no-selection mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        margin-bottom: 1rem;
-        color: #ccc;
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+        margin-bottom: 16px;
+        opacity: 0.3;
       }
 
-      .empty-office-state {
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 48px 24px;
         text-align: center;
-        padding: 3rem 1rem;
         color: #999;
+        
+        mat-icon {
+          font-size: 48px;
+          width: 48px;
+          height: 48px;
+          margin-bottom: 16px;
+          opacity: 0.3;
+        }
       }
 
-      .empty-office-state mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        margin-bottom: 1rem;
-        color: #ccc;
+      @media (max-width: 960px) {
+        .documents-layout {
+          flex-direction: column;
+        }
+        .employee-list-column {
+          width: 100%;
+          padding: 12px;
+        }
+        .document-detail-column {
+          width: 100%;
+        }
       }
     `
   ]
