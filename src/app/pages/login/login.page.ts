@@ -1,6 +1,6 @@
 import { NgIf } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -27,8 +27,9 @@ import { AuthService } from '../../services/auth.service';
             <div class="login-icon">
               <mat-icon>lock</mat-icon>
             </div>
-        <h1>InsurePath へログイン</h1>
-        <p>Google アカウントでログインして従業員台帳を管理しましょう。</p>
+        <h1>{{ getTitle() }}</h1>
+        <p>{{ getDescription() }}</p>
+        <p class="sub-text" *ngIf="getSubDescription() as sub">{{ sub }}</p>
           </div>
 
           <div class="login-content">
@@ -105,6 +106,11 @@ import { AuthService } from '../../services/auth.service';
         font-size: 1rem;
       }
 
+      .sub-text {
+        margin-top: 0.5rem;
+        opacity: 0.9;
+      }
+
       .login-content {
         padding: 2rem;
         text-align: center;
@@ -151,14 +157,34 @@ export class LoginPage {
   private readonly auth = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
   readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   readonly loading = signal(false);
+  readonly mode = signal(this.route.snapshot.queryParamMap.get('mode') ?? null);
+
+  getTitle(): string {
+    return this.mode() === 'employee' ? 'InsurePath 従業員用ログイン' : 'InsurePath へログイン';
+  }
+
+  getDescription(): string {
+    return this.mode() === 'employee'
+      ? 'あなたの社会保険情報を確認するための従業員専用ページです。'
+      : 'Google アカウントでログインして従業員台帳を管理しましょう。';
+  }
+
+  getSubDescription(): string | null {
+    if (this.mode() === 'employee') {
+      return '管理者・人事担当の方は、管理者画面用のログインからお入りください。';
+    }
+    return null;
+  }
 
   async signIn(): Promise<void> {
     try {
       this.loading.set(true);
       await this.auth.signInWithGoogle();
-      await this.router.navigateByUrl('/dashboard');
+      const redirect = this.route.snapshot.queryParamMap.get('redirect');
+      await this.router.navigateByUrl(redirect || '/dashboard');
     } catch (error) {
       console.error(error);
       this.snackBar.open('ログインに失敗しました。再度お試しください。', '閉じる', {

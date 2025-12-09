@@ -11,14 +11,14 @@ import {
 } from '@angular/fire/firestore';
 import { from, map, Observable } from 'rxjs';
 
-import { Employee } from '../types';
+import { Employee, EmployeePortal } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class EmployeesService {
   constructor(private readonly firestore: Firestore) {}
 
   /**
-   * ネストされた undefined を除去したオブジェクトを返す（null / undefined はそのまま返す）
+   * 第一階層の undefined を除去したオブジェクトを返す（null / undefined はそのまま返す）
    */
   private cleanNestedObject<T extends Record<string, any> | null | undefined>(value: T): T {
     if (value === null || value === undefined) {
@@ -111,7 +111,6 @@ export class EmployeesService {
     }
     
     if (employee.contractPeriodNote !== undefined) payload.contractPeriodNote = employee.contractPeriodNote;
-    if (employee.workingStatusNote !== undefined) payload.workingStatusNote = employee.workingStatusNote;
     if (employee.updatedByUserId != null) payload.updatedByUserId = employee.updatedByUserId;
 
     if (employee.employeeCodeInOffice !== undefined) {
@@ -211,6 +210,10 @@ export class EmployeesService {
     if (employee.workingStatusNote !== undefined) {
       payload.workingStatusNote = employee.workingStatusNote;
     }
+    if (employee.portal !== undefined) {
+      payload.portal =
+        employee.portal === null ? null : this.cleanNestedObject(employee.portal);
+    }
     if (employee.bankAccount !== undefined) {
       payload.bankAccount =
         employee.bankAccount === null
@@ -240,6 +243,27 @@ export class EmployeesService {
   delete(officeId: string, employeeId: string): Promise<void> {
     const ref = doc(this.collectionPath(officeId), employeeId);
     return deleteDoc(ref);
+  }
+
+  async updatePortal(
+    officeId: string,
+    employeeId: string,
+    portal: EmployeePortal,
+    updatedByUserId?: string
+  ): Promise<void> {
+    const ref = doc(this.collectionPath(officeId), employeeId);
+    const now = new Date().toISOString();
+
+    const payload: any = {
+      portal: this.cleanNestedObject(portal),
+      updatedAt: now
+    };
+
+    if (updatedByUserId) {
+      payload.updatedByUserId = updatedByUserId;
+    }
+
+    await setDoc(ref, payload, { merge: true });
   }
 }
 

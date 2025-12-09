@@ -1,3 +1,4 @@
+import { ThemePalette } from '@angular/material/core';
 import {
   ChangeRequestKind,
   ChangeRequestStatus,
@@ -15,7 +16,8 @@ import {
   PremiumTreatment,
   Sex,
   StandardRewardDecisionKind,
-  WorkingStatus
+  WorkingStatus,
+  PortalStatus
 } from '../types';
 
 export function getInsuranceQualificationKindLabel(kind?: InsuranceQualificationKind): string {
@@ -62,6 +64,38 @@ export function getWorkingStatusLabel(status?: WorkingStatus): string {
       return 'その他';
     default:
       return '-';
+  }
+}
+
+export function getPortalStatusLabel(status?: PortalStatus | null): string {
+  switch (status) {
+    case 'not_invited':
+      return '未招待';
+    case 'invited':
+      return '招待済';
+    case 'linked':
+      return '連携済';
+    case 'disabled':
+      return '停止中';
+    default:
+      return '未招待';
+  }
+}
+
+export function getPortalStatusColor(
+  status?: PortalStatus | null
+): ThemePalette {
+  switch (status) {
+    case 'not_invited':
+      return undefined;
+    case 'invited':
+      return 'primary';
+    case 'linked':
+      return 'accent';
+    case 'disabled':
+      return 'warn';
+    default:
+      return undefined;
   }
 }
 

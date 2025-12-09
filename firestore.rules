@@ -510,6 +510,73 @@ service cloud.firestore {
       }
     }
 
+    match /employeePortalInvites/{token} {
+      function validEmployeePortalInvite(data) {
+        return data.keys().hasOnly([
+          'id',
+          'officeId',
+          'employeeId',
+          'invitedEmail',
+          'createdByUserId',
+          'createdAt',
+          'expiresAt',
+          'used',
+          'usedAt',
+          'usedByUserId'
+        ])
+        && (data.id is string && data.id == token)
+        && (data.officeId is string)
+        && (data.employeeId is string)
+        && (data.invitedEmail is string)
+        && (data.createdByUserId is string)
+        && (data.createdAt is string)
+        && (data.expiresAt is string)
+        && (data.used is bool)
+        && (!('usedAt' in data) || data.usedAt is string)
+        && (!('usedByUserId' in data) || data.usedByUserId is string);
+      }
+
+      allow read: if isSignedIn() && (
+        // 管理者・人事
+        (resource.data.officeId is string && isAdminOrHr(resource.data.officeId))
+        // 招待された本人（メール一致）
+        || (
+          request.auth.token.email != null
+          && resource.data.invitedEmail == request.auth.token.email
+        )
+        // 既にこの招待を使用した本人
+        || (resource.data.usedByUserId == request.auth.uid)
+      );
+
+      allow create: if isSignedIn()
+        && isAdminOrHr(request.resource.data.officeId)
+        && validEmployeePortalInvite(request.resource.data)
+        && request.resource.data.used == false
+        && !('usedAt' in request.resource.data)
+        && !('usedByUserId' in request.resource.data);
+
+      allow update: if isSignedIn() && (
+        (
+          isAdminOrHr(resource.data.officeId)
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['used','usedAt','usedByUserId'])
+        )
+        || (
+          resource.data.used == false
+          && request.resource.data.used == true
+          && request.resource.data.usedByUserId == request.auth.uid
+          && request.resource.data.usedAt is string
+          && request.resource.data.officeId == resource.data.officeId
+          && request.resource.data.employeeId == resource.data.employeeId
+          && request.resource.data.createdByUserId == resource.data.createdByUserId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.expiresAt == resource.data.expiresAt
+          && request.resource.data.invitedEmail == resource.data.invitedEmail
+        )
+      );
+
+      allow delete: if isSignedIn() && isAdminOrHr(resource.data.officeId);
+    }
+
     // ---- InsurePath 用: offices 以下 ----
     match /offices/{officeId} {
       // 事業所情報へのアクセス制御
@@ -568,8 +635,43 @@ service cloud.firestore {
             ));
         }
 
-        allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId));
-        allow create, update: if isAdminOrHr(officeId) && validEmployeeExtendedFields(request.resource.data);
+        // ポータル招待中で、従業員レコードの invitedEmail がログイン中ユーザーと一致する場合に read を許可
+        function canReadByPortalInvite() {
+          return isSignedIn()
+            && request.auth.token.email != null
+            && ('portal' in resource.data)
+            && (resource.data.portal is map)
+            && ('status' in resource.data.portal)
+            && ('invitedEmail' in resource.data.portal)
+            && resource.data.portal.status == 'invited'
+            && resource.data.portal.invitedEmail == request.auth.token.email;
+        }
+
+        allow read: if
+          // 従来どおり: 事業所に属している admin / hr / 自分自身
+          (
+            belongsToOffice(officeId)
+            && (isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId))
+          )
+          // 追加: ポータル招待中で、従業員レコードの invitedEmail がログイン中ユーザーと一致
+          || canReadByPortalInvite();
+        allow create: if isAdminOrHr(officeId) && validEmployeeExtendedFields(request.resource.data);
+        allow update: if belongsToOffice(officeId) && (
+          (
+            isAdminOrHr(officeId)
+            && validEmployeeExtendedFields(request.resource.data)
+          )
+          || (
+            isInsureEmployee(officeId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['portal','updatedAt','updatedByUserId'])
+            && request.resource.data.portal.status == 'linked'
+            && request.resource.data.portal.linkedUserId == request.auth.uid
+            && resource.data.portal.status == 'invited'
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.officeId == resource.data.officeId
+            && request.resource.data.createdAt == resource.data.createdAt
+          )
+        );
         allow delete: if isAdminOrHr(officeId);
 
         // 扶養家族情報

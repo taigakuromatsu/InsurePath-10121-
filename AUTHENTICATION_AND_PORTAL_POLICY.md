@@ -35,12 +35,12 @@
 - 従来どおり管理画面（ダッシュボード、台帳、マスタ 等）にアクセス可能
 - かつ 自分の従業員レコードとリンクされていれば `/me` も見られる
 
-### 1-3. ルーティング／Guard の方針
+### ✅ 1-3. ルーティング／Guard の方針
 
 - すべての保護されたルートに `authGuard` は必須（ログイン強制）
 - `officeGuard` は「そのユーザーがどの office に属しているか」をチェック
-- `roleGuard` の振る舞い：
-  - `employee` ロールが `/me` 以外のルートに来たら、`/me` にリダイレクト
+- ✅ `roleGuard` の振る舞い（実装完了）：
+  - ✅ `employee` ロールが `/me` 以外のルートに来たら、`/me` にリダイレクト
   - `admin` / `hr` は従来どおり
 
 **補足**:
@@ -51,27 +51,27 @@
 
 ## 2. データモデル方針
 
-### 2-1. UserProfile（ユーザー情報）
+### ✅ 2-1. UserProfile（ユーザー情報）実装完了
 
-#### 現状
+#### ✅ 現状（実装済み）
 
 ```typescript
 // users/{uid}
 {
   officeId?: string;  // 単一事業所
   role: UserRole;     // 'admin' | 'hr' | 'employee'
-  employeeId?: string;
+  employeeId?: string; // ✅ Phase2で追加実装
 }
 ```
 
 #### 方針
 
-- 現状の **単一 `officeId` モデルは維持** する（マルチ事業所対応は将来）
+- ✅ 現状の **単一 `officeId` モデルは維持** する（マルチ事業所対応は将来）
 - 将来の案として `officeMemberships`（複数事業所対応）を検討するが、**今フェーズでは実装しない**（カタログ or 設計メモ止まり）
 
 **※注意**: `officeMemberships` に切り替えると `CurrentUserService` / `officeGuard` / `roleGuard` 全面改修＋データ移行が必要になるため、現段階ではスコープ外とする。
 
-### 2-2. 従業員台帳（employees）
+### ✅ 2-2. 従業員台帳（employees）
 
 ```typescript
 // offices/{officeId}/employees/{employeeId}
@@ -90,7 +90,7 @@
 }
 ```
 
-- `portal.status` で「従業員ポータル連携状態」を管理する
+- ✅ `portal.status` で「従業員ポータル連携状態」を管理する（実装完了）
   - `not_invited`: ポータル招待を送っていない
   - `invited`: 招待リンクを発行済み（まだ使われていない）
   - `linked`: 招待リンクや処理を通じてログインユーザーと紐づいた状態
@@ -100,9 +100,9 @@
 
 ## 3. 従業員ポータル招待＆連携フロー
 
-### 3-1. 招待トークン
+### ✅ 3-1. 招待トークン
 
-コレクション例：`employeePortalInvites/{token}`
+✅ コレクション例：`employeePortalInvites/{token}`（実装完了）
 
 ```typescript
 // employeePortalInvites/{token}
@@ -116,53 +116,53 @@
 }
 ```
 
-### 3-2. フロー概要
+### ✅ 3-2. フロー概要（実装完了）
 
-1. **管理者が従業員台帳に登録**
-   - 氏名・メールアドレス等を入力して `employees` ドキュメントを作成
+1. ✅ **管理者が従業員台帳に登録**
+   - ✅ 氏名・メールアドレス等を入力して `employees` ドキュメントを作成
 
-2. **「ポータル招待」ボタンを押す**
-   - `employeePortalInvites/{token}` を作成
-   - `employees/{employeeId}.portal` を `status: 'invited'`, `invitedEmail`, `invitedAt` に更新
-   - 招待メール送信 or URLコピーで配布
+2. ✅ **「ポータル招待」ボタンを押す**
+   - ✅ `employeePortalInvites/{token}` を作成
+   - ✅ `employees/{employeeId}.portal` を `status: 'invited'`, `invitedEmail`, `invitedAt` に更新
+   - ✅ 招待URLコピーで配布（メール送信は Phase3 以降）
 
-3. **従業員が招待リンクを開く**
-   - URL例：`/employee-portal/accept-invite?token=xxx`
-   - 「InsurePath 従業員用ログイン」ページへ遷移
+3. ✅ **従業員が招待リンクを開く**
+   - ✅ URL例：`/employee-portal/accept-invite?token=xxx`
+   - ✅ 「InsurePath 従業員用ログイン」ページへ遷移
 
-4. **ログイン**
-   - まだログインしていない場合：Google / Email+Password でログイン
+4. ✅ **ログイン**
+   - ✅ まだログインしていない場合：Google ログイン（Email+Password は Phase3 以降）
 
-5. **トークン検証＆リンク処理**
-   - トークン有効期限・`officeId`/`employeeId` 存在チェック
-   - `invitedEmail` と `user.email` の整合性チェック（どこまで厳密に見るかは後で調整）
-   - 問題なければ：
-     - `employees/{employeeId}.portal.status = 'linked'`
-     - `portal.linkedUserId = uid`, `portal.linkedAt = now`
-     - `users/{uid}.officeId = officeId`
-     - `users/{uid}.role = 'employee'`（または既存 `admin`/`hr` を維持）
-     - `users/{uid}.employeeId = employeeId`
+5. ✅ **トークン検証＆リンク処理**
+   - ✅ トークン有効期限・`officeId`/`employeeId` 存在チェック
+   - ✅ `invitedEmail` と `user.email` の整合性チェック（小文字化して比較）
+   - ✅ 問題なければ：
+     - ✅ `employees/{employeeId}.portal.status = 'linked'`
+     - ✅ `portal.linkedUserId = uid`, `portal.linkedAt = now`
+     - ✅ `users/{uid}.officeId = officeId`（未設定の場合のみ）
+     - ✅ `users/{uid}.role`（既存 `admin`/`hr` を維持、新規は `employee`）
+     - ✅ `users/{uid}.employeeId = employeeId`
 
-6. **マイページへリダイレクト**
-   - `/me` に遷移し、自分の保険情報や申請状況を閲覧できる
+6. ✅ **マイページへリダイレクト**
+   - ✅ `/me` に遷移し、自分の保険情報や申請状況を閲覧できる
 
 **メール送信は後回しでもOK**:
 - MVPでは「URLコピーしてLINEなどで共有」でも成立する。メール送信は Functions で後日実装。
 
 ---
 
-## 4. 管理者も従業員として扱うポリシー
+## ✅ 4. 管理者も従業員として扱うポリシー（実装完了）
 
-- 管理者・人事担当者も **1人の従業員として `employees` にレコードを持つ** 前提
-- そのレコードに対しても、上記のポータル連携フローを適用できる
+- ✅ 管理者・人事担当者も **1人の従業員として `employees` にレコードを持つ** 前提
+- ✅ そのレコードに対しても、上記のポータル連携フローを適用できる
 
-**連携後**:
-- `users/{uid}.role` は `admin` or `hr` のまま
-- 同時に `users/{uid}.employeeId` が埋まる
+✅ **連携後**:
+- ✅ `users/{uid}.role` は `admin` or `hr` のまま（既存ロールを維持）
+- ✅ 同時に `users/{uid}.employeeId` が埋まる
 
-**UI**:
-- 管理者は管理画面のナビに加えて「マイページ」リンクを持つ
-- `/me` では「自分自身の従業員情報」を表示する
+✅ **UI**:
+- ✅ 管理者は管理画面のナビに加えて「マイページ」リンクを持つ
+- ✅ `/me` では「自分自身の従業員情報」を表示する
 
 ---
 
@@ -178,23 +178,23 @@
   - Firebase Auth で有効化
   - パスワードリセット・メール認証は後回しでもよい
 
-### 5-2. 画面としての出し分け
+### ✅ 5-2. 画面としての出し分け（実装完了）
 
-**ルート**:
-- `/login`: 通常ログイン
-- `/employee-portal/accept-invite?token=xxx`: 招待受諾用
+✅ **ルート**:
+- ✅ `/login`: 通常ログイン
+- ✅ `/employee-portal/accept-invite?token=xxx`: 招待受諾用
 
-**UI 表現**:
-- `/login` に `?mode=employee` クエリを付けて文言を切り替える方法がシンプル
-- 例：`/login?mode=employee`
+✅ **UI 表現**:
+- ✅ `/login` に `?mode=employee` クエリを付けて文言を切り替える方法を実装
+- ✅ 例：`/login?mode=employee`
 
-**`mode=employee` の場合**:
-- タイトル：「InsurePath 従業員用ログイン」
-- サブ文言：
-  - 「あなたの社会保険情報を確認するための従業員専用ページです。」
-  - 「管理者・人事担当の方は、管理者画面用のログインからお入りください。」
+✅ **`mode=employee` の場合**:
+- ✅ タイトル：「InsurePath 従業員用ログイン」
+- ✅ サブ文言：
+  - ✅ 「あなたの社会保険情報を確認するための従業員専用ページです。」
+  - ✅ 「管理者・人事担当の方は、管理者画面用のログインからお入りください。」
 
-招待受諾フローでは、内部的に `/login?mode=employee` に遷移して説明だけ変える形でもOK。
+✅ 招待受諾フローでは、内部的に `/login?mode=employee&redirect=...` に遷移して説明だけ変える形を実装。
 
 ---
 
@@ -223,39 +223,44 @@
 
 MVP の実装は「招待リンク方式 + 既存の一覧選択は実質使わない」でも可。
 
+
+
+
+
 ---
 
 ## 7. 段階的実装計画（Cursor の評価を踏まえた整理）
 
 ### Phase 1（今すぐやりやすく・効果が大きいところ）
 
-#### 1. employee ロールの `/me` 限定アクセス
+#### ✅ 1. employee ロールの `/me` 限定アクセス
 
-- `roleGuard` を整理し、`employee` が他ルートに来たら `/me` にリダイレクト
-- `/me` ルートには `roleGuard` を追加
+- ✅ `roleGuard` を整理し、`employee` が他ルートに来たら `/me` にリダイレクト
+- ✅ `/me` ルートには `roleGuard` を追加
 
-#### 2. 従業員台帳に `portal.status` 表示
+#### ✅ 2. 従業員台帳に `portal.status` 表示
 
-- `Employee` 型に `portal` を追加
-- 一覧に「ポータル状態」列：
+- ✅ `Employee` 型に `portal` を追加
+- ✅ 一覧に「ポータル状態」列：
   - 灰：未招待
   - 青：招待済
   - 緑：連携済
 
 **※ここだけでも「社員はマイページだけ」「連携状況が目で分かる」という改善が得られる。**
 
-### Phase 2（従業員招待フローの導入）
+### ✅ Phase 2（従業員招待フローの導入）実装完了
 
-#### 1. 従業員ポータル招待の基本機能
+#### ✅ 1. 従業員ポータル招待の基本機能
 
-- `employeePortalInvites` コレクション
-- トークン生成・検証ロジック
-- `/employee-portal/accept-invite` ページ（＋`/login?mode=employee` 表示）
+- ✅ `employeePortalInvites` コレクション
+- ✅ トークン生成・検証ロジック
+- ✅ `/employee-portal/accept-invite` ページ（＋`/login?mode=employee` 表示）
+- ✅ Firestore セキュリティルール実装
 
-#### 2. 管理画面からの招待操作
+#### ✅ 2. 管理画面からの招待操作
 
-- 従業員台帳行に「招待」ボタン
-- 「招待リンクコピー」だけ先に実装し、メール送信は後回しでも可
+- ✅ 従業員台帳行に「招待」ボタン
+- ✅ 「招待リンクコピー」機能を実装（メール送信は Phase3 以降）
 
 ### Phase 3（セキュリティ・認証の強化）
 
@@ -264,7 +269,7 @@ MVP の実装は「招待リンク方式 + 既存の一覧選択は実質使わ�
 - `/office-setup` から「既存事業所一覧から自由参加」をやめる／非推奨化する
 - 事業所参加は基本「招待リンク」で行う
 
-#### 2. Email/Password 認証の追加（任意）
+#### 2. Email/Password 認証の追加
 
 - Firebase Auth で Email/Password を有効化
 - ログイン画面の UI を拡張（Google + メールの2択）
@@ -280,6 +285,13 @@ MVP の実装は「招待リンク方式 + 既存の一覧選択は実質使わ�
 
 ---
 
+
+
+
+
+
+
+
 ## 8. 実装スコープ（今回の提出視点）
 
 今回の提出（〜12/10）視点では、**Phase 1〜2 の一部まで**を現実的な範囲とし、**Phase 3〜4 は設計メモ＆カタログの将来拡張**として位置づけるイメージ。
@@ -288,8 +300,8 @@ MVP の実装は「招待リンク方式 + 既存の一覧選択は実質使わ�
 
 1. ✅ **Phase 1-1**: employee ロールの `/me` 限定アクセス
 2. ✅ **Phase 1-2**: 従業員台帳に `portal.status` 表示
-3. ⚠️ **Phase 2-1**: 従業員ポータル招待の基本機能（時間があれば）
-4. ⚠️ **Phase 2-2**: 管理画面からの招待操作（時間があれば）
+3. ✅ **Phase 2-1**: 従業員ポータル招待の基本機能（実装完了）
+4. ✅ **Phase 2-2**: 管理画面からの招待操作（実装完了）
 
 ### 将来拡張項目（設計メモ）
 

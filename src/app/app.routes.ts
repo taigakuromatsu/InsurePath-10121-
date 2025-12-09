@@ -57,7 +57,7 @@ export const routes: Routes = [
       },
       {
         path: 'me',
-        canActivate: [authGuard, officeGuard],
+        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr', 'employee'])],
         loadComponent: () => import('./pages/me/my-page').then((m) => m.MyPage)
       },
       {
@@ -108,6 +108,16 @@ export const routes: Routes = [
     path: 'login',
     loadComponent: () => import('./pages/login/login.page').then((m) => m.LoginPage)
   },
+  {
+        path: 'employee-portal',
+        children: [
+          {
+            path: 'accept-invite',
+            loadComponent: () =>
+              import('./pages/employee-portal/accept-invite.page').then((m) => m.AcceptInvitePage)
+          }
+        ]
+      },
   {
     path: 'office-setup',
     canActivate: [authGuard, needsOfficeGuard],

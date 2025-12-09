@@ -277,6 +277,29 @@ export interface PayrollSettings {
   note?: string | null;
 }
 
+export type PortalStatus = 'not_invited' | 'invited' | 'linked' | 'disabled';
+
+export interface EmployeePortal {
+  status: PortalStatus;
+  invitedEmail?: string;
+  invitedAt?: IsoDateString;
+  linkedUserId?: string;
+  linkedAt?: IsoDateString;
+}
+
+export interface EmployeePortalInvite {
+  id: string;
+  officeId: string;
+  employeeId: string;
+  invitedEmail: string;
+  createdByUserId: string;
+  createdAt: IsoDateString;
+  expiresAt: IsoDateString;
+  used: boolean;
+  usedAt?: IsoDateString;
+  usedByUserId?: string;
+}
+
 export interface Employee {
   id: string;
   officeId: string;
@@ -347,6 +370,9 @@ export interface Employee {
 
   /** 給与基本情報（社会保険用） */
   payrollSettings?: PayrollSettings | null;
+
+  /** 従業員ポータル連携状態（Phase1では表示専用） */
+  portal?: EmployeePortal | null;
 
   createdAt?: IsoDateString;
   updatedAt?: IsoDateString;

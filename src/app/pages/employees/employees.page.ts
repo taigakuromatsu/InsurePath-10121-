@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatChipsModule } from '@angular/material/chips';
 import {
   Subject,
   combineLatest,
@@ -21,14 +22,18 @@ import {
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeesService } from '../../services/employees.service';
-import { Employee } from '../../types';
+import { Employee, PortalStatus } from '../../types';
 import { UsersService } from '../../services/users.service';
 import { EmployeeFormDialogComponent } from './employee-form-dialog.component';
 import {
   DialogFocusSection,
   EmployeeDetailDialogComponent
 } from './employee-detail-dialog.component';
-import { getWorkingStatusLabel } from '../../utils/label-utils';
+import {
+  getPortalStatusColor,
+  getPortalStatusLabel,
+  getWorkingStatusLabel
+} from '../../utils/label-utils';
 import { DependentsService } from '../../services/dependents.service';
 import { CsvExportService } from '../../utils/csv-export.service';
 import {
@@ -37,6 +42,11 @@ import {
 } from './employee-import-dialog.component';
 import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialog.component';
 import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/confirm-dialog.component';
+import {
+  InviteEmployeeDialogComponent,
+  InviteEmployeeDialogData,
+  InviteEmployeeDialogResult
+} from './invite-employee-dialog.component';
 
 interface EmployeeWithUpdatedBy extends Employee {
   updatedByDisplayName: string | null;
@@ -55,7 +65,8 @@ interface EmployeeWithUpdatedBy extends Employee {
     AsyncPipe,
     NgIf,
     DecimalPipe,
-    DatePipe
+    DatePipe,
+    MatChipsModule
   ],
   template: `
     <div class="page-container">
@@ -213,6 +224,18 @@ interface EmployeeWithUpdatedBy extends Employee {
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="portal">
+              <th mat-header-cell *matHeaderCellDef class="center">ポータル</th>
+              <td mat-cell *matCellDef="let row" class="center">
+                <mat-chip
+                  [color]="getPortalStatusColor(getPortalStatus(row))"
+                  selected
+                >
+                  {{ getPortalStatusLabel(getPortalStatus(row)) }}
+                </mat-chip>
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="updatedBy">
               <th mat-header-cell *matHeaderCellDef>最終更新者</th>
               <td mat-cell *matCellDef="let row">
@@ -231,6 +254,16 @@ interface EmployeeWithUpdatedBy extends Employee {
               <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
               <td mat-cell *matCellDef="let row">
                 <div class="flex-row gap-2 justify-center">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  class="invite-button"
+                  (click)="openInviteDialog(row)"
+                  [disabled]="isInviteDisabled(getPortalStatus(row)) || !(officeId$ | async)"
+                >
+                  <mat-icon fontIcon="mail"></mat-icon>
+                  {{ getInviteButtonLabel(getPortalStatus(row)) }}
+                </button>
                 <button
                   mat-icon-button
                   (click)="openDetail(row)"
@@ -419,6 +452,10 @@ interface EmployeeWithUpdatedBy extends Employee {
         height: 36px;
       }
 
+      .invite-button {
+        min-width: 120px;
+      }
+
       @media (max-width: 768px) {
         .header-actions {
           width: 100%;
@@ -438,6 +475,8 @@ export class EmployeesPage {
   private readonly csvExportService = inject(CsvExportService);
   private readonly usersService = inject(UsersService);
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
+  protected readonly getPortalStatusLabel = getPortalStatusLabel;
+  protected readonly getPortalStatusColor = getPortalStatusColor;
 
   private readonly dependentsCountMap = new Map<
     string,
@@ -455,6 +494,7 @@ export class EmployeesPage {
     'dependents',
     'isInsured',
     'workingStatus',
+    'portal',
     'updatedBy',
     'updatedAt',
     'actions'
@@ -592,6 +632,27 @@ export class EmployeesPage {
     });
   }
 
+  getPortalStatus(employee: Employee): PortalStatus {
+    return employee.portal?.status ?? 'not_invited';
+  }
+
+  getInviteButtonLabel(status: PortalStatus): string {
+    switch (status) {
+      case 'invited':
+        return '再招待';
+      case 'linked':
+        return '連携済み';
+      case 'disabled':
+        return '停止中';
+      default:
+        return '招待';
+    }
+  }
+
+  isInviteDisabled(status: PortalStatus): boolean {
+    return status === 'disabled' || status === 'linked';
+  }
+
   getDependentsCount(employee: Employee) {
     const cached = this.dependentsCountMap.get(employee.id);
     if (cached) {
@@ -601,6 +662,30 @@ export class EmployeesPage {
     const stream = this.createDependentsCountStream(employee);
     this.dependentsCountMap.set(employee.id, stream);
     return stream;
+  }
+
+  async openInviteDialog(employee: Employee): Promise<void> {
+    const officeId = await firstValueFrom(this.officeId$);
+    if (!officeId) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open<
+      InviteEmployeeDialogComponent,
+      InviteEmployeeDialogData,
+      InviteEmployeeDialogResult
+    >(InviteEmployeeDialogComponent, {
+      width: '560px',
+      data: { employee, officeId }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (!result?.invited) {
+        return;
+      }
+      this.snackBar.open('招待URLを生成しました', '閉じる', { duration: 3000 });
+      this.reload$.next();
+    });
   }
 
   // 編集ダイアログを開いて保存後に reload$.next() で一覧を再取得
