@@ -1,4 +1,3 @@
-import { AsyncPipe, NgFor } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -12,9 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { CurrentUserService } from '../../services/current-user.service';
 import { OfficesService } from '../../services/offices.service';
-import { Office, HealthPlanType } from '../../types';
-import { Observable } from 'rxjs';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { HealthPlanType } from '../../types';
 
 @Component({
   selector: 'ip-office-setup-page',
@@ -27,9 +24,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     MatInputModule,
     MatSelectModule,
     MatSnackBarModule,
-    ReactiveFormsModule,
-    NgFor,
-    AsyncPipe
+    ReactiveFormsModule
   ],
   template: `
     <div class="page-container">
@@ -37,7 +32,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         <div>
           <h1 class="m-0">所属する事業所を設定してください</h1>
           <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
-            既存の事業所を選択するか、新しく作成できます。
+            初めて InsurePath を使う場合は、新規事業所を作成してください。
           </p>
         </div>
       </header>
@@ -48,25 +43,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             <mat-icon color="primary">group_add</mat-icon>
             <h2 class="mat-h2 mb-0">既存の事業所に参加</h2>
           </div>
-          <div class="card-content dense-form">
-            <mat-form-field appearance="outline" class="full dense-form-field">
-              <mat-label>参加する事業所</mat-label>
-              <mat-select [formControl]="existingOfficeControl">
-                <mat-option *ngFor="let office of offices$ | async" [value]="office.id">
-                  {{ office.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-            <button
-              mat-flat-button
-              color="primary"
-              (click)="joinExistingOffice()"
-              [disabled]="joinDisabled() || loading()"
-              class="action-button"
-            >
-              <mat-icon>check</mat-icon>
-              この事業所を選択
-            </button>
+          <div class="card-content">
+            <p class="info-text">
+              既存の事業所に参加するには、管理者から送られた招待リンクを利用してください。
+            </p>
+            <p class="info-text">
+              招待リンクをお持ちの場合は、そのリンクを開いてログインしてください。
+            </p>
           </div>
         </mat-card>
 
@@ -172,6 +155,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         gap: 12px;
       }
 
+      .info-text {
+        margin: 0 0 12px 0;
+        color: #666;
+        font-size: 0.95rem;
+        line-height: 1.6;
+      }
+
       .full { width: 100%; }
 
       .action-button {
@@ -196,8 +186,6 @@ export class OfficeSetupPage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
 
-  readonly offices$: Observable<Office[]> = this.officesService.listOffices();
-  readonly existingOfficeControl = this.fb.control<string | null>(null);
   readonly form = this.fb.group({
     name: ['', Validators.required],
     address: [''],
@@ -205,32 +193,6 @@ export class OfficeSetupPage {
   });
 
   readonly loading = signal(false);
-
-  joinDisabled = signal(true);
-
-  constructor() {
-    this.existingOfficeControl.valueChanges
-      .pipe(takeUntilDestroyed())
-      .subscribe((value) => this.joinDisabled.set(!value));
-  }
-
-  async joinExistingOffice(): Promise<void> {
-    const officeId = this.existingOfficeControl.value;
-    if (!officeId) {
-      return;
-    }
-    try {
-      this.loading.set(true);
-      await this.currentUser.assignOffice(officeId);
-      await this.router.navigateByUrl('/dashboard');
-      this.snackBar.open('事業所を設定しました', '閉じる', { duration: 3000 });
-    } catch (error) {
-      console.error(error);
-      this.snackBar.open('事業所の設定に失敗しました', '閉じる', { duration: 4000 });
-    } finally {
-      this.loading.set(false);
-    }
-  }
 
   async createOffice(): Promise<void> {
     if (this.form.invalid) {

@@ -5,7 +5,10 @@ import {
   User,
   authState,
   signInWithPopup,
-  signOut
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
 } from '@angular/fire/auth';
 import { doc, Firestore, getDoc, setDoc, updateDoc } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
@@ -23,6 +26,31 @@ export class AuthService {
   async signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
     const credential = await signInWithPopup(this.auth, provider);
+    await this.ensureUserDocument(credential.user);
+  }
+
+  /**
+   * Email/Password でログイン
+   */
+  async signInWithEmailAndPassword(email: string, password: string): Promise<void> {
+    const credential = await signInWithEmailAndPassword(this.auth, email, password);
+    await this.ensureUserDocument(credential.user);
+  }
+
+  /**
+   * Email/Password で新規登録（将来拡張用）
+   */
+  async signUpWithEmailAndPassword(
+    email: string,
+    password: string,
+    displayName?: string
+  ): Promise<void> {
+    const credential = await createUserWithEmailAndPassword(this.auth, email, password);
+
+    if (displayName) {
+      await updateProfile(credential.user, { displayName });
+    }
+
     await this.ensureUserDocument(credential.user);
   }
 

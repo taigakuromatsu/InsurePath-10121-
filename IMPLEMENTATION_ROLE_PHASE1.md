@@ -755,3 +755,141 @@ role: 'hr' を維持したまま employeeId を設定
 
 **以上**
 
+
+
+match /users/{uid} {
+      function validInsureUserProfile(d) {
+        return d.keys().hasOnly([
+          'id',
+          'officeId',
+          'role',
+          'displayName',
+          'email',
+          'createdAt',
+          'updatedAt',
+          'employeeId',
+        ])
+        && (d.id is string && d.id == uid)
+        && (!('officeId' in d) || (d.officeId is string))
+        && (!('role' in d) || (d.role is string && d.role.size() > 0 && d.role.size() <= 30))
+        && (d.displayName is string
+            && d.displayName.size() > 0
+            && d.displayName.size() <= 120)
+        && (d.email is string
+            && d.email.size() > 3
+            && d.email.size() <= 320)
+        && (d.createdAt is string)
+        && (d.updatedAt is string)
+        && (!('employeeId' in d)
+            || (d.employeeId is string
+                && d.employeeId.size() > 0
+                && d.employeeId.size() <= 200));
+      }
+
+      // ★ 修正ポイント 1: get は「自分自身だけ」に限定（再帰参照をやめる）
+      allow get: if
+        isSignedIn()
+        && request.auth.uid == uid;
+
+      // ★ 修正ポイント 2: list は一旦禁止（必要になったら別途設計）
+      allow list: if false;
+
+      // create: 本人のみ（従来通り）
+      allow create: if
+        isSignedIn()
+        && request.auth.uid == uid
+        && validInsureUserProfile(request.resource.data);
+
+      // update: 本人の displayName 更新 or admin による role 更新（ここはそのままでOK）
+      allow update: if
+        isSignedIn()
+        && (
+          (
+            request.auth.uid == uid
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['displayName', 'updatedAt'])
+            && validInsureUserProfile(request.resource.data)
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.officeId == resource.data.officeId
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.createdAt == resource.data.createdAt
+            && (!('employeeId' in request.resource.data) || request.resource.data.employeeId == resource.data.employeeId)
+            && (request.resource.data.updatedAt is string)
+          )
+          ||
+          (
+            // admin による role 更新（同じ office の admin かどうかは
+            // offices 側・アプリ側のロジックで担保する前提でもOK）
+            getUserRole() == 'admin'
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['role', 'updatedAt'])
+            && request.resource.data.role in ['admin', 'hr', 'employee']
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.officeId == resource.data.officeId
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.displayName == resource.data.displayName
+            && (!('employeeId' in request.resource.data) || request.resource.data.employeeId == resource.data.employeeId)
+            && request.resource.data.createdAt == resource.data.createdAt
+            && (request.resource.data.updatedAt is string)
+          )
+        );
+
+      allow delete: if false;
+
+
+      // ===== ここから下は ProblemPath 用のサブコレクション =====
+
+      // 通知設定: users/{uid}/notifyPrefs/app
+      function isValidNotifyPrefs(d) {
+        return d.keys().hasOnly([
+          'instantComment',
+          'instantFile',
+          'dueReminderMode',
+          'dueReminderHour',
+        ])
+        && (!('instantComment' in d) || (d.instantComment is bool))
+        && (!('instantFile' in d)   || (d.instantFile is bool))
+        && (!('dueReminderMode' in d)
+            || (d.dueReminderMode in ['none', '1d', '7d', '1d7d']))
+        && (!('dueReminderHour' in d)
+            || (d.dueReminderHour is int
+                && d.dueReminderHour >= 0
+                && d.dueReminderHour <= 23));
+      }
+
+      match /notifyPrefs/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update: if
+          isSignedIn()
+          && request.auth.uid == uid
+          && isValidNotifyPrefs(request.resource.data);
+        allow delete: if false;
+      }
+
+      match /memberships/{projectId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create: if isSignedIn() && request.auth.uid == uid;
+        allow update: if isSignedIn() && (
+          request.auth.uid == uid
+          || (
+            isAdmin(projectId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['role'])
+            && isValidRole(request.resource.data.role)
+          )
+        );
+        allow delete: if isSignedIn()
+          && (request.auth.uid == uid || isAdmin(projectId));
+      }
+
+      match /fcmTokens/{token} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update, delete: if isSignedIn() && request.auth.uid == uid;
+      }
+
+      match /fcmStatus/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update: if isSignedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['enabled','lastTokenSavedAt','lastError']);
+        allow delete: if false;
+      }
+    }
