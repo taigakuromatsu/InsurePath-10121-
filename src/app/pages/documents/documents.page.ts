@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
@@ -43,6 +44,7 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
     MatFormFieldModule,
     MatSelectModule,
     MatInputModule,
+    MatTooltipModule,
     AsyncPipe,
     NgIf,
     NgFor,
@@ -333,6 +335,23 @@ import { ConfirmDialogComponent } from '../requests/confirm-dialog.component';
                             {{ row.resolvedAt | date: 'yyyy-MM-dd' }}
                           </span>
                           <span *ngIf="!row.resolvedAt" class="text-muted">-</span>
+                        </td>
+                      </ng-container>
+
+                      <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef class="actions-header" style="width: 120px; text-align: center;">操作</th>
+                        <td mat-cell *matCellDef="let row" class="actions-cell">
+                          <div class="flex-row justify-center gap-1">
+                            <button
+                              *ngIf="row.status === 'pending'"
+                              mat-icon-button
+                              color="warn"
+                              (click)="cancelRequest(row)"
+                              matTooltip="キャンセル"
+                            >
+                              <mat-icon>cancel</mat-icon>
+                            </button>
+                          </div>
                         </td>
                       </ng-container>
 
@@ -652,7 +671,7 @@ export class DocumentsPage {
   ];
 
   readonly attachmentColumns = ['category', 'title', 'uploadedAt', 'uploadedBy', 'expiresAt', 'actions'];
-  readonly requestColumns = ['category', 'title', 'createdAt', 'requestedBy', 'dueDate', 'status', 'resolvedAt'];
+  readonly requestColumns = ['category', 'title', 'createdAt', 'requestedBy', 'dueDate', 'status', 'resolvedAt', 'actions'];
 
   readonly filteredEmployees$ = combineLatest([this.employees$, this.searchQuery$]).pipe(
     map(([employees, query]) => {
@@ -838,6 +857,32 @@ export class DocumentsPage {
     } catch (error) {
       console.error('Delete failed:', error);
       this.snackBar.open('削除に失敗しました', '閉じる', { duration: 3000 });
+    }
+  }
+
+  async cancelRequest(request: DocumentRequest): Promise<void> {
+    const officeId = await firstValueFrom(this.officeId$);
+    if (!officeId) return;
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'アップロード依頼のキャンセル',
+        message: `「${request.title}」のアップロード依頼をキャンセルしますか？`,
+        confirmText: 'キャンセル',
+        cancelText: '閉じる'
+      }
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
+    if (!confirmed) return;
+
+    try {
+      await this.documentsService.updateRequestStatus(officeId, request.id, 'cancelled');
+      this.snackBar.open('アップロード依頼をキャンセルしました', '閉じる', { duration: 3000 });
+    } catch (error) {
+      console.error('Cancel failed:', error);
+      this.snackBar.open('キャンセルに失敗しました', '閉じる', { duration: 3000 });
     }
   }
 }

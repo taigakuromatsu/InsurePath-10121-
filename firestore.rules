@@ -54,9 +54,12 @@ service cloud.firestore {
       return belongsToOffice(officeId) && getUserRole() == 'admin';
     }
 
-    // 一般従業員かチェック
+    // その事業所に属しており、employeeId を持つユーザーかチェック
     function isInsureEmployee(officeId) {
-      return belongsToOffice(officeId) && getUserRole() == 'employee';
+      return belongsToOffice(officeId)
+        && ('employeeId' in currentUser().data)
+        && (currentUser().data.employeeId is string)
+        && currentUser().data.employeeId.size() > 0;
     }
 
     // 自分の従業員レコードに紐づいているかチェック
@@ -442,12 +445,63 @@ service cloud.firestore {
               && d.employeeId.size() <= 200));
     }
 
-      // 自分の users/{uid} だけ読み書きできる (InsurePath 用)
-      allow read: if isSignedIn() && request.auth.uid == uid;
-      allow create, update: if
+      // 単一ドキュメント取得
+      // - 自分自身
+      // - または、そのユーザーと同じ officeId を持つ admin
+      allow get: if
+        isSignedIn()
+        && (
+          request.auth.uid == uid
+          || isInsureAdmin(resource.data.officeId)
+        );
+
+      // 一覧取得（クエリ）
+      // - admin だけ
+      // - クエリで officeId を指定していることが前提
+      allow list: if
+      isSignedIn()
+      && isInsureAdmin(resource.data.officeId);
+
+      // create: 本人のみ（従来通り）
+      allow create: if
         isSignedIn()
         && request.auth.uid == uid
         && validInsureUserProfile(request.resource.data);
+
+      // update: 本人による displayName 更新 or admin による role 更新のみ
+      allow update: if
+        isSignedIn()
+        && (
+          // パターン1: 本人による displayName 更新のみ
+          (
+            request.auth.uid == uid
+            // 変更可能なキーを displayName と updatedAt に限定
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['displayName', 'updatedAt'])
+            && validInsureUserProfile(request.resource.data)
+            // 重要フィールドは不変
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.officeId == resource.data.officeId
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.createdAt == resource.data.createdAt
+            && (!('employeeId' in request.resource.data) || request.resource.data.employeeId == resource.data.employeeId)
+            && (request.resource.data.updatedAt is string)
+          )
+          ||
+          // パターン2: admin による role 更新のみ
+          (
+            isInsureAdmin(resource.data.officeId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['role', 'updatedAt'])
+            && request.resource.data.role in ['admin', 'hr', 'employee']
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.officeId == resource.data.officeId
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.displayName == resource.data.displayName
+            && (!('employeeId' in request.resource.data) || request.resource.data.employeeId == resource.data.employeeId)
+            && request.resource.data.createdAt == resource.data.createdAt
+            && (request.resource.data.updatedAt is string)
+          )
+        );
 
       // 削除はとりあえず禁止（必要ならあとで検討）
       allow delete: if false;

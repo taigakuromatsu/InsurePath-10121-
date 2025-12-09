@@ -7,12 +7,16 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { OfficesService } from '../../services/offices.service';
 import { MastersService } from '../../services/masters.service';
+import { CurrentUserService } from '../../services/current-user.service';
+import { UserManagementTabComponent } from './user-management-tab.component';
 import { HealthPlanType, Office } from '../../types';
 
 @Component({
@@ -23,11 +27,13 @@ import { HealthPlanType, Office } from '../../types';
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MatTabsModule,
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
     ReactiveFormsModule,
-    NgIf
+    NgIf,
+    UserManagementTabComponent
   ],
   template: `
     <div class="page-container">
@@ -40,6 +46,8 @@ import { HealthPlanType, Office } from '../../types';
         </div>
       </header>
 
+      <mat-tab-group class="page-tabs">
+        <mat-tab label="事業所設定">
       <mat-card class="content-card">
         <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
           <div>
@@ -154,6 +162,12 @@ import { HealthPlanType, Office } from '../../types';
           </div>
         </form>
       </mat-card>
+        </mat-tab>
+
+        <mat-tab label="ユーザー管理" *ngIf="isAdmin()">
+          <ip-user-management-tab></ip-user-management-tab>
+        </mat-tab>
+      </mat-tab-group>
     </div>
   `,
   styles: [
@@ -238,6 +252,10 @@ import { HealthPlanType, Office } from '../../types';
         margin-top: 1rem;
       }
 
+      .page-tabs {
+        margin-top: 1rem;
+      }
+
       .form-section {
         margin-bottom: 2rem;
       }
@@ -297,11 +315,13 @@ import { HealthPlanType, Office } from '../../types';
 export class OfficesPage implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly currentOffice = inject(CurrentOfficeService);
+  private readonly currentUser = inject(CurrentUserService);
   private readonly officesService = inject(OfficesService);
   private readonly mastersService = inject(MastersService);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly loading = signal(false);
+  private readonly profile = toSignal(this.currentUser.profile$, { initialValue: null });
   private currentOfficeValue: Office | null = null;
   form = this.fb.group({
     id: [''],
@@ -334,6 +354,10 @@ export class OfficesPage implements OnDestroy {
 
   healthPlanType(): HealthPlanType | null {
     return (this.form.get('healthPlanType')?.value as HealthPlanType) ?? null;
+  }
+
+  isAdmin(): boolean {
+    return this.profile()?.role === 'admin';
   }
 
   async save(): Promise<void> {

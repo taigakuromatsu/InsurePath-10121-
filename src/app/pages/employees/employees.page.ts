@@ -524,8 +524,21 @@ export class EmployeesPage {
     })
   );
 
-  readonly employeesWithUpdatedBy$ = this.employees$.pipe(
-    switchMap((employees) => {
+  readonly employeesWithUpdatedBy$ = combineLatest([
+    this.employees$,
+    this.currentUser.profile$
+  ]).pipe(
+    switchMap(([employees, profile]) => {
+      // hr は /users を読めないので displayName 付与をスキップ（admin のみ取得）
+      if (!profile || profile.role !== 'admin') {
+        return of(
+          employees.map((employee) => ({
+            ...employee,
+            updatedByDisplayName: null
+          })) as EmployeeWithUpdatedBy[]
+        );
+      }
+
       const userIds = employees
         .map((emp) => emp.updatedByUserId)
         .filter((id): id is string => Boolean(id));
