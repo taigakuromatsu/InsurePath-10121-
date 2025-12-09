@@ -686,7 +686,8 @@ service cloud.firestore {
               && (!('myNumber' in data) || data.myNumber == null || (data.myNumber is string && data.myNumber.size() == 12 && data.myNumber.matches('^[0-9]{12}$')));
           }
 
-          allow read: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+          // admin / hr は全件OK、employee は自分の従業員レコードの分だけ read OK
+          allow read: if isAdminOrHr(officeId) || isOwnEmployee(officeId, employeeId);
           allow create, update: if belongsToOffice(officeId) && isAdminOrHr(officeId) && validDependentExtendedFields(request.resource.data);
           allow delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
         }

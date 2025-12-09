@@ -45,6 +45,7 @@ export class App {
     { label: '扶養状況確認', path: '/dependent-reviews', icon: 'family_restroom', roles: ['admin', 'hr'] },
     { label: '書類管理', path: '/documents', icon: 'description', roles: ['admin', 'hr'] },
     { label: 'シミュレーター', path: '/simulator', icon: 'calculate', roles: ['admin', 'hr'] },
+    // マイページは employeeId の有無で判定（navLinks$ で特別処理）
     { label: 'マイページ', path: '/me', icon: 'person', roles: ['admin', 'hr', 'employee'] }
   ];
 
@@ -61,7 +62,14 @@ export class App {
       if (!profile) {
         return [] as typeof this.navLinks;
       }
-      return this.navLinks.filter((link) => link.roles.includes(profile.role));
+      return this.navLinks.filter((link) => {
+        // 「マイページ」は employeeId の有無で判定
+        if (link.path === '/me') {
+          return Boolean(profile.employeeId);
+        }
+        // その他のリンクは role で判定
+        return link.roles.includes(profile.role);
+      });
     })
   );
 

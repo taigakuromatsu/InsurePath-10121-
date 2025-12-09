@@ -6,12 +6,13 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subscription, firstValueFrom } from 'rxjs';
+import { filter, take } from 'rxjs/operators';
 
 import { AuthService } from '../../services/auth.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { EmployeePortalInvitesService } from '../../services/employee-portal-invites.service';
 import { EmployeesService } from '../../services/employees.service';
-import { UserRole } from '../../types';
+import { UserRole, UserProfile} from '../../types';
 
 @Component({
   selector: 'ip-accept-invite-page',
@@ -284,7 +285,13 @@ export class AcceptInvitePage implements OnDestroy {
     if (this.loading()) {
       return;
     }
-    const currentUser = await firstValueFrom(this.currentUser.profile$);
+
+    const currentUser = await firstValueFrom(
+      this.currentUser.profile$.pipe(
+        filter((p): p is UserProfile => p !== null),  // ★ null を飛ばす
+        take(1),
+      )
+    );
     const user = await firstValueFrom(this.authService.authState$);
     if (!user) {
       this.needsLogin.set(true);
@@ -294,8 +301,9 @@ export class AcceptInvitePage implements OnDestroy {
     this.errorMessage.set(null);
     this.loading.set(true);
     this.processed = false;
-    await this.handleInvite(user.uid, user.email ?? null, currentUser?.role);
+    await this.handleInvite(user.uid, user.email ?? null, currentUser.role);
   }
+
 
   private async handleInvite(uid: string, email: string | null, roleHint?: string | null): Promise<void> {
     if (this.processed) {
@@ -351,16 +359,26 @@ export class AcceptInvitePage implements OnDestroy {
         return;
       }
 
-      const profile = await firstValueFrom(this.currentUser.profile$);
-      if (profile?.officeId && profile.officeId !== invite.officeId) {
+      // ★ ここで「null じゃない profile」が読み込まれるまで待つ
+      const profile = await firstValueFrom(
+        this.currentUser.profile$.pipe(
+          filter((p): p is UserProfile => p !== null),
+          take(1),
+        )
+      );
+
+      if (profile.officeId && profile.officeId !== invite.officeId) {
         this.setError('別の事業所に紐づいたアカウントです。招待された事業所のアカウントでログインしてください。');
         return;
       }
 
       const now = new Date().toISOString();
-      const nextRole = this.resolveRole(roleHint ?? profile?.role);
+      // 既存の role を維持（admin/hr/employee はそのまま、未設定の場合のみ employee にフォールバック）
+      const baseRole = roleHint ?? profile.role ?? null;
+      const nextRole = this.resolveRole(baseRole);
+
       await this.currentUser.updateProfile({
-        officeId: profile?.officeId ?? invite.officeId,
+        officeId: profile.officeId ?? invite.officeId,
         employeeId: invite.employeeId,
         role: nextRole
       });
@@ -392,15 +410,23 @@ export class AcceptInvitePage implements OnDestroy {
     }
   }
 
+
   private setError(message: string): void {
     this.errorMessage.set(message);
     this.loading.set(false);
   }
 
+  /**
+   * ロールを解決する
+   * - 既存の admin/hr/employee ロールは維持する
+   * - role が未設定（null/undefined/空文字）の場合のみ employee にフォールバック
+   */
   private resolveRole(role?: string | null): UserRole {
+    // 既存の有効なロールはそのまま維持
     if (role === 'admin' || role === 'hr' || role === 'employee') {
       return role;
     }
+    // role が未設定の場合は employee にフォールバック
     return 'employee';
   }
 }

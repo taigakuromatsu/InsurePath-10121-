@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './guards/auth.guard';
+import { hasEmployeeIdGuard } from './guards/has-employee-id.guard';
 import { needsOfficeGuard } from './guards/needs-office.guard';
 import { officeGuard } from './guards/office.guard';
 import { roleGuard } from './guards/role.guard';
@@ -57,7 +58,7 @@ export const routes: Routes = [
       },
       {
         path: 'me',
-        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr', 'employee'])],
+        canActivate: [authGuard, officeGuard, hasEmployeeIdGuard],
         loadComponent: () => import('./pages/me/my-page').then((m) => m.MyPage)
       },
       {
