@@ -130,18 +130,8 @@ function isCareInsuranceTarget(
 /**
  * 従業員一人分の当月保険料を計算する。
  *
- * ★重要な前提：
- * - employee.monthlyWage を「健保・厚年 共通の標準報酬月額」として扱う。
- *
- * 計算不可となる例：
- * 1. employee.isInsured !== true（社会保険未加入）
- * 2. employee.monthlyWage が未設定 or 0 以下
- * 3. employee.healthGrade / pensionGrade が未設定
- * 4. rateContext.healthRate / pensionRate が未設定
- *
- * 備考：
- * - premiumTreatment === 'exempt' の場合は金額を 0 にする（標準報酬はスナップショットとして保持）
- * - careRate が未設定でも、健保・厚年が計算可能なら結果を返す（careTotal = 0）
+ * 健保・厚年それぞれの標準報酬（月額）と等級を前提に計算する。
+ * 片方のみ揃っている場合は揃っている保険種別のみ計算し、もう片方は 0 として扱う。
  */
 export function calculateMonthlyPremiumForEmployee(
   employee: Employee,
@@ -157,38 +147,45 @@ export function calculateMonthlyPremiumForEmployee(
     return null;
   }
 
-  // 2. 標準報酬月額（＝ monthlyWage）が必要
-  const standardMonthly = employee.monthlyWage;
-  if (!standardMonthly || standardMonthly <= 0) {
-    return null;
-  }
+  // 2. 健康保険の計算可否を判定
+  const canCalcHealth =
+    employee.healthStandardMonthly != null &&
+    employee.healthStandardMonthly > 0 &&
+    employee.healthGrade != null &&
+    rateContext.healthRate != null;
 
-  // 3. 等級が未設定なら対象外
-  if (employee.healthGrade == null || employee.pensionGrade == null) {
-    return null;
-  }
+  // 3. 厚生年金の計算可否を判定
+  const canCalcPension =
+    employee.pensionStandardMonthly != null &&
+    employee.pensionStandardMonthly > 0 &&
+    employee.pensionGrade != null &&
+    rateContext.pensionRate != null;
 
-  // 4. 料率（健保・厚年）は必須
-  if (rateContext.healthRate == null || rateContext.pensionRate == null) {
+  // 4. 両方不可ならスキップ
+  if (!canCalcHealth && !canCalcPension) {
     return null;
   }
 
   const isExempt = employee.premiumTreatment === 'exempt';
+  const healthStandardMonthly = employee.healthStandardMonthly ?? 0;
+  const pensionStandardMonthly = employee.pensionStandardMonthly ?? 0;
 
   // 健康保険
-  const healthTotal = isExempt ? 0 : standardMonthly * rateContext.healthRate;
+  const healthTotal =
+    canCalcHealth && !isExempt ? healthStandardMonthly * rateContext.healthRate! : 0;
 
   // 厚生年金
-  const pensionTotal = isExempt ? 0 : standardMonthly * rateContext.pensionRate;
+  const pensionTotal =
+    canCalcPension && !isExempt ? pensionStandardMonthly * rateContext.pensionRate! : 0;
 
   // 介護保険（40〜64歳かつ料率あり、かつ免除でない場合のみ）
   const isCareTarget = isCareInsuranceTarget(employee.birthDate, rateContext.yearMonth);
   const hasCareRate = rateContext.careRate != null && rateContext.careRate > 0;
 
   const careTotal =
-    isExempt || !isCareTarget || !hasCareRate
+    !canCalcHealth || isExempt || !isCareTarget || !hasCareRate
       ? 0
-      : standardMonthly * rateContext.careRate!;
+      : healthStandardMonthly * rateContext.careRate!;
 
   const healthEmployee = Math.floor(healthTotal / 2);
   const healthEmployer = healthTotal - healthEmployee;
@@ -206,10 +203,10 @@ export function calculateMonthlyPremiumForEmployee(
     employeeId: employee.id,
     officeId: employee.officeId,
     yearMonth: rateContext.yearMonth,
-    healthGrade: employee.healthGrade!,
-    healthStandardMonthly: standardMonthly,
-    pensionGrade: employee.pensionGrade!,
-    pensionStandardMonthly: standardMonthly,
+    healthGrade: canCalcHealth ? employee.healthGrade! : 0,
+    healthStandardMonthly: canCalcHealth ? healthStandardMonthly : 0,
+    pensionGrade: canCalcPension ? employee.pensionGrade! : 0,
+    pensionStandardMonthly: canCalcPension ? pensionStandardMonthly : 0,
     amounts: {
       healthTotal,
       healthEmployee,

@@ -199,6 +199,7 @@ export class StandardRewardHistoryFormDialogComponent {
 
     const payload: Partial<StandardRewardHistory> & { id?: string } = {
       id: this.data.history?.id,
+      insuranceKind: this.data.history?.insuranceKind ?? 'health',
       decisionYearMonth: value.decisionYearMonth,
       appliedFromYearMonth: value.appliedFromYearMonth,
       standardMonthlyReward: Number(value.standardMonthlyReward),

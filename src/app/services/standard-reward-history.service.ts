@@ -53,9 +53,11 @@ export class StandardRewardHistoryService {
     const payload: Partial<StandardRewardHistory> = {
       id: ref.id,
       employeeId,
+      insuranceKind: history.insuranceKind ?? 'health',
       decisionYearMonth: history.decisionYearMonth ?? '',
       appliedFromYearMonth: history.appliedFromYearMonth ?? '',
       standardMonthlyReward: history.standardMonthlyReward ?? 0,
+      grade: history.grade ?? undefined,
       decisionKind: history.decisionKind ?? 'other',
       note: history.note ?? undefined,
       updatedAt: now,

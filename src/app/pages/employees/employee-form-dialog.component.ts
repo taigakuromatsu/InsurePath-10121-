@@ -969,6 +969,7 @@ export class EmployeeFormDialogComponent {
 
     try {
       await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
+        insuranceKind: 'health',
         decisionYearMonth: currentYearMonth,
         appliedFromYearMonth: currentYearMonth,
         standardMonthlyReward: newMonthlyWage,

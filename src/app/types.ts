@@ -83,7 +83,12 @@ export interface SocialInsuranceProcedure {
 }
 
 // 等級がどう決まったかの情報
-export type GradeDecisionSource = 'auto' | 'manual' | 'imported';
+export type GradeDecisionSource =
+  | 'auto' // 旧仕様の自動決定
+  | 'auto_from_salary' // 報酬月額からの自動決定（Phase2以降で使用）
+  | 'manual' // 旧仕様の手動入力
+  | 'manual_override' // 手動上書き（Phase2以降で使用）
+  | 'imported';
 
 // User & Office
 export interface UserProfile {
@@ -214,13 +219,17 @@ export interface DependentReviewSession {
   updatedByUserId: string;
 }
 
+export type InsuranceKind = 'health' | 'pension';
+
 // 標準報酬決定・改定履歴（Phase2-5: MVP）
 export interface StandardRewardHistory {
   id: string;
   employeeId: string;
+  insuranceKind: InsuranceKind;
   decisionYearMonth: YearMonthString;
   appliedFromYearMonth: YearMonthString;
   standardMonthlyReward: number;
+  grade?: number;
   decisionKind: StandardRewardDecisionKind;
   note?: string;
   createdAt?: IsoDateString;
@@ -273,7 +282,7 @@ export type PayrollPayCycle = 'monthly' | 'twice_per_month' | 'weekly' | 'other'
 export interface PayrollSettings {
   payType: PayrollPayType;
   payCycle: PayrollPayCycle;
-  insurableMonthlyWage?: number | null;
+  insurableMonthlyWage: number | null; // 報酬月額（実際の給与）
   note?: string | null;
 }
 
@@ -324,9 +333,6 @@ export interface Employee {
   contractPeriodNote?: string;
   isStudent?: boolean;
 
-  /** 社会保険上の報酬月額（手当込みの月給ベース） */
-  monthlyWage: number;
-
   /** 社会保険の加入対象かどうか（true のみ計算対象） */
   isInsured: boolean;
 
@@ -356,13 +362,13 @@ export interface Employee {
   workingStatusNote?: string;
 
   /** 健康保険の等級・標準報酬（月額） */
-  healthGrade?: number;
-  healthStandardMonthly?: number;
+  healthGrade?: number | null;
+  healthStandardMonthly?: number | null;
   healthGradeSource?: GradeDecisionSource;
 
   /** 厚生年金の等級・標準報酬（月額） */
-  pensionGrade?: number;
-  pensionStandardMonthly?: number;
+  pensionGrade?: number | null;
+  pensionStandardMonthly?: number | null;
   pensionGradeSource?: GradeDecisionSource;
 
   /** 給与振込口座情報 */
@@ -373,6 +379,13 @@ export interface Employee {
 
   /** 従業員ポータル連携状態（Phase1では表示専用） */
   portal?: EmployeePortal | null;
+
+  /**
+   * @deprecated 旧設計の名残。計算には使わない。
+   * Firestore ルール・CSV・フォーム UI からも事実上排除する。
+   * Phase1 では optional に変更し、Phase2 以降で完全に排除する。
+   */
+  monthlyWage?: number;
 
   createdAt?: IsoDateString;
   updatedAt?: IsoDateString;
