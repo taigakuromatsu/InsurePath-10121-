@@ -71,7 +71,7 @@ export class EmployeesService {
   async save(
     officeId: string,
     employee: Partial<Employee> & { id?: string }
-  ): Promise<void> {
+  ): Promise<string> {
     const employeesRef = this.collectionPath(officeId);
     const ref = employee.id ? doc(employeesRef, employee.id) : doc(employeesRef);
     const now = new Date().toISOString();
@@ -238,6 +238,7 @@ export class EmployeesService {
     }
 
     await setDoc(ref, processedPayload, { merge: true });
+    return ref.id;
   }
 
   delete(officeId: string, employeeId: string): Promise<void> {

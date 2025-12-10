@@ -798,6 +798,7 @@ export class EmployeeFormDialogComponent {
         ? Number(formValue.payrollInsurableMonthlyWage)
         : null;
     const payrollNote = normalizeString(formValue.payrollNote);
+    const newMonthlyWage = Number(formValue.monthlyWage ?? 0);
 
     // マイナンバー: 空文字の場合はnull（削除扱い）
     const encryptedMyNumber =
@@ -826,7 +827,7 @@ export class EmployeeFormDialogComponent {
       weeklyWorkingDays: formValue.weeklyWorkingDays ?? undefined,
       contractPeriodNote: normalizeString(formValue.contractPeriodNote) as any,
       isStudent: formValue.isStudent ?? false,
-      monthlyWage: Number(formValue.monthlyWage ?? 0),
+      monthlyWage: newMonthlyWage,
       isInsured: formValue.isInsured ?? true,
       healthGrade: formValue.healthGrade ?? undefined,
       pensionGrade: formValue.pensionGrade ?? undefined,
@@ -936,32 +937,46 @@ export class EmployeeFormDialogComponent {
     }
 
     try {
-      await this.employeesService.save(this.data.officeId, payload);
-      await this.addAutoStandardRewardHistory(Number(formValue.monthlyWage));
-      this.dialogRef.close({ saved: true });
+      const savedId = await this.employeesService.save(this.data.officeId, payload);
+      const mode: 'created' | 'updated' = this.data.employee ? 'updated' : 'created';
+      await this.addAutoStandardRewardHistory(savedId, mode, newMonthlyWage);
+      this.dialogRef.close({ saved: true, mode, employeeId: savedId });
     } catch (error) {
       console.error('従業員情報の保存に失敗しました', error);
     }
   }
 
-  private async addAutoStandardRewardHistory(newMonthlyWage: number): Promise<void> {
-    if (
-      !this.data.employee ||
-      this.originalMonthlyWage === undefined ||
-      newMonthlyWage === this.originalMonthlyWage
-    ) {
+  private async addAutoStandardRewardHistory(
+    employeeId: string,
+    mode: 'created' | 'updated',
+    newMonthlyWage: number
+  ): Promise<void> {
+    if (!newMonthlyWage || newMonthlyWage <= 0) {
       return;
+    }
+
+    if (mode === 'updated') {
+      if (
+        !this.data.employee ||
+        this.originalMonthlyWage === undefined ||
+        newMonthlyWage === this.originalMonthlyWage
+      ) {
+        return;
+      }
     }
 
     const currentYearMonth = this.getCurrentYearMonth();
 
     try {
-      await this.standardRewardHistoryService.save(this.data.officeId, this.data.employee.id, {
+      await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
         decisionYearMonth: currentYearMonth,
         appliedFromYearMonth: currentYearMonth,
         standardMonthlyReward: newMonthlyWage,
         decisionKind: 'other',
-        note: '従業員フォームで標準報酬月額が変更されたため自動登録'
+        note:
+          mode === 'created'
+            ? '従業員フォームで初回の標準報酬月額が登録されたため自動登録'
+            : '従業員フォームで標準報酬月額が変更されたため自動登録'
       });
     } catch (error) {
       console.error('標準報酬履歴の自動追加に失敗しました:', error);

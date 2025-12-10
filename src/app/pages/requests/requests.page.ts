@@ -131,12 +131,14 @@ import {
                   <ng-container [ngSwitch]="row.kind">
                     <ng-container *ngSwitchCase="'bankAccount'">
                       <div class="bank-account-info" *ngIf="getCurrentBankAccount(row) as bankAccount; else noCurrent">
-                        <div>{{ bankAccount.bankName }} {{ bankAccount.branchName }}</div>
-                        <div>
-                          {{ getBankAccountTypeLabel(bankAccount.accountType) }} /
-                          {{ bankAccount.accountNumber }}
-                        </div>
-                        <div>名義: {{ bankAccount.accountHolderName }}</div>
+                        <div><strong>金融機関名:</strong> {{ bankAccount.bankName }}</div>
+                        <div *ngIf="bankAccount.bankCode"><strong>金融機関コード:</strong> {{ bankAccount.bankCode }}</div>
+                        <div><strong>支店名:</strong> {{ bankAccount.branchName }}</div>
+                        <div *ngIf="bankAccount.branchCode"><strong>支店コード:</strong> {{ bankAccount.branchCode }}</div>
+                        <div><strong>口座種別:</strong> {{ getBankAccountTypeLabel(bankAccount.accountType) }}</div>
+                        <div><strong>口座番号:</strong> {{ bankAccount.accountNumber }}</div>
+                        <div><strong>名義:</strong> {{ bankAccount.accountHolderName }}</div>
+                        <div *ngIf="bankAccount.accountHolderKana"><strong>名義カナ:</strong> {{ bankAccount.accountHolderKana }}</div>
                       </div>
                       <ng-template #noCurrent>未登録</ng-template>
                     </ng-container>
@@ -153,12 +155,14 @@ import {
                 <ng-container [ngSwitch]="row.kind">
                   <ng-container *ngSwitchCase="'bankAccount'">
                     <div class="bank-account-info" *ngIf="getBankAccountPayload(row) as payload; else noPayload">
-                      <div>{{ payload.bankName }} {{ payload.branchName }}</div>
-                      <div>
-                        {{ getBankAccountTypeLabel(payload.accountType) }} /
-                        {{ payload.accountNumber }}
-                      </div>
-                      <div>名義: {{ payload.accountHolderName }}</div>
+                      <div><strong>金融機関名:</strong> {{ payload.bankName }}</div>
+                      <div *ngIf="payload.bankCode"><strong>金融機関コード:</strong> {{ payload.bankCode }}</div>
+                      <div><strong>支店名:</strong> {{ payload.branchName }}</div>
+                      <div *ngIf="payload.branchCode"><strong>支店コード:</strong> {{ payload.branchCode }}</div>
+                      <div><strong>口座種別:</strong> {{ getBankAccountTypeLabel(payload.accountType) }}</div>
+                      <div><strong>口座番号:</strong> {{ payload.accountNumber }}</div>
+                      <div><strong>名義:</strong> {{ payload.accountHolderName }}</div>
+                      <div *ngIf="payload.accountHolderKana"><strong>名義カナ:</strong> {{ payload.accountHolderKana }}</div>
                     </div>
                     <ng-template #noPayload>-</ng-template>
                   </ng-container>
@@ -315,6 +319,25 @@ import {
       .status-canceled {
         background: #f3f4f6;
         color: #4b5563;
+      }
+
+      .bank-account-info {
+        font-size: 0.875rem;
+        line-height: 1.6;
+      }
+
+      .bank-account-info div {
+        margin-bottom: 4px;
+      }
+
+      .bank-account-info div:last-child {
+        margin-bottom: 0;
+      }
+
+      .bank-account-info strong {
+        color: #666;
+        font-weight: 500;
+        margin-right: 4px;
       }
 
       @media (max-width: 768px) {

@@ -303,8 +303,17 @@ export interface EmployeeDetailDialogData {
         </h2>
         <div class="grid">
           <ng-container *ngIf="data.employee.bankAccount as bankAccount; else noBankAccount">
-            <div class="label">金融機関・支店</div>
-            <div class="value">{{ bankAccount.bankName }} {{ bankAccount.branchName }}</div>
+            <div class="label">金融機関名</div>
+            <div class="value">{{ bankAccount.bankName }}</div>
+
+            <div class="label">金融機関コード</div>
+            <div class="value">{{ bankAccount.bankCode || '-' }}</div>
+
+            <div class="label">支店名</div>
+            <div class="value">{{ bankAccount.branchName }}</div>
+
+            <div class="label">支店コード</div>
+            <div class="value">{{ bankAccount.branchCode || '-' }}</div>
 
             <div class="label">口座種別</div>
             <div class="value">{{ getBankAccountTypeLabel(bankAccount.accountType) }}</div>

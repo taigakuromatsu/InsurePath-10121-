@@ -412,13 +412,141 @@ service cloud.firestore {
       }
     } // end /projects/{projectId}
 
+    // ---- users コレクション ----
     match /users/{uid} {
-  // 認証済みユーザーは、自分自身の users/{uid} だけ
-  // 読み書きできるようにする
-  allow read, write: if
-    request.auth != null
-    && request.auth.uid == uid;
-}
+
+      // プロファイルの基本バリデーション（今のままでOK）
+      function validInsureUserProfile(d) {
+        return d.keys().hasOnly([
+          'id',
+          'officeId',
+          'role',
+          'displayName',
+          'email',
+          'createdAt',
+          'updatedAt',
+          'employeeId',
+        ])
+        && (d.id is string && d.id == uid)
+        && (!('officeId' in d) || (d.officeId is string))
+        && (!('role' in d) || (d.role is string && d.role.size() > 0 && d.role.size() <= 30))
+        && (d.displayName is string
+            && d.displayName.size() > 0
+            && d.displayName.size() <= 120)
+        && (d.email is string
+            && d.email.size() > 3
+            && d.email.size() <= 320)
+        && (d.createdAt is string)
+        && (d.updatedAt is string)
+        && (!('employeeId' in d)
+            || (d.employeeId is string
+                && d.employeeId.size() > 0
+                && d.employeeId.size() <= 200));
+      }
+
+      // ① 単一ドキュメント取得: 自分自身だけ
+      //    → ログイン / current-user.service 用
+      allow get: if isSignedIn() && request.auth.uid == uid;
+
+      // ② 一覧取得（クエリ）: 同じ事業所の admin / hr だけ
+      //    currentUser() / getUserRole() はファイル上部の共通関数をそのまま利用
+      allow list: if isSignedIn()
+        && resource.data.officeId is string
+        && isAdminOrHr(resource.data.officeId);
+
+      // ③ create: 自分自身の users/{uid} を作成
+      //    → AuthService.ensureUserDocument の new user 用
+      allow create: if
+        isSignedIn()
+        && request.auth.uid == uid
+        && validInsureUserProfile(request.resource.data);
+
+      // ④ update（その1）: 自分自身 → 既存のゆるいルールを残す
+      //    ※ これのおかげで assignOffice() / updateProfile() が壊れない
+      allow update: if
+        isSignedIn()
+        && request.auth.uid == uid
+        && validInsureUserProfile(request.resource.data);
+
+      // ⑤ update（その2）: 同じ office の admin が他人の role / employeeId を更新
+      //    user-management タブからのロール変更はこちらで通す
+      allow update: if
+        isSignedIn()
+        && resource.data.officeId is string
+        && isInsureAdmin(resource.data.officeId)          // admin だけにしたい場合
+        // hr も許可したいなら ↑ を isAdminOrHr(...) に変える
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'role',
+          'employeeId',
+          'updatedAt',
+        ])
+        && validInsureUserProfile(request.resource.data)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.officeId == resource.data.officeId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.displayName == resource.data.displayName
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // 削除は禁止のまま
+      allow delete: if false;
+
+      // ==== ここから下は ProblemPath 用サブコレクション（元のままで OK）====
+
+      function isValidNotifyPrefs(d) {
+        return d.keys().hasOnly([
+          'instantComment',
+          'instantFile',
+          'dueReminderMode',
+          'dueReminderHour',
+        ])
+        && (!('instantComment' in d) || (d.instantComment is bool))
+        && (!('instantFile' in d)   || (d.instantFile is bool))
+        && (!('dueReminderMode' in d)
+            || (d.dueReminderMode in ['none', '1d', '7d', '1d7d']))
+        && (!('dueReminderHour' in d)
+            || (d.dueReminderHour is int
+                && d.dueReminderHour >= 0
+                && d.dueReminderHour <= 23));
+      }
+
+      match /notifyPrefs/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update: if
+          isSignedIn()
+          && request.auth.uid == uid
+          && isValidNotifyPrefs(request.resource.data);
+        allow delete: if false;
+      }
+
+      match /memberships/{projectId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create: if isSignedIn() && request.auth.uid == uid;
+        allow update: if isSignedIn() && (
+          request.auth.uid == uid
+          || (
+            isAdmin(projectId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['role'])
+            && isValidRole(request.resource.data.role)
+          )
+        );
+        allow delete: if isSignedIn()
+          && (request.auth.uid == uid || isAdmin(projectId));
+      }
+
+      match /fcmTokens/{token} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update, delete: if isSignedIn() && request.auth.uid == uid;
+      }
+
+      match /fcmStatus/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create, update: if isSignedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['enabled','lastTokenSavedAt','lastError']);
+        allow delete: if false;
+      }
+    }
+
 
 
     match /employeePortalInvites/{token} {

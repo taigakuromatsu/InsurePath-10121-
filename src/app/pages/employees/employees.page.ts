@@ -714,16 +714,39 @@ export class EmployeesPage {
       data: { employee, officeId }
     });
 
-    dialogRef.afterClosed().subscribe((result) => {
+    dialogRef.afterClosed().subscribe(async (result) => {
       if (!result?.saved) {
         return;
       }
 
-      this.snackBar.open('従業員情報を保存しました', '閉じる', {
-        duration: 3000
-      });
       // 一覧再読み込み
       this.reload$.next();
+
+      if (result.mode === 'created' && result.employeeId) {
+        const snackRef = this.snackBar.open(
+          '従業員を作成しました。続けて扶養家族を登録しますか？',
+          '登録する',
+          { duration: 8000 }
+        );
+
+        snackRef.onAction().subscribe(async () => {
+          const officeId = await firstValueFrom(this.officeId$);
+          if (!officeId) {
+            return;
+          }
+
+          const employee = await firstValueFrom(
+            this.employeesService.get(officeId, result.employeeId)
+          );
+          if (employee) {
+            this.openDetailWithFocus(employee, 'dependents');
+          }
+        });
+      } else {
+        this.snackBar.open('従業員情報を保存しました', '閉じる', {
+          duration: 3000
+        });
+      }
     });
   }
 

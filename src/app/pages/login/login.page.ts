@@ -30,36 +30,48 @@ import { AuthService } from '../../services/auth.service';
       <div class="login-container">
         <mat-card class="login-card">
           <div class="login-header">
-            <div class="login-icon">
-              <mat-icon>lock</mat-icon>
+            <div class="login-icon-wrapper">
+              <mat-icon class="login-icon">lock_person</mat-icon>
             </div>
-            <h1>{{ getTitle() }}</h1>
-            <p>{{ getDescription() }}</p>
-            <p class="sub-text" *ngIf="getSubDescription() as sub">{{ sub }}</p>
+            <h1 class="login-title">{{ getTitle() }}</h1>
+            <p class="login-description">{{ getDescription() }}</p>
+            <p class="login-sub-description" *ngIf="getSubDescription() as sub">
+              {{ sub }}
+            </p>
           </div>
 
           <div class="login-content">
+            <!-- Google ログイン -->
             <button
-              mat-raised-button
-              color="primary"
+              mat-flat-button
               (click)="signIn()"
               [disabled]="loading()"
-              class="login-button"
+              class="google-login-button"
             >
-              <mat-icon *ngIf="!loading()">login</mat-icon>
-              <mat-spinner *ngIf="loading()" diameter="20" class="button-spinner"></mat-spinner>
-              Google でログイン
+              <span class="button-content-wrapper">
+                <mat-icon *ngIf="!loading()" class="button-icon">login</mat-icon>
+                <mat-spinner *ngIf="loading()" diameter="20" class="button-spinner"></mat-spinner>
+                <span>Google でログイン / アカウント作成</span>
+              </span>
             </button>
 
             <div class="divider">
-              <span>または</span>
+              <span class="divider-text">または</span>
             </div>
 
-            <div class="email-form" *ngIf="showEmailForm(); else showEmailToggle">
-              <form [formGroup]="emailForm" (ngSubmit)="signInWithEmail()">
-                <mat-form-field appearance="outline" class="full-width">
+            <!-- メールアドレス＋パスワード -->
+            <div class="email-login-section" *ngIf="showEmailForm(); else showEmailToggle">
+              <form [formGroup]="emailForm" (ngSubmit)="signInWithEmail()" class="login-form">
+                <mat-form-field appearance="outline" class="full-width-field">
                   <mat-label>メールアドレス</mat-label>
-                  <input matInput type="email" formControlName="email" required />
+                  <mat-icon matPrefix>email</mat-icon>
+                  <input
+                    matInput
+                    type="email"
+                    formControlName="email"
+                    required
+                    placeholder="example@company.com"
+                  />
                   <mat-error *ngIf="emailForm.get('email')?.hasError('required')">
                     メールアドレスを入力してください
                   </mat-error>
@@ -68,9 +80,15 @@ import { AuthService } from '../../services/auth.service';
                   </mat-error>
                 </mat-form-field>
 
-                <mat-form-field appearance="outline" class="full-width">
+                <mat-form-field appearance="outline" class="full-width-field">
                   <mat-label>パスワード</mat-label>
-                  <input matInput type="password" formControlName="password" required />
+                  <mat-icon matPrefix>lock</mat-icon>
+                  <input
+                    matInput
+                    type="password"
+                    formControlName="password"
+                    required
+                  />
                   <mat-error *ngIf="emailForm.get('password')?.hasError('required')">
                     パスワードを入力してください
                   </mat-error>
@@ -79,30 +97,35 @@ import { AuthService } from '../../services/auth.service';
                   </mat-error>
                 </mat-form-field>
 
-                <div class="error-message" *ngIf="emailError()">
+                <div class="error-message-box" *ngIf="emailError()">
+                  <mat-icon inline>error_outline</mat-icon>
                   {{ emailError() }}
                 </div>
 
-                <button
-                  mat-raised-button
-                  color="primary"
-                  type="submit"
-                  [disabled]="emailForm.invalid || loading()"
-                  class="login-button"
-                >
-                  <mat-icon *ngIf="!loading()">login</mat-icon>
-                  <mat-spinner *ngIf="loading()" diameter="20" class="button-spinner"></mat-spinner>
-                  ログイン
-                </button>
+                <div class="form-actions">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="emailForm.invalid || loading()"
+                    class="submit-button"
+                  >
+                    <span class="button-content-wrapper">
+                      <mat-icon *ngIf="!loading()" class="button-icon">arrow_forward</mat-icon>
+                      <mat-spinner *ngIf="loading()" diameter="20" class="button-spinner"></mat-spinner>
+                      <span>ログイン / アカウント作成</span>
+                    </span>
+                  </button>
 
-                <button
-                  mat-button
-                  type="button"
-                  (click)="toggleEmailForm()"
-                  class="toggle-button"
-                >
-                  キャンセル
-                </button>
+                  <button
+                    mat-button
+                    type="button"
+                    (click)="toggleEmailForm()"
+                    class="cancel-button"
+                  >
+                    キャンセル
+                  </button>
+                </div>
               </form>
             </div>
 
@@ -111,25 +134,40 @@ import { AuthService } from '../../services/auth.service';
                 mat-stroked-button
                 type="button"
                 (click)="toggleEmailForm()"
-                class="toggle-button"
+                class="email-toggle-button"
               >
-                メールアドレスとパスワードでログイン
+                <mat-icon class="button-icon">mail</mat-icon>
+                メールアドレスとパスワードで続行
               </button>
             </ng-template>
 
-            <p class="info-text" *ngIf="mode() === 'employee'">
-              招待リンクから来た場合は、そのリンクを開いてログインしてください。
-            </p>
-            <p class="info-text" *ngIf="mode() !== 'employee'">
-              管理者・人事担当の方は、この画面からそのままログインして事業所を作成できます。
-              従業員の方は、管理者から送られた招待リンクから参加してください。
-            </p>
+            <!-- 説明テキスト -->
+            <div class="info-text-container">
+              <!-- 従業員モード（招待リンク付き /login?mode=employee） -->
+              <p class="info-text" *ngIf="mode() === 'employee'">
+                <mat-icon inline class="info-icon">info</mat-icon>
+                従業員の方は、所属事業所の管理者から送られた招待リンク経由でこの画面にアクセスし、
+                ログインしてください。初めてご利用の方も、そのままログインするとアカウントが作成されます。
+                一度参加が完了した従業員は、次回以降もこのログイン画面から再ログインできます。
+              </p>
 
-            <p class="info-text" *ngIf="mode() !== 'employee'">
-              アカウントをお持ちでない場合は、招待リンクから新規登録できます。
-            </p>
-        </div>
-      </mat-card>
+              <!-- それ以外: 管理者・人事担当 + 再ログインする従業員 -->
+              <div *ngIf="mode() !== 'employee'" class="admin-info">
+                <p class="info-text">
+                  <mat-icon inline class="info-icon">business</mat-icon>
+                  このログイン画面は、主に事業所を管理する方（管理者・人事担当）向けです。
+                  InsurePath を初めてご利用の方は、ここからログイン／アカウント作成を行い、
+                  事業所情報の登録を進めてください。
+                </p>
+                <p class="info-text secondary-info">
+                  従業員の方は、初回のみ管理者から送られた招待リンク経由で InsurePath に参加します。
+                  参加が完了した後は、このログイン画面から通常どおり再ログインできます。
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </mat-card>
       </div>
     </section>
   `,
@@ -139,156 +177,265 @@ import { AuthService } from '../../services/auth.service';
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 80vh;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 24px;
+        box-sizing: border-box;
       }
 
       .login-container {
         width: 100%;
-        max-width: 480px;
+        max-width: 600px;
       }
 
       .login-card {
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-        border-radius: 16px;
+        border-radius: 24px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
         overflow: hidden;
-      }
-
-      .login-card ::ng-deep .mat-mdc-card-content {
-        padding: 0;
+        background: #ffffff;
+        border: none;
       }
 
       .login-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #3f51b5 0%, #5c6bc0 100%);
         color: white;
-        padding: 3rem 2rem;
+        padding: 48px 32px 40px;
         text-align: center;
+        position: relative;
+      }
+
+      .login-icon-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 24px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 50%;
+        backdrop-filter: blur(4px);
       }
 
       .login-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 80px;
-        height: 80px;
-        margin: 0 auto 1.5rem;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-      }
-
-      .login-icon mat-icon {
-        font-size: 48px;
-        width: 48px;
-        height: 48px;
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
         color: white;
       }
 
-      .login-header h1 {
-        margin: 0 0 0.75rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
+      .login-title {
+        margin: 0 0 12px 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        line-height: 1.4;
       }
 
-      .login-header p {
+      .login-description {
         margin: 0;
-        opacity: 0.9;
-        font-size: 1rem;
+        opacity: 0.95;
+        font-size: 0.95rem;
+        line-height: 1.6;
       }
 
-      .sub-text {
-        margin-top: 0.5rem;
-        opacity: 0.9;
+      .login-sub-description {
+        margin-top: 8px;
+        font-size: 0.85rem;
+        opacity: 0.8;
       }
 
       .login-content {
-        padding: 2rem;
-        text-align: center;
+        padding: 40px 32px;
       }
 
-      .login-button {
-        width: 100%;
-        padding: 12px 24px;
-        font-size: 1rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        transition: all 0.2s ease;
+      .button-content-wrapper {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
+        gap: 8px;
+        width: 100%;
       }
 
-      .login-button:hover:not(:disabled) {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        transform: translateY(-2px);
+      .button-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
       }
 
       .button-spinner {
-        margin-right: 0;
+        margin: 0;
+      }
+
+      .google-login-button {
+        width: 100%;
+        height: 48px;
+        font-size: 1rem;
+        font-weight: 500;
+        background-color: #4285f4;
+        color: white;
+        border-radius: 24px;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .google-login-button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
       }
 
       .divider {
         display: flex;
         align-items: center;
-        margin: 24px 0;
-        text-align: center;
+        margin: 32px 0;
+        color: #9ca3af;
+      }
 
-        &::before,
-        &::after {
-          content: '';
-          flex: 1;
-          border-bottom: 1px solid #e0e0e0;
+      .divider::before,
+      .divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .divider-text {
+        padding: 0 16px;
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+
+      .email-login-section {
+        animation: fadeIn 0.3s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
         }
-
-        span {
-          padding: 0 16px;
-          color: #666;
-          font-size: 0.9rem;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
       }
 
-      .email-form {
-        width: 100%;
-        margin-top: 16px;
+      .login-form {
+        display: flex;
+        flex-direction: column;
       }
 
-      .full-width {
+      .full-width-field {
         width: 100%;
-        margin-bottom: 16px;
+        margin-bottom: 8px;
       }
 
-      .error-message {
-        color: #d32f2f;
-        font-size: 0.875rem;
-        margin-bottom: 16px;
-        padding: 8px;
-        background-color: #ffebee;
-        border-radius: 4px;
+      .error-message-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #b91c1c;
+        font-size: 0.85rem;
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 24px;
+        line-height: 1.4;
       }
 
-      .toggle-button {
-        width: 100%;
+      .form-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
         margin-top: 8px;
       }
 
-      .info-text {
-        margin-top: 16px;
-        font-size: 0.875rem;
-        color: #666;
-        text-align: center;
+      .submit-button {
+        width: 100%;
+        height: 48px;
+        border-radius: 24px;
+        font-size: 1rem;
+        font-weight: 500;
       }
 
-      @media (max-width: 768px) {
+      .cancel-button {
+        width: 100%;
+        color: #6b7280;
+      }
+
+      .email-toggle-button {
+        width: 100%;
+        height: 48px;
+        border-radius: 24px;
+        border-color: #d1d5db;
+        color: #4b5563;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .email-toggle-button:hover {
+        background-color: #f9fafb;
+        border-color: #9ca3af;
+      }
+
+      .info-text-container {
+        margin-top: 40px;
+        border-top: 1px solid #f3f4f6;
+        padding-top: 24px;
+      }
+
+      .info-text {
+        font-size: 0.8rem;
+        color: #6b7280;
+        line-height: 1.6;
+        margin: 0 0 12px 0;
+        text-align: left;
+      }
+
+      .info-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        vertical-align: text-bottom;
+        margin-right: 4px;
+        color: #9ca3af;
+      }
+
+      .secondary-info {
+        font-size: 0.75rem;
+        color: #9ca3af;
+        margin-top: 8px;
+      }
+
+      @media (max-width: 600px) {
         .login {
-          padding: 1rem;
+          padding: 0;
+          background: #ffffff;
+          align-items: flex-start;
+        }
+
+        .login-container {
+          max-width: 100%;
+          min-height: 100vh;
+        }
+
+        .login-card {
+          box-shadow: none;
+          border-radius: 0;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
         }
 
         .login-header {
-          padding: 2rem 1.5rem;
+          padding: 40px 24px 32px;
+          border-radius: 0 0 24px 24px;
         }
 
         .login-content {
-          padding: 1.5rem;
+          padding: 32px 24px;
+          flex: 1;
         }
       }
     `
@@ -315,18 +462,23 @@ export class LoginPage {
   }
 
   getTitle(): string {
-    return this.mode() === 'employee' ? 'InsurePath 従業員用ログイン' : 'InsurePath へログイン';
+    return this.mode() === 'employee'
+      ? 'InsurePath 従業員ログイン'
+      : 'InsurePath ログイン / アカウント作成';
   }
 
   getDescription(): string {
-    return this.mode() === 'employee'
-      ? 'あなたの社会保険情報を確認するための従業員専用ページです。'
-      : 'Google またはメールアドレスでログインして従業員台帳を管理しましょう。';
+    if (this.mode() === 'employee') {
+      return '管理者から送られた招待リンク経由で、従業員用マイページにログインします。';
+    }
+    // ★シンプルな説明だけにする
+    return '社会保険業務を管理するための InsurePath の共通ログインページです。';
   }
+  
 
   getSubDescription(): string | null {
     if (this.mode() === 'employee') {
-      return '管理者・人事担当の方は、管理者画面用のログインからお入りください。';
+      return '初めてご利用の方も、この画面からログインするとアカウントが作成されます。';
     }
     return null;
   }
@@ -396,3 +548,4 @@ export class LoginPage {
     }
   }
 }
+

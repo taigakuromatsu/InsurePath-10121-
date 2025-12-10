@@ -15,7 +15,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { combineLatest, firstValueFrom, of, switchMap } from 'rxjs';
+import { combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
 
 import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
@@ -29,6 +29,7 @@ import {
   ChangeRequest,
   ChangeRequestStatus,
   BankAccountChangePayload,
+  BankAccount,
   Employee,
   Dependent,
   DocumentRequest,
@@ -200,8 +201,20 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
             <ng-container *ngIf="employee.bankAccount as bankAccount; else noBankAccount">
               <div class="info-grid">
                 <div class="info-item">
-                  <span class="label">金融機関・支店</span>
-                  <span class="value">{{ bankAccount.bankName }} {{ bankAccount.branchName }}</span>
+                  <span class="label">金融機関名</span>
+                  <span class="value">{{ bankAccount.bankName }}</span>
+                </div>
+                <div class="info-item" *ngIf="bankAccount.bankCode">
+                  <span class="label">金融機関コード</span>
+                  <span class="value">{{ bankAccount.bankCode }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">支店名</span>
+                  <span class="value">{{ bankAccount.branchName }}</span>
+                </div>
+                <div class="info-item" *ngIf="bankAccount.branchCode">
+                  <span class="label">支店コード</span>
+                  <span class="value">{{ bankAccount.branchCode }}</span>
                 </div>
                 <div class="info-item">
                   <span class="label">口座種別</span>
@@ -677,9 +690,9 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
           </button>
         </div>
 
-        <ng-container *ngIf="myRequests$ | async as requests">
-          <div class="table-container" *ngIf="requests.length > 0; else noChangeRequests">
-            <table mat-table [dataSource]="requests" class="admin-table">
+        <ng-container *ngIf="requestsWithEmployee$ | async as data">
+          <div class="table-container" *ngIf="data.requests.length > 0; else noChangeRequests">
+            <table mat-table [dataSource]="data.requests" class="admin-table">
               <ng-container matColumnDef="requestedAt">
                 <th mat-header-cell *matHeaderCellDef>申請日時</th>
                 <td mat-cell *matCellDef="let row">{{ row.requestedAt | date: 'yyyy-MM-dd HH:mm' }}</td>
@@ -710,7 +723,26 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
               <ng-container matColumnDef="currentValue">
                 <th mat-header-cell *matHeaderCellDef>現在の値</th>
-                <td mat-cell *matCellDef="let row">{{ row.currentValue || '-' }}</td>
+                <td mat-cell *matCellDef="let row">
+                  <ng-container [ngSwitch]="row.kind">
+                    <ng-container *ngSwitchCase="'bankAccount'">
+                      <div class="bank-account-info" *ngIf="data.employee?.bankAccount as bankAccount; else noCurrent">
+                        <div><strong>金融機関名:</strong> {{ bankAccount.bankName }}</div>
+                        <div *ngIf="bankAccount.bankCode"><strong>金融機関コード:</strong> {{ bankAccount.bankCode }}</div>
+                        <div><strong>支店名:</strong> {{ bankAccount.branchName }}</div>
+                        <div *ngIf="bankAccount.branchCode"><strong>支店コード:</strong> {{ bankAccount.branchCode }}</div>
+                        <div><strong>口座種別:</strong> {{ getBankAccountTypeLabel(bankAccount.accountType) }}</div>
+                        <div><strong>口座番号:</strong> {{ bankAccount.accountNumber }}</div>
+                        <div><strong>名義:</strong> {{ bankAccount.accountHolderName }}</div>
+                        <div *ngIf="bankAccount.accountHolderKana"><strong>名義カナ:</strong> {{ bankAccount.accountHolderKana }}</div>
+                      </div>
+                      <ng-template #noCurrent>未登録</ng-template>
+                    </ng-container>
+                    <ng-container *ngSwitchDefault>
+                      {{ row.currentValue || '-' }}
+                    </ng-container>
+                  </ng-container>
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="requestedValue">
@@ -719,12 +751,14 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                   <ng-container [ngSwitch]="row.kind">
                     <ng-container *ngSwitchCase="'bankAccount'">
                       <div class="bank-account-info" *ngIf="getBankAccountPayload(row) as payload; else noPayload">
-                        <div>{{ payload.bankName }} {{ payload.branchName }}</div>
-                        <div>
-                          {{ getBankAccountTypeLabel(payload.accountType) }} /
-                          {{ payload.accountNumber }}
-                        </div>
-                        <div>名義: {{ payload.accountHolderName }}</div>
+                        <div><strong>金融機関名:</strong> {{ payload.bankName }}</div>
+                        <div *ngIf="payload.bankCode"><strong>金融機関コード:</strong> {{ payload.bankCode }}</div>
+                        <div><strong>支店名:</strong> {{ payload.branchName }}</div>
+                        <div *ngIf="payload.branchCode"><strong>支店コード:</strong> {{ payload.branchCode }}</div>
+                        <div><strong>口座種別:</strong> {{ getBankAccountTypeLabel(payload.accountType) }}</div>
+                        <div><strong>口座番号:</strong> {{ payload.accountNumber }}</div>
+                        <div><strong>名義:</strong> {{ payload.accountHolderName }}</div>
+                        <div *ngIf="payload.accountHolderKana"><strong>名義カナ:</strong> {{ payload.accountHolderKana }}</div>
                       </div>
                       <ng-template #noPayload>-</ng-template>
                     </ng-container>
@@ -1185,6 +1219,25 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
         color: #991b1b;
         font-weight: 500;
       }
+
+      .bank-account-info {
+        font-size: 0.875rem;
+        line-height: 1.6;
+      }
+
+      .bank-account-info div {
+        margin-bottom: 4px;
+      }
+
+      .bank-account-info div:last-child {
+        margin-bottom: 0;
+      }
+
+      .bank-account-info strong {
+        color: #666;
+        font-weight: 500;
+        margin-right: 4px;
+      }
     `
   ]
 })
@@ -1284,6 +1337,13 @@ export class MyPage {
 
       return this.changeRequestsService.listForUser(officeId, profile.id);
     })
+  );
+
+  readonly requestsWithEmployee$ = combineLatest([this.myRequests$, this.employee$]).pipe(
+    map(([requests, employee]) => ({
+      requests,
+      employee
+    }))
   );
 
   readonly documentRequests$ = combineLatest([this.currentOffice.officeId$, this.currentUser.profile$]).pipe(
@@ -1435,6 +1495,13 @@ export class MyPage {
   getBankAccountPayload(request: ChangeRequest): BankAccountChangePayload | null {
     if (request.kind !== 'bankAccount') return null;
     return (request.payload as BankAccountChangePayload) ?? null;
+  }
+
+  getCurrentBankAccount(request: ChangeRequest): BankAccount | null {
+    if (request.kind !== 'bankAccount') return null;
+    // employee$から現在の従業員情報を取得して口座情報を返す
+    // テンプレートで employee$ | async と組み合わせて使用する
+    return null; // テンプレート側で employee$ から取得する
   }
 
   async cancelRequest(request: ChangeRequest): Promise<void> {
