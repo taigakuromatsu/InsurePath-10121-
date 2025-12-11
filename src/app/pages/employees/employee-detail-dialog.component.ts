@@ -173,27 +173,38 @@ export interface EmployeeDetailDialogData {
       </div>
       </div>
 
-      <!-- 社会保険情報 -->
+      <!-- 社会保険関連 -->
       <div class="form-section" id="insurance" #sectionBlock>
         <h2 class="mat-h3 section-title">
           <mat-icon>account_balance</mat-icon>
-        社会保険情報
-      </h2>
+        社会保険関連
+        </h2>
       <div class="grid">
-        <div class="label">社会保険対象</div>
-        <div class="value">
+        <!-- 社会保険対象（独立した行） -->
+        <div class="label full-row">社会保険対象</div>
+        <div class="value full-row">
           {{ data.employee.isInsured ? '加入' : '対象外' }}
         </div>
 
-        <div class="label">被保険者記号</div>
-        <div class="value">{{ data.employee.healthInsuredSymbol || '-' }}</div>
+        <!-- 給与情報（標準報酬決定用） -->
+        <ng-container *ngIf="data.employee.payrollSettings as payroll; else noPayroll">
+          <div class="label">支給形態</div>
+          <div class="value">{{ getPayrollPayTypeLabel(payroll.payType) }}</div>
 
-        <div class="label">被保険者番号</div>
-        <div class="value">{{ data.employee.healthInsuredNumber || '-' }}</div>
+          <div class="label">支給サイクル</div>
+          <div class="value">{{ getPayrollPayCycleLabel(payroll.payCycle) }}</div>
 
-        <div class="label">厚生年金番号</div>
-        <div class="value">{{ data.employee.pensionNumber || '-' }}</div>
+          <div class="label">報酬月額</div>
+          <div class="value">
+            {{ payroll.insurableMonthlyWage != null ? (payroll.insurableMonthlyWage | number) + ' 円' : '-' }}
+          </div>
+        </ng-container>
+        <ng-template #noPayroll>
+          <div class="label">給与情報</div>
+          <div class="value">未登録</div>
+        </ng-template>
 
+        <!-- 標準報酬・等級 -->
         <div class="label">健康保険 等級</div>
         <div class="value">{{ data.employee.healthGrade ?? '-' }}</div>
 
@@ -209,6 +220,22 @@ export interface EmployeeDetailDialogData {
         <div class="value">
           {{ data.employee.pensionStandardMonthly != null ? (data.employee.pensionStandardMonthly | number) + ' 円' : '-' }}
         </div>
+
+        <!-- その他の社会保険情報 -->
+        <div class="label">被保険者記号</div>
+        <div class="value">{{ data.employee.healthInsuredSymbol || '-' }}</div>
+
+        <div class="label">被保険者番号</div>
+        <div class="value">{{ data.employee.healthInsuredNumber || '-' }}</div>
+
+        <div class="label">厚生年金番号</div>
+        <div class="value">{{ data.employee.pensionNumber || '-' }}</div>
+
+        <!-- 補足メモ（給与情報） -->
+        <ng-container *ngIf="data.employee.payrollSettings as payroll">
+          <div class="label full-row">補足メモ（給与情報）</div>
+          <div class="value full-row">{{ payroll.note || '-' }}</div>
+        </ng-container>
       </div>
       </div>
 
@@ -339,35 +366,6 @@ export interface EmployeeDetailDialogData {
             <div class="value">未登録</div>
           </ng-template>
         </div>
-      </div>
-
-      <!-- 給与情報（保険用） -->
-      <div class="form-section" id="payrollSettings" #sectionBlock>
-        <h2 class="mat-h3 section-title">
-          <mat-icon>payments</mat-icon>
-          給与情報（保険用）
-        </h2>
-        <div class="grid">
-          <ng-container *ngIf="data.employee.payrollSettings as payroll; else noPayroll">
-            <div class="label">支給形態</div>
-            <div class="value">{{ getPayrollPayTypeLabel(payroll.payType) }}</div>
-
-            <div class="label">支給サイクル</div>
-            <div class="value">{{ getPayrollPayCycleLabel(payroll.payCycle) }}</div>
-
-            <div class="label">報酬月額</div>
-            <div class="value">
-              {{ payroll.insurableMonthlyWage != null ? (payroll.insurableMonthlyWage | number) + ' 円' : '-' }}
-            </div>
-
-            <div class="label">補足メモ</div>
-            <div class="value">{{ payroll.note || '-' }}</div>
-          </ng-container>
-          <ng-template #noPayroll>
-            <div class="label">給与情報</div>
-            <div class="value">未登録</div>
-          </ng-template>
-      </div>
       </div>
 
       <!-- 標準報酬履歴 -->
@@ -684,6 +682,10 @@ export interface EmployeeDetailDialogData {
         word-break: break-word;
       }
 
+      .full-row {
+        grid-column: 1 / -1;
+      }
+
       .dialog-actions {
         padding: 12px 16px;
         border-top: 1px solid #e0e0e0;
@@ -798,11 +800,10 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
     { id: 'basic', label: '基本情報', icon: 'person' },
     { id: 'work', label: '就労条件', icon: 'work' },
     { id: 'insurance', label: '社会保険', icon: 'account_balance' },
+    { id: 'bankAccount', label: '口座情報', icon: 'account_balance_wallet' },
     { id: 'health-qualification', label: '健保資格', icon: 'local_hospital' },
     { id: 'pension-qualification', label: '厚年資格', icon: 'account_balance' },
     { id: 'working-status', label: '就業状態', icon: 'event' },
-    { id: 'bankAccount', label: '口座情報', icon: 'account_balance_wallet' },
-    { id: 'payrollSettings', label: '給与情報', icon: 'payments' },
     { id: 'standard-reward-history', label: '標準報酬履歴', icon: 'trending_up' },
     { id: 'dependents', label: '扶養家族', icon: 'family_restroom' },
     { id: 'system', label: 'システム', icon: 'info' }
