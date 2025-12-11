@@ -1,4 +1,4 @@
-import { Component, Inject, inject } from '@angular/core';
+import { Component, DestroyRef, Inject, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -17,12 +17,17 @@ import {
   Employee,
   PayrollPayCycle,
   PayrollPayType,
+  GradeDecisionSource,
   Sex,
   YearMonthString
 } from '../../types';
 import { CurrentUserService } from '../../services/current-user.service';
 import { firstValueFrom, map } from 'rxjs';
 import { MyNumberService } from '../../services/mynumber.service';
+import { OfficesService } from '../../services/offices.service';
+import { MastersService } from '../../services/masters.service';
+import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-calculator';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 export interface EmployeeDialogData {
   employee?: Employee;
@@ -186,23 +191,6 @@ export interface EmployeeDialogData {
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>
-          標準報酬月額
-          <button
-            mat-icon-button
-            type="button"
-            class="field-help-button"
-            (click)="openHelp($event)"
-            aria-label="標準報酬月額のヘルプを表示"
-          >
-            <mat-icon>help_outline</mat-icon>
-          </button>
-        </mat-label>
-        <input matInput type="number" formControlName="monthlyWage" />
-        <mat-hint *ngIf="data.employee">標準報酬月額を変更すると、標準報酬履歴に自動で記録されます</mat-hint>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
         <mat-label>所定労働時間（週）</mat-label>
         <input matInput type="number" formControlName="weeklyWorkingHours" />
       </mat-form-field>
@@ -225,6 +213,62 @@ export interface EmployeeDialogData {
 
       <div class="form-section">
         <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
+          <mat-icon>payments</mat-icon>
+          給与情報（保険用）
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>支給形態</mat-label>
+            <mat-select formControlName="payrollPayType">
+              <mat-option [value]="''">未選択</mat-option>
+              <mat-option value="monthly">月給</mat-option>
+              <mat-option value="daily">日給</mat-option>
+              <mat-option value="hourly">時給</mat-option>
+              <mat-option value="annual">年俸</mat-option>
+              <mat-option value="other">その他</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>支給サイクル</mat-label>
+            <mat-select formControlName="payrollPayCycle">
+              <mat-option [value]="''">未選択</mat-option>
+              <mat-option value="monthly">月次</mat-option>
+              <mat-option value="twice_per_month">月2回</mat-option>
+              <mat-option value="weekly">週次</mat-option>
+              <mat-option value="other">その他</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>報酬月額（円）</mat-label>
+            <input matInput formControlName="payrollInsurableMonthlyWage" />
+            <mat-hint>社会保険の標準報酬月額を決めるための月額給与です</mat-hint>
+            <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('min')">
+          1以上の数値を入力してください
+            </mat-error>
+            <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('pattern')">
+              数字のみを入力してください
+            </mat-error>
+          </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>標準報酬決定年月</mat-label>
+        <input matInput type="month" formControlName="decisionYearMonth" />
+        <mat-error *ngIf="form.get('decisionYearMonth')?.hasError('required')">
+          標準報酬決定年月を入力してください
+        </mat-error>
+      </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-row">
+            <mat-label>補足メモ</mat-label>
+            <textarea matInput rows="2" formControlName="payrollNote"></textarea>
+      </mat-form-field>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
           <mat-icon>account_balance</mat-icon>
           社会保険関連
         </h3>
@@ -239,8 +283,24 @@ export interface EmployeeDialogData {
       </mat-form-field>
 
       <mat-form-field appearance="outline">
+        <mat-label>健康保険 標準報酬月額</mat-label>
+        <input matInput type="number" formControlName="healthStandardMonthly" />
+        <mat-hint *ngIf="healthCalculationError" style="color:#d32f2f">
+          {{ healthCalculationError }}
+        </mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
         <mat-label>厚生年金 等級</mat-label>
         <input matInput type="number" formControlName="pensionGrade" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>厚生年金 標準報酬月額</mat-label>
+        <input matInput type="number" formControlName="pensionStandardMonthly" />
+        <mat-hint *ngIf="pensionCalculationError" style="color:#d32f2f">
+          {{ pensionCalculationError }}
+        </mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -328,60 +388,6 @@ export interface EmployeeDialogData {
             <mat-label>名義カナ</mat-label>
             <input matInput formControlName="bankAccountHolderKana" />
           </mat-form-field>
-        </div>
-      </div>
-
-      <div class="form-section">
-        <h3 class="mat-h3 flex-row align-center gap-2 mb-3">
-          <mat-icon>payments</mat-icon>
-          給与情報（保険用）
-        </h3>
-        <div class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>支給形態</mat-label>
-            <mat-select formControlName="payrollPayType">
-              <mat-option [value]="''">未選択</mat-option>
-              <mat-option value="monthly">月給</mat-option>
-              <mat-option value="daily">日給</mat-option>
-              <mat-option value="hourly">時給</mat-option>
-              <mat-option value="annual">年俸</mat-option>
-              <mat-option value="other">その他</mat-option>
-            </mat-select>
-            <mat-error *ngIf="form.get('payrollPayType')?.hasError('required')">
-              支給形態を選択してください
-            </mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>支給サイクル</mat-label>
-            <mat-select formControlName="payrollPayCycle">
-              <mat-option [value]="''">未選択</mat-option>
-              <mat-option value="monthly">月次</mat-option>
-              <mat-option value="twice_per_month">月2回</mat-option>
-              <mat-option value="weekly">週次</mat-option>
-              <mat-option value="other">その他</mat-option>
-            </mat-select>
-            <mat-error *ngIf="form.get('payrollPayCycle')?.hasError('required')">
-              支給サイクルを選択してください
-            </mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>報酬月額（円）</mat-label>
-            <input matInput formControlName="payrollInsurableMonthlyWage" />
-            <mat-hint>社会保険の標準報酬月額を決めるための月額給与です</mat-hint>
-            <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('min')">
-              0以上の数値を入力してください
-            </mat-error>
-            <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('pattern')">
-              数字のみを入力してください
-            </mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-row">
-            <mat-label>補足メモ</mat-label>
-            <textarea matInput rows="2" formControlName="payrollNote"></textarea>
-      </mat-form-field>
         </div>
       </div>
 
@@ -514,7 +520,7 @@ export interface EmployeeDialogData {
         <mat-icon>close</mat-icon>
         キャンセル
       </button>
-      <button mat-flat-button color="primary" (click)="submit()" [disabled]="form.invalid">
+        <button mat-flat-button color="primary" (click)="submit()" [disabled]="!canSave">
         <mat-icon>save</mat-icon>
         保存
       </button>
@@ -594,9 +600,19 @@ export class EmployeeFormDialogComponent {
   private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly myNumberService = inject(MyNumberService);
-  private readonly originalMonthlyWage?: number;
+  private readonly officesService = inject(OfficesService);
+  private readonly mastersService = inject(MastersService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected maskedMyNumber: string | null = null;
+  protected healthCalculationError: string | null = null;
+  protected pensionCalculationError: string | null = null;
+
+  private autoCalculatedHealthGrade: number | null = null;
+  private autoCalculatedHealthStandardMonthly: number | null = null;
+  private autoCalculatedPensionGrade: number | null = null;
+  private autoCalculatedPensionStandardMonthly: number | null = null;
+  private readonly originalStandardMonthly?: number;
 
   readonly form = inject(FormBuilder).group({
     id: [''],
@@ -630,10 +646,14 @@ export class EmployeeFormDialogComponent {
     weeklyWorkingDays: [null],
     contractPeriodNote: [''],
     isStudent: [false],
-    monthlyWage: [0, Validators.required],
+    decisionYearMonth: [this.getCurrentYearMonth(), Validators.required],
     isInsured: [true],
-    healthGrade: [null],
-    pensionGrade: [null],
+    healthGrade: [null, [Validators.min(1), Validators.max(100)]],
+    healthStandardMonthly: [null, [Validators.min(1)]],
+    healthGradeSource: [null as GradeDecisionSource | null],
+    pensionGrade: [null, [Validators.min(1), Validators.max(100)]],
+    pensionStandardMonthly: [null, [Validators.min(1)]],
+    pensionGradeSource: [null as GradeDecisionSource | null],
     healthInsuredSymbol: [''],
     healthInsuredNumber: [''],
     pensionNumber: [''],
@@ -663,27 +683,32 @@ export class EmployeeFormDialogComponent {
     bankAccountHolderKana: [''],
     payrollPayType: [''],
     payrollPayCycle: [''],
-    payrollInsurableMonthlyWage: [
-      null,
-      [Validators.min(0), Validators.pattern(/^\d+$/)]
-    ],
+    payrollInsurableMonthlyWage: [null, [Validators.min(1), Validators.pattern(/^\d+$/)]],
     payrollNote: ['']
   });
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDialogData) {
     if (data.employee) {
-      this.originalMonthlyWage = data.employee.monthlyWage;
-    }
-    if (data.employee) {
       const employee = data.employee;
+      const maxStandard = Math.max(
+        employee.healthStandardMonthly ?? 0,
+        employee.pensionStandardMonthly ?? 0
+      );
+      this.originalStandardMonthly = maxStandard > 0 ? maxStandard : undefined;
+
       this.form.patchValue({
         ...employee,
+        decisionYearMonth: this.getCurrentYearMonth(),
         employeeCodeInOffice: employee.employeeCodeInOffice ?? '',
         sex: employee.sex ?? null,
         postalCode: employee.postalCode ?? '',
         addressKana: employee.addressKana ?? '',
         healthGrade: employee.healthGrade ?? null,
+        healthStandardMonthly: employee.healthStandardMonthly ?? null,
+        healthGradeSource: employee.healthGradeSource ?? null,
         pensionGrade: employee.pensionGrade ?? null,
+        pensionStandardMonthly: employee.pensionStandardMonthly ?? null,
+        pensionGradeSource: employee.pensionGradeSource ?? null,
         weeklyWorkingHours: employee.weeklyWorkingHours ?? null,
         weeklyWorkingDays: employee.weeklyWorkingDays ?? null,
         healthQualificationDate: employee.healthQualificationDate ?? '',
@@ -717,6 +742,169 @@ export class EmployeeFormDialogComponent {
         void this.loadExistingMyNumber(employee.myNumber);
       }
     }
+
+    this.setupAutoCalculationSubscriptions();
+    
+    // 既存の従業員を編集する場合、標準報酬が既に設定されている場合は自動計算をスキップ
+    // （手動で上書きした値が自動計算で上書きされるのを防ぐ）
+    const isExistingEmployee = !!this.data.employee;
+    const hasExistingStandardReward = 
+      (this.data.employee?.healthStandardMonthly != null && this.data.employee.healthStandardMonthly > 0) ||
+      (this.data.employee?.pensionStandardMonthly != null && this.data.employee.pensionStandardMonthly > 0);
+    
+    const salaryInit = this.form.get('payrollInsurableMonthlyWage')?.value;
+    if (salaryInit && salaryInit > 0 && !(isExistingEmployee && hasExistingStandardReward)) {
+      void this.recalculateStandardRewardsFromForm();
+    }
+  }
+
+  private setupAutoCalculationSubscriptions(): void {
+    this.form
+      .get('payrollInsurableMonthlyWage')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        void this.recalculateStandardRewardsFromForm();
+      });
+
+    this.form
+      .get('decisionYearMonth')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        void this.recalculateStandardRewardsFromForm();
+      });
+
+    this.form
+      .get('healthGrade')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => this.onHealthGradeChanged(value));
+    this.form
+      .get('healthStandardMonthly')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => this.onHealthStandardMonthlyChanged(value));
+    this.form
+      .get('pensionGrade')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => this.onPensionGradeChanged(value));
+    this.form
+      .get('pensionStandardMonthly')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => this.onPensionStandardMonthlyChanged(value));
+  }
+
+  private async recalculateStandardRewardsFromForm(): Promise<void> {
+    const salary = this.form.get('payrollInsurableMonthlyWage')?.value;
+    const decisionYearMonth = this.form.get('decisionYearMonth')?.value as YearMonthString | null;
+
+    if (!salary || salary <= 0 || !decisionYearMonth) {
+      this.healthCalculationError = null;
+      this.pensionCalculationError = null;
+      return;
+    }
+
+    const office = await firstValueFrom(this.officesService.watchOffice(this.data.officeId));
+    if (!office) {
+      return;
+    }
+
+    const calcResult = await calculateStandardRewardsFromSalary(
+      office,
+      Number(salary),
+      decisionYearMonth,
+      this.mastersService
+    );
+
+    this.autoCalculatedHealthGrade = calcResult.healthGrade;
+    this.autoCalculatedHealthStandardMonthly = calcResult.healthStandardMonthly;
+    this.autoCalculatedPensionGrade = calcResult.pensionGrade;
+    this.autoCalculatedPensionStandardMonthly = calcResult.pensionStandardMonthly;
+
+    this.healthCalculationError = calcResult.errors.health ?? null;
+    this.pensionCalculationError = calcResult.errors.pension ?? null;
+
+    this.form.patchValue(
+      {
+        healthGrade: calcResult.healthGrade ?? null,
+        healthStandardMonthly: calcResult.healthStandardMonthly ?? null,
+        healthGradeSource: calcResult.healthGrade ? ('auto_from_salary' as GradeDecisionSource) : null,
+        pensionGrade: calcResult.pensionGrade ?? null,
+        pensionStandardMonthly: calcResult.pensionStandardMonthly ?? null,
+        pensionGradeSource: calcResult.pensionGrade
+          ? ('auto_from_salary' as GradeDecisionSource)
+          : null
+      } as any,
+      { emitEvent: false }
+    );
+  }
+
+  private onHealthGradeChanged(value: number | null): void {
+    if (value != null && value > 0) {
+      if (this.autoCalculatedHealthGrade === null || value !== this.autoCalculatedHealthGrade) {
+        this.form.patchValue({ healthGradeSource: 'manual_override' }, { emitEvent: false });
+      }
+    }
+  }
+
+  private onHealthStandardMonthlyChanged(value: number | null): void {
+    if (value != null && value > 0) {
+      if (
+        this.autoCalculatedHealthStandardMonthly === null ||
+        value !== this.autoCalculatedHealthStandardMonthly
+      ) {
+        this.form.patchValue({ healthGradeSource: 'manual_override' }, { emitEvent: false });
+      }
+    }
+  }
+
+  private onPensionGradeChanged(value: number | null): void {
+    if (value != null && value > 0) {
+      if (this.autoCalculatedPensionGrade === null || value !== this.autoCalculatedPensionGrade) {
+        this.form.patchValue({ pensionGradeSource: 'manual_override' }, { emitEvent: false });
+      }
+    }
+  }
+
+  private onPensionStandardMonthlyChanged(value: number | null): void {
+    if (value != null && value > 0) {
+      if (
+        this.autoCalculatedPensionStandardMonthly === null ||
+        value !== this.autoCalculatedPensionStandardMonthly
+      ) {
+        this.form.patchValue({ pensionGradeSource: 'manual_override' }, { emitEvent: false });
+      }
+    }
+  }
+
+  get canSave(): boolean {
+    if (this.form.invalid) {
+      return false;
+    }
+
+    const isInsured = this.form.get('isInsured')?.value === true;
+
+    const healthStandard = this.form.get('healthStandardMonthly')?.value;
+    const healthGrade = this.form.get('healthGrade')?.value;
+    const pensionStandard = this.form.get('pensionStandardMonthly')?.value;
+    const pensionGrade = this.form.get('pensionGrade')?.value;
+
+    if (!isInsured) {
+      return true;
+    }
+
+    const hasHealth = healthStandard != null && Number(healthStandard) > 0;
+    const hasPension = pensionStandard != null && Number(pensionStandard) > 0;
+
+    if (!hasHealth && !hasPension) {
+      return false;
+    }
+
+    if (hasHealth && (!healthGrade || Number(healthGrade) <= 0)) {
+      return false;
+    }
+    if (hasPension && (!pensionGrade || Number(pensionGrade) <= 0)) {
+      return false;
+    }
+
+    return true;
   }
 
   openHelp(event: Event): void {
@@ -798,7 +986,22 @@ export class EmployeeFormDialogComponent {
         ? Number(formValue.payrollInsurableMonthlyWage)
         : null;
     const payrollNote = normalizeString(formValue.payrollNote);
-    const newMonthlyWage = Number(formValue.monthlyWage ?? 0);
+    const healthStandardMonthly =
+      formValue.healthStandardMonthly !== null &&
+      formValue.healthStandardMonthly !== undefined &&
+      formValue.healthStandardMonthly !== ''
+        ? Number(formValue.healthStandardMonthly)
+        : null;
+    const pensionStandardMonthly =
+      formValue.pensionStandardMonthly !== null &&
+      formValue.pensionStandardMonthly !== undefined &&
+      formValue.pensionStandardMonthly !== ''
+        ? Number(formValue.pensionStandardMonthly)
+        : null;
+    const healthGradeSource =
+      (formValue.healthGradeSource as GradeDecisionSource | null | undefined) ?? null;
+    const pensionGradeSource =
+      (formValue.pensionGradeSource as GradeDecisionSource | null | undefined) ?? null;
 
     // マイナンバー: 空文字の場合はnull（削除扱い）
     const encryptedMyNumber =
@@ -827,10 +1030,13 @@ export class EmployeeFormDialogComponent {
       weeklyWorkingDays: formValue.weeklyWorkingDays ?? undefined,
       contractPeriodNote: normalizeString(formValue.contractPeriodNote) as any,
       isStudent: formValue.isStudent ?? false,
-      monthlyWage: newMonthlyWage,
       isInsured: formValue.isInsured ?? true,
       healthGrade: formValue.healthGrade ?? undefined,
+      healthStandardMonthly: healthStandardMonthly ?? undefined,
+      healthGradeSource: healthGradeSource ?? undefined,
       pensionGrade: formValue.pensionGrade ?? undefined,
+      pensionStandardMonthly: pensionStandardMonthly ?? undefined,
+      pensionGradeSource: pensionGradeSource ?? undefined,
       healthInsuredSymbol: normalizeString(formValue.healthInsuredSymbol) as any,
       healthInsuredNumber: normalizeString(formValue.healthInsuredNumber) as any,
       pensionNumber: normalizeString(formValue.pensionNumber) as any,
@@ -939,7 +1145,11 @@ export class EmployeeFormDialogComponent {
     try {
       const savedId = await this.employeesService.save(this.data.officeId, payload);
       const mode: 'created' | 'updated' = this.data.employee ? 'updated' : 'created';
-      await this.addAutoStandardRewardHistory(savedId, mode, newMonthlyWage);
+      const standardMonthlyForHistory = Math.max(
+        healthStandardMonthly ?? 0,
+        pensionStandardMonthly ?? 0
+      );
+      await this.addAutoStandardRewardHistory(savedId, mode, standardMonthlyForHistory);
       this.dialogRef.close({ saved: true, mode, employeeId: savedId });
     } catch (error) {
       console.error('従業員情報の保存に失敗しました', error);
@@ -949,17 +1159,17 @@ export class EmployeeFormDialogComponent {
   private async addAutoStandardRewardHistory(
     employeeId: string,
     mode: 'created' | 'updated',
-    newMonthlyWage: number
+    newStandardMonthly: number
   ): Promise<void> {
-    if (!newMonthlyWage || newMonthlyWage <= 0) {
+    if (!newStandardMonthly || newStandardMonthly <= 0) {
       return;
     }
 
     if (mode === 'updated') {
       if (
         !this.data.employee ||
-        this.originalMonthlyWage === undefined ||
-        newMonthlyWage === this.originalMonthlyWage
+        this.originalStandardMonthly === undefined ||
+        newStandardMonthly === this.originalStandardMonthly
       ) {
         return;
       }
@@ -972,7 +1182,7 @@ export class EmployeeFormDialogComponent {
         insuranceKind: 'health',
         decisionYearMonth: currentYearMonth,
         appliedFromYearMonth: currentYearMonth,
-        standardMonthlyReward: newMonthlyWage,
+        standardMonthlyReward: newStandardMonthly,
         decisionKind: 'other',
         note:
           mode === 'created'

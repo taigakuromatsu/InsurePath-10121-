@@ -13,7 +13,7 @@ import {
   setDoc,
   where
 } from '@angular/fire/firestore';
-import { firstValueFrom, from, map, Observable } from 'rxjs';
+import { firstValueFrom, from, map, Observable, of } from 'rxjs';
 
 import {
   CareRateTable,
@@ -37,6 +37,78 @@ export class MastersService {
 
   private getPensionCollectionRef(officeId: string) {
     return collection(this.firestore, 'offices', officeId, 'pensionRateTables');
+  }
+
+  /**
+   * 対象年月に有効な健康保険マスタ（等級表付き）を1件取得する
+   */
+  getHealthRateTableForYearMonth(
+    office: Office,
+    yearMonth: YearMonthString
+  ): Observable<HealthRateTable | null> {
+    const targetYear = parseInt(yearMonth.substring(0, 4), 10);
+    const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
+    const targetYearMonth = targetYear * 100 + targetMonth;
+    const officeId = office.id;
+
+    const healthRef = this.getHealthCollectionRef(officeId);
+    let healthQuery;
+
+    if (office.healthPlanType === 'kyokai' && office.kyokaiPrefCode) {
+      healthQuery = query(
+        healthRef,
+        where('planType', '==', 'kyokai'),
+        where('kyokaiPrefCode', '==', office.kyokaiPrefCode),
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
+      );
+    } else if (office.healthPlanType === 'kumiai') {
+      healthQuery = query(
+        healthRef,
+        where('planType', '==', 'kumiai'),
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
+      );
+    } else {
+      return of(null);
+    }
+
+    return from(getDocs(healthQuery)).pipe(
+      map((snapshot) => {
+        if (snapshot.empty) return null;
+        return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as HealthRateTable;
+      })
+    );
+  }
+
+  /**
+   * 対象年月に有効な厚生年金マスタ（等級表付き）を1件取得する
+   */
+  getPensionRateTableForYearMonth(
+    office: Office,
+    yearMonth: YearMonthString
+  ): Observable<PensionRateTable | null> {
+    const targetYear = parseInt(yearMonth.substring(0, 4), 10);
+    const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
+    const targetYearMonth = targetYear * 100 + targetMonth;
+    const officeId = office.id;
+
+    const pensionRef = this.getPensionCollectionRef(officeId);
+    const pensionQuery = query(
+      pensionRef,
+      where('effectiveYearMonth', '<=', targetYearMonth),
+      orderBy('effectiveYearMonth', 'desc'),
+      limit(1)
+    );
+
+    return from(getDocs(pensionQuery)).pipe(
+      map((snapshot) => {
+        if (snapshot.empty) return null;
+        return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as PensionRateTable;
+      })
+    );
   }
 
   listHealthRateTables(officeId: string): Observable<HealthRateTable[]> {

@@ -159,9 +159,6 @@ export interface EmployeeDetailDialogData {
         <div class="label">雇用形態</div>
         <div class="value">{{ getEmploymentTypeLabel(data.employee.employmentType) }}</div>
 
-        <div class="label">標準報酬月額</div>
-        <div class="value">{{ data.employee.monthlyWage | number }}</div>
-
         <div class="label">所定労働時間（週）</div>
         <div class="value">{{ data.employee.weeklyWorkingHours ?? '-' }}</div>
 
@@ -200,8 +197,18 @@ export interface EmployeeDetailDialogData {
         <div class="label">健康保険 等級</div>
         <div class="value">{{ data.employee.healthGrade ?? '-' }}</div>
 
+        <div class="label">健康保険 標準報酬月額</div>
+        <div class="value">
+          {{ data.employee.healthStandardMonthly != null ? (data.employee.healthStandardMonthly | number) + ' 円' : '-' }}
+        </div>
+
         <div class="label">厚生年金 等級</div>
         <div class="value">{{ data.employee.pensionGrade ?? '-' }}</div>
+
+        <div class="label">厚生年金 標準報酬月額</div>
+        <div class="value">
+          {{ data.employee.pensionStandardMonthly != null ? (data.employee.pensionStandardMonthly | number) + ' 円' : '-' }}
+        </div>
       </div>
       </div>
 

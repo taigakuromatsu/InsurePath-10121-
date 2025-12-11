@@ -85,7 +85,8 @@ export class EmployeesService {
       birthDate: employee.birthDate ?? now.substring(0, 10),
       hireDate: employee.hireDate ?? now.substring(0, 10),
       employmentType: employee.employmentType ?? 'regular',
-      monthlyWage: Number(employee.monthlyWage ?? 0),
+      // monthlyWage は廃止扱い。nullを書き込み→deleteFieldで削除。
+      monthlyWage: null,
       isInsured: employee.isInsured ?? true,
       isStudent: employee.isStudent ?? false,
       createdAt: employee.createdAt ?? now,
@@ -221,10 +222,17 @@ export class EmployeesService {
           : this.cleanNestedObject(employee.bankAccount);
     }
     if (employee.payrollSettings !== undefined) {
-      payload.payrollSettings =
-        employee.payrollSettings === null
-          ? null
-          : this.cleanNestedObject(employee.payrollSettings);
+      if (employee.payrollSettings === null) {
+        payload.payrollSettings = null;
+      } else {
+        payload.payrollSettings = this.cleanNestedObject({
+          payType: employee.payrollSettings.payType,
+          payCycle: employee.payrollSettings.payCycle,
+          insurableMonthlyWage:
+            employee.payrollSettings.insurableMonthlyWage ?? null,
+          note: employee.payrollSettings.note ?? null
+        });
+      }
     }
 
     // null を deleteField() に変換して、空で保存された項目を Firestore から削除
