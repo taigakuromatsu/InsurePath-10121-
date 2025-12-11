@@ -130,7 +130,7 @@ export interface EmployeeDetailDialogData {
         <div class="label">連絡先メール</div>
         <div class="value">{{ data.employee.contactEmail || '-' }}</div>
 
-        <div class="label">被保険者整理番号</div>
+        <div class="label">社員番号</div>
         <div class="value">{{ data.employee.employeeCodeInOffice || '-' }}</div>
 
         <div class="label">性別</div>

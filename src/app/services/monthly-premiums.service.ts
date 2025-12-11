@@ -76,6 +76,15 @@ export class MonthlyPremiumsService {
       pensionGrade: result.pensionGrade,
       pensionStandardMonthly: result.pensionStandardMonthly,
   
+      // 新フィールド（行レベル参考値）
+      healthCareFull: result.amounts.healthCareFull,
+      healthCareEmployee: result.amounts.healthCareEmployee,
+      healthCareEmployer: result.amounts.healthCareEmployer,
+      pensionFull: result.amounts.pensionFull,
+      totalFull: result.amounts.totalFull,
+      totalEmployee: result.amounts.totalEmployee,
+      totalEmployer: result.amounts.totalEmployer,
+
       // 金額（必須分）
       healthTotal: result.amounts.healthTotal,
       healthEmployee: result.amounts.healthEmployee,
@@ -84,9 +93,6 @@ export class MonthlyPremiumsService {
       pensionTotal: result.amounts.pensionTotal,
       pensionEmployee: result.amounts.pensionEmployee,
       pensionEmployer: result.amounts.pensionEmployer,
-  
-      totalEmployee: result.amounts.totalEmployee,
-      totalEmployer: result.amounts.totalEmployer,
   
       // メタ情報
       calculatedAt: calcDate,
@@ -103,12 +109,10 @@ export class MonthlyPremiumsService {
       (base as any).pensionGradeSource = employee.pensionGradeSource;
     }
   
-    // 介護保険：金額が 0 のときはフィールド自体を持たせない
-    if (result.amounts.careTotal > 0) {
-      (base as any).careTotal = result.amounts.careTotal;
-      (base as any).careEmployee = result.amounts.careEmployee;
-      (base as any).careEmployer = result.amounts.careEmployer;
-    }
+    // 介護保険（分離しないが後方互換で残す）
+    (base as any).careTotal = result.amounts.careTotal;
+    (base as any).careEmployee = result.amounts.careEmployee;
+    (base as any).careEmployer = result.amounts.careEmployer;
   
     return base;
   }

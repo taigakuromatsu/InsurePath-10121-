@@ -1,5 +1,5 @@
 // src/app/pages/employees/employees.page.ts
-import { AsyncPipe, DatePipe, DecimalPipe, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, DecimalPipe, NgIf, NgClass } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -8,6 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   Subject,
   combineLatest,
@@ -32,7 +33,8 @@ import {
 import {
   getPortalStatusColor,
   getPortalStatusLabel,
-  getWorkingStatusLabel
+  getWorkingStatusLabel,
+  getEmploymentTypeLabel
 } from '../../utils/label-utils';
 import { DependentsService } from '../../services/dependents.service';
 import { CsvExportService } from '../../utils/csv-export.service';
@@ -64,9 +66,11 @@ interface EmployeeWithUpdatedBy extends Employee {
     MatDialogModule,
     AsyncPipe,
     NgIf,
+    NgClass,
     DecimalPipe,
     DatePipe,
-    MatChipsModule
+    MatChipsModule,
+    MatTooltipModule
   ],
   template: `
     <div class="page-container">
@@ -142,160 +146,190 @@ interface EmployeeWithUpdatedBy extends Employee {
           <table
             mat-table
             [dataSource]="(employeesWithUpdatedBy$ | async) || []"
-              class="admin-table"
+            class="admin-table"
           >
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>氏名</th>
-              <td mat-cell *matCellDef="let row">{{ row.name }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="department">
-              <th mat-header-cell *matHeaderCellDef>所属</th>
-              <td mat-cell *matCellDef="let row">{{ row.department || '-' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="address">
-              <th mat-header-cell *matHeaderCellDef>住所</th>
-              <td mat-cell *matCellDef="let row">{{ row.address || '-' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="weeklyWorkingHours">
-              <th mat-header-cell *matHeaderCellDef>所定労働時間</th>
-              <td mat-cell *matCellDef="let row">
-                {{ row.weeklyWorkingHours ?? '-' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="weeklyWorkingDays">
-              <th mat-header-cell *matHeaderCellDef>所定労働日数</th>
-              <td mat-cell *matCellDef="let row">
-                {{ row.weeklyWorkingDays ?? '-' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="isStudent">
-              <th mat-header-cell *matHeaderCellDef>学生</th>
-              <td mat-cell *matCellDef="let row">
-                {{ row.isStudent ? '学生' : '-' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="monthlyWage">
-              <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
-              <td mat-cell *matCellDef="let row">
-                {{ row.monthlyWage | number }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="dependents">
-              <th mat-header-cell *matHeaderCellDef class="center">扶養家族</th>
-              <td mat-cell *matCellDef="let row" class="center">
-                <button
-                  mat-stroked-button
-                  color="primary"
-                  class="dependents-button"
-                  type="button"
-                  (click)="openDetailWithFocus(row, 'dependents')"
-                  aria-label="扶養家族を管理"
-                >
-                  <mat-icon aria-hidden="true">family_restroom</mat-icon>
-                  <ng-container *ngIf="getDependentsCount(row) | async as count">
-                    <span class="dependents-count" *ngIf="typeof count === 'number'">{{ count + '人' }}</span>
-                    <span class="dependents-count" *ngIf="typeof count !== 'number'">-</span>
-                  </ng-container>
-                  <span class="dependents-label">管理</span>
-                </button>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="isInsured">
-              <th mat-header-cell *matHeaderCellDef class="center">社会保険</th>
-              <td mat-cell *matCellDef="let row" class="center">
-                <span class="status-badge" [class.insured]="row.isInsured" [class.not-insured]="!row.isInsured">
-                {{ row.isInsured ? '加入' : '対象外' }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="workingStatus">
-              <th mat-header-cell *matHeaderCellDef>就業状態</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="status-text">{{ getWorkingStatusLabel(row.workingStatus) }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="portal">
-              <th mat-header-cell *matHeaderCellDef class="center">ポータル</th>
-              <td mat-cell *matCellDef="let row" class="center">
-                <mat-chip
-                  [color]="getPortalStatusColor(getPortalStatus(row))"
-                  selected
-                >
-                  {{ getPortalStatusLabel(getPortalStatus(row)) }}
-                </mat-chip>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="updatedBy">
-              <th mat-header-cell *matHeaderCellDef>最終更新者</th>
-              <td mat-cell *matCellDef="let row">
-                {{ row.updatedByDisplayName || '-' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="updatedAt">
-              <th mat-header-cell *matHeaderCellDef>最終更新日時</th>
-              <td mat-cell *matCellDef="let row">
-                {{ row.updatedAt ? (row.updatedAt | date: 'yyyy-MM-dd HH:mm') : '-' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
-              <td mat-cell *matCellDef="let row">
-                <div class="flex-row gap-2 justify-center">
-                <button
-                  mat-stroked-button
-                  color="primary"
-                  class="invite-button"
-                  (click)="openInviteDialog(row)"
-                  [disabled]="isInviteDisabled(getPortalStatus(row)) || !(officeId$ | async)"
-                >
-                  <mat-icon fontIcon="mail"></mat-icon>
-                  {{ getInviteButtonLabel(getPortalStatus(row)) }}
-                </button>
-                <button
-                  mat-icon-button
-                  (click)="openDetail(row)"
-                  aria-label="詳細"
-                  title="詳細"
-                >
-                  <mat-icon>visibility</mat-icon>
-                </button>
-                <button
-                  mat-icon-button
-                  color="primary"
-                  (click)="openDialog(row)"
-                  aria-label="編集"
-                  title="編集"
-                >
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button
-                  mat-icon-button
-                  color="warn"
-                  (click)="confirmDeleteEmployee(row)"
-                  aria-label="削除"
-                  title="削除"
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
+            <!-- 1. 従業員情報 -->
+            <ng-container matColumnDef="employeeInfo">
+              <th mat-header-cell *matHeaderCellDef class="col-employee">従業員情報</th>
+              <td mat-cell *matCellDef="let row" class="col-employee cell-padding">
+                <div class="info-cell">
+                  <div class="name-row">
+                    <span class="employee-name">{{ row.name }}</span>
+                  </div>
+                  <div class="meta-row">
+                    <mat-icon class="tiny-icon">business</mat-icon>
+                    <span class="department-text">{{ row.department || '(所属なし)' }}</span>
+                  </div>
+                  <div class="meta-row" *ngIf="row.address">
+                    <mat-icon class="tiny-icon">place</mat-icon>
+                    <span class="address-text" [title]="row.address">{{ row.address }}</span>
+                  </div>
                 </div>
               </td>
             </ng-container>
 
-              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+            <!-- 2. 労働条件 -->
+            <ng-container matColumnDef="workingConditions">
+              <th mat-header-cell *matHeaderCellDef class="col-work">労働条件</th>
+              <td mat-cell *matCellDef="let row" class="col-work cell-padding">
+                <div class="info-cell">
+                  <div class="status-row mb-1">
+                    <span class="status-text">{{ getWorkingStatusLabel(row.workingStatus) }}</span>
+                    <span class="mini-badge student ml-2" *ngIf="row.isStudent">学生</span>
+                  </div>
+                  <div class="work-metrics">
+                    <span class="metric-item">週 {{ row.weeklyWorkingHours ?? '-' }} 時間</span>
+                    <span class="separator">/</span>
+                    <span class="metric-item">週 {{ row.weeklyWorkingDays ?? '-' }} 日</span>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- 3. 標準報酬・等級 -->
+            <ng-container matColumnDef="insuranceRewards">
+              <th mat-header-cell *matHeaderCellDef class="col-rewards">標準報酬・等級</th>
+              <td mat-cell *matCellDef="let row" class="col-rewards cell-padding">
+                <div class="reward-grid">
+                  <!-- 報酬月額 -->
+                  <div class="reward-item wage-item">
+                    <span class="reward-label">報酬月額</span>
+                    <span class="reward-value">{{ (row.payrollSettings?.insurableMonthlyWage ?? row.monthlyWage) | number }}</span>
+                  </div>
+                  
+                  <!-- 健保 -->
+                  <div class="reward-item">
+                    <span class="reward-label">健保</span>
+                    <div class="reward-detail">
+                      <span class="grade-badge health" *ngIf="row.healthGrade">{{ row.healthGrade }}等級</span>
+                      <span class="monthly-val" *ngIf="row.healthStandardMonthly">{{ row.healthStandardMonthly | number }}</span>
+                      <span class="text-secondary" *ngIf="!row.healthGrade && !row.healthStandardMonthly">-</span>
+                    </div>
+                  </div>
+
+                  <!-- 厚年 -->
+                  <div class="reward-item">
+                    <span class="reward-label">厚年</span>
+                    <div class="reward-detail">
+                      <span class="grade-badge pension" *ngIf="row.pensionGrade">{{ row.pensionGrade }}等級</span>
+                      <span class="monthly-val" *ngIf="row.pensionStandardMonthly">{{ row.pensionStandardMonthly | number }}</span>
+                      <span class="text-secondary" *ngIf="!row.pensionGrade && !row.pensionStandardMonthly">-</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- 4. ステータス（社保・扶養・ポータル） -->
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef class="col-status">ステータス</th>
+              <td mat-cell *matCellDef="let row" class="col-status cell-padding">
+                <div class="status-cell gap-2">
+                  <div class="flex-row align-center gap-2">
+                    <span class="label-fixed">社保</span>
+                    <span class="status-badge" [class.insured]="row.isInsured" [class.not-insured]="!row.isInsured">
+                      {{ row.isInsured ? '加入' : '対象外' }}
+                    </span>
+                  </div>
+
+                  <div class="flex-row align-center gap-2">
+                    <span class="label-fixed">扶養</span>
+                    <button
+                      mat-stroked-button
+                      class="dependents-button small-btn"
+                      [class.has-dependents]="((getDependentsCount(row) | async) ?? 0) > 0"
+                      type="button"
+                      (click)="openDetailWithFocus(row, 'dependents')"
+                    >
+                      <mat-icon class="tiny-icon">group</mat-icon>
+                      <span class="dependents-count">{{ (getDependentsCount(row) | async) ?? 0 }}人</span>
+                    </button>
+                  </div>
+
+                  <div class="flex-row align-center gap-2">
+                    <span class="label-fixed">ポータル</span>
+                    <span class="portal-badge" [ngClass]="getPortalStatus(row)">
+                      {{ getPortalStatusLabel(getPortalStatus(row)) }}
+                    </span>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- 5. 管理情報 (New) -->
+            <ng-container matColumnDef="managementInfo">
+              <th mat-header-cell *matHeaderCellDef class="col-management">管理情報</th>
+              <td mat-cell *matCellDef="let row" class="col-management cell-padding">
+                <div class="info-cell">
+                  <div class="meta-row mb-1">
+                    <span class="label-mini">入社</span>
+                    <span class="value-text">{{ row.hireDate | date: 'yyyy/MM/dd' }}</span>
+                  </div>
+                  <div class="meta-row mb-1">
+                    <span class="label-mini">形態</span>
+                    <span class="value-text">{{ getEmploymentTypeLabel(row.employmentType) }}</span>
+                  </div>
+                  <div class="meta-row" *ngIf="row.employeeCodeInOffice">
+                    <span class="label-mini">社員番号</span>
+                    <span class="value-text font-mono">{{ row.employeeCodeInOffice }}</span>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- 6. 操作・更新 -->
+            <ng-container matColumnDef="metaActions">
+              <th mat-header-cell *matHeaderCellDef class="col-actions">操作</th>
+              <td mat-cell *matCellDef="let row" class="col-actions cell-padding">
+                <div class="action-cell">
+                  <div class="action-buttons flex-row gap-1 justify-end">
+                    <button
+                      mat-icon-button
+                      [color]="getPortalStatus(row) === 'invited' ? 'accent' : 'primary'"
+                      class="action-btn"
+                      (click)="openInviteDialog(row)"
+                      [disabled]="isInviteDisabled(getPortalStatus(row)) || !(officeId$ | async)"
+                      [matTooltip]="getInviteButtonLabel(getPortalStatus(row))"
+                    >
+                      <mat-icon fontIcon="mail"></mat-icon>
+                    </button>
+                    <button
+                      mat-icon-button
+                      class="action-btn"
+                      (click)="openDetail(row)"
+                      matTooltip="詳細"
+                    >
+                      <mat-icon>visibility</mat-icon>
+                    </button>
+                    <button
+                      mat-icon-button
+                      color="primary"
+                      class="action-btn"
+                      (click)="openDialog(row)"
+                      matTooltip="編集"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button
+                      mat-icon-button
+                      color="warn"
+                      class="action-btn"
+                      (click)="confirmDeleteEmployee(row)"
+                      matTooltip="削除"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                  <div class="update-info">
+                    <span class="update-date">{{ row.updatedAt ? (row.updatedAt | date: 'yyyy/MM/dd') : '-' }}</span>
+                    <span class="update-user" *ngIf="row.updatedByDisplayName">by {{ row.updatedByDisplayName }}</span>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns" class="hover-row"></tr>
           </table>
           <div class="empty-state" *ngIf="(employeesWithUpdatedBy$ | async)?.length === 0">
             <mat-icon>people_outline</mat-icon>
@@ -330,9 +364,15 @@ interface EmployeeWithUpdatedBy extends Employee {
         gap: 24px;
       }
 
+      .page-header {
+        margin-bottom: 8px;
+      }
+
       .content-card {
         padding: 24px;
         border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
       }
 
       /* ユーティリティ */
@@ -341,12 +381,22 @@ interface EmployeeWithUpdatedBy extends Employee {
       .mb-2 { margin-bottom: 8px; }
       .mb-3 { margin-bottom: 16px; }
       .mb-4 { margin-bottom: 24px; }
+      .gap-1 { gap: 4px; }
       .gap-2 { gap: 8px; }
       .gap-3 { gap: 16px; }
       .flex-row { display: flex; flex-direction: row; }
       .align-center { align-items: center; }
       .justify-between { justify-content: space-between; }
+      .justify-center { justify-content: center; }
+      .items-end { align-items: flex-end; }
+      .flex-col { display: flex; flex-direction: column; }
       .flex-wrap { flex-wrap: wrap; }
+      .font-bold { font-weight: 700; }
+      .font-medium { font-weight: 500; }
+      .font-normal { font-weight: 400; }
+      .text-secondary { color: #666; }
+      .text-small { font-size: 0.8125rem; }
+      .text-xs { font-size: 0.75rem; }
 
       .header-actions {
         display: flex;
@@ -354,6 +404,7 @@ interface EmployeeWithUpdatedBy extends Employee {
         gap: 8px;
       }
 
+      /* テーブル全体 */
       .table-container {
         position: relative;
         overflow-x: auto;
@@ -362,106 +413,193 @@ interface EmployeeWithUpdatedBy extends Employee {
         background: #fff;
       }
 
-      .center { text-align: center; }
+      .admin-table {
+        width: 100%;
+        /* min-width: 1400px;  削除: カラム統合によりスクロール不要を目指す */
+        border-collapse: collapse;
+      }
 
-      .status-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 16px;
-        font-weight: 500;
-        font-size: 0.875rem;
+      /* カラム幅設定 */
+      .col-employee { width: 20%; min-width: 180px; }
+      .col-work { width: 14%; min-width: 140px; }
+      .col-rewards { width: 22%; min-width: 220px; }
+      .col-status { width: 20%; min-width: 200px; }
+      .col-management { width: 14%; min-width: 140px; }
+      .col-actions { width: 10%; min-width: 100px; text-align: right; }
+
+      .cell-padding {
+        padding: 12px 16px !important;
+        vertical-align: top;
+      }
+
+      .info-cell, .status-cell, .action-cell {
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* 従業員情報列 */
+      .name-row { margin-bottom: 4px; }
+      .employee-name { font-weight: 700; font-size: 1rem; color: #333; }
+      
+      .meta-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #666;
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+      .tiny-icon { font-size: 16px; width: 16px; height: 16px; color: #999; }
+      .address-text {
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
       }
 
-      .status-badge.insured { background: #e8f5e9; color: #2e7d32; }
-      .status-badge.not-insured { background: #ffebee; color: #c62828; }
-
-      .status-text {
-        color: #333;
-        font-weight: 500;
-      }
-
-      .dependents-button {
-        display: inline-flex;
+      /* 労働条件列 */
+      .status-row { display: flex; align-items: center; }
+      .ml-2 { margin-left: 8px; }
+      
+      .work-metrics {
+        font-size: 0.9rem;
+        color: #444;
+        display: flex;
         align-items: center;
         gap: 6px;
-        min-width: 140px;
-        justify-content: center;
       }
+      .separator { color: #ccc; }
 
-      .dependents-count { font-weight: 600; color: #333; }
-      .dependents-label { color: #555; }
-
-      .actions-header { text-align: center; }
-
-      .empty-state {
+      /* 標準報酬・等級列 */
+      .reward-grid {
         display: flex;
         flex-direction: column;
+        gap: 8px;
+        background: #f8fafc;
+        padding: 8px;
+        border-radius: 6px;
+      }
+      
+      .reward-item {
+        display: flex;
+        justify-content: space-between;
         align-items: center;
-        justify-content: center;
-        padding: 48px 24px;
-        text-align: center;
-        color: #999;
+        font-size: 0.85rem;
+      }
+      
+      .wage-item {
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 4px;
+        margin-bottom: 4px;
+      }
+      
+      .reward-label { color: #64748b; font-size: 0.8rem; }
+      .reward-value { font-weight: 600; font-size: 0.95rem; }
+      
+      .reward-detail {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .grade-badge {
+        font-size: 0.7rem;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-weight: 500;
+      }
+      .grade-badge.health { background: #e3f2fd; color: #0d47a1; }
+      .grade-badge.pension { background: #e8f5e9; color: #1b5e20; }
+      
+      .monthly-val { font-weight: 500; }
+
+      /* ステータス列 */
+      .gap-2 { gap: 8px; }
+      .label-fixed {
+        width: 60px; /* ラベル幅を広げて改行を防ぐ */
+        font-size: 0.75rem;
+        color: #888;
+        text-align: right;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+      
+      .small-btn {
+        height: 28px;
+        line-height: 28px;
+        padding: 0 10px;
+        font-size: 0.85rem;
       }
 
-      .empty-state mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        margin-bottom: 16px;
-        opacity: 0.5;
-      }
-
-      .empty-state p {
-        margin: 0 0 16px 0;
-        font-size: 1.05rem;
-      }
-
-      .empty-office-state {
+      /* 操作・更新列 */
+      .justify-end { justify-content: flex-end; }
+      .update-info {
+        margin-top: 8px;
+        text-align: right;
+        font-size: 0.75rem;
+        color: #888;
         display: flex;
         flex-direction: column;
+        line-height: 1.2;
+      }
+
+      /* バッジ・ステータス共通 */
+      .status-badge, .portal-badge {
+        font-size: 0.7rem;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-weight: 500;
+        white-space: nowrap;
+        line-height: 1.2;
+      }
+
+      /* 社保バッジ色 */
+      .status-badge.insured { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+      .status-badge.not-insured { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+
+      /* ポータルバッジ色 */
+      .portal-badge.not_invited { background: #f5f5f5; color: #757575; border: 1px solid #e0e0e0; }
+      .portal-badge.invited { background: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; }
+      .portal-badge.linked { background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; }
+      .portal-badge.disabled { background: #eceff1; color: #546e7a; border: 1px solid #cfd8dc; }
+
+      /* 扶養ボタン色 */
+      .dependents-button.has-dependents {
+        border-color: #bbdefb;
+        background-color: #e3f2fd;
+        color: #1976d2;
+      }
+      
+      .mb-1 { margin-bottom: 4px; }
+      
+      .meta-row {
+        display: flex;
         align-items: center;
-        justify-content: center;
-        padding: 48px 24px;
-        text-align: center;
-        color: #999;
-      }
-
-      .empty-office-state mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        margin-bottom: 16px;
-        opacity: 0.5;
-        color: #667eea;
-      }
-
-      .empty-office-state h3 {
-        margin: 0 0 8px 0;
-        font-size: 1.25rem;
+        gap: 4px;
         color: #666;
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+      .label-mini {
+        font-size: 0.7rem;
+        color: #888;
+        width: auto;
+        min-width: 28px;
+        margin-right: 4px;
+        flex-shrink: 0;
+      }
+      .value-text {
+        font-size: 0.85rem;
+        color: #333;
+      }
+      .font-mono { font-family: monospace; }
+
+      .hover-row:hover {
+        background-color: #fcfcfc;
       }
 
-      .empty-office-state p {
-        margin: 0;
-        font-size: 1rem;
-      }
-
-      .help-button {
-        width: 36px;
-        height: 36px;
-      }
-
-      .invite-button {
-        min-width: 120px;
-      }
-
-      @media (max-width: 768px) {
-        .header-actions {
-          width: 100%;
-          justify-content: flex-start;
-        }
-      }
+      /* 古いスタイルの一部削除・調整 */
+      .col-name, .basic-col, .group-end { border: none; }
     `
   ]
 })
@@ -477,6 +615,7 @@ export class EmployeesPage {
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
   protected readonly getPortalStatusLabel = getPortalStatusLabel;
   protected readonly getPortalStatusColor = getPortalStatusColor;
+  protected readonly getEmploymentTypeLabel = getEmploymentTypeLabel;
 
   private readonly dependentsCountMap = new Map<
     string,
@@ -484,20 +623,12 @@ export class EmployeesPage {
   >();
 
   readonly displayedColumns = [
-    'name',
-    'department',
-    'address',
-    'weeklyWorkingHours',
-    'weeklyWorkingDays',
-    'isStudent',
-    'monthlyWage',
-    'dependents',
-    'isInsured',
-    'workingStatus',
-    'portal',
-    'updatedBy',
-    'updatedAt',
-    'actions'
+    'employeeInfo',
+    'workingConditions',
+    'insuranceRewards',
+    'status',
+    'managementInfo',
+    'metaActions'
   ];
 
   // CurrentOfficeService からそのまま officeId$ を公開

@@ -126,7 +126,7 @@ export interface HealthMasterDialogData {
             </button>
             <button mat-flat-button color="primary" type="button" (click)="addBand()">
             <mat-icon>add</mat-icon>
-              追加
+              行を追加
           </button>
         </div>
       </div>

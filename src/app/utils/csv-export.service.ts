@@ -66,17 +66,32 @@ export class CsvExportService {
       { label: '氏名', getValue: (row) => row.employeeName },
       { label: '健康保険等級', getValue: (row) => row.healthGrade },
       { label: '健康保険標準報酬月額', getValue: (row) => row.healthStandardMonthly },
-      { label: '健康保険本人負担', getValue: (row) => row.healthEmployee },
-      { label: '健康保険会社負担', getValue: (row) => row.healthEmployer },
-      { label: '健康保険合計', getValue: (row) => row.healthTotal },
+      {
+        label: '健康保険本人負担（健保＋介護）',
+        getValue: (row) =>
+          (row as any).healthCareEmployee ??
+          (row.healthEmployee ?? 0) + (row.careEmployee ?? 0)
+      },
+      {
+        label: '健康保険会社負担（健保＋介護・参考）',
+        getValue: (row) =>
+          (row as any).healthCareEmployer ??
+          (row.healthEmployer ?? 0) + (row.careEmployer ?? 0)
+      },
+      {
+        label: '健康保険合計（健保＋介護・端数前）',
+        getValue: (row) =>
+          (row as any).healthCareFull ??
+          (row.healthTotal ?? 0) + (row.careTotal ?? 0)
+      },
       { label: '介護保険本人負担', getValue: (row) => row.careEmployee ?? '' },
       { label: '介護保険会社負担', getValue: (row) => row.careEmployer ?? '' },
       { label: '介護保険合計', getValue: (row) => row.careTotal ?? '' },
       { label: '厚生年金等級', getValue: (row) => row.pensionGrade },
       { label: '厚生年金標準報酬月額', getValue: (row) => row.pensionStandardMonthly },
-      { label: '厚生年金本人負担', getValue: (row) => row.pensionEmployee },
-      { label: '厚生年金会社負担', getValue: (row) => row.pensionEmployer },
-      { label: '厚生年金合計', getValue: (row) => row.pensionTotal },
+      { label: '厚生年金本人負担', getValue: (row) => (row as any).pensionEmployee ?? row.pensionEmployee },
+      { label: '厚生年金会社負担', getValue: (row) => (row as any).pensionEmployer ?? row.pensionEmployer },
+      { label: '厚生年金合計（端数前）', getValue: (row) => (row as any).pensionFull ?? row.pensionTotal },
       { label: '本人負担合計', getValue: (row) => row.totalEmployee },
       { label: '会社負担合計', getValue: (row) => row.totalEmployer },
       { label: '計算日時', getValue: (row) => row.calculatedAt }

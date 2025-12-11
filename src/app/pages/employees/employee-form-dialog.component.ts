@@ -110,9 +110,9 @@ export interface EmployeeDialogData {
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>被保険者整理番号</mat-label>
+        <mat-label>社員番号</mat-label>
         <input matInput formControlName="employeeCodeInOffice" />
-        <mat-hint>社内従業員番号としても使用できます</mat-hint>
+        <mat-hint>社内管理用（整理番号など）を入力してください</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -317,10 +317,10 @@ export interface EmployeeDialogData {
         <input matInput formControlName="healthInsuredSymbol" />
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>被保険者番号</mat-label>
-        <input matInput formControlName="healthInsuredNumber" />
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>被保険者番号</mat-label>
+          <input matInput formControlName="healthInsuredNumber" />
+        </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>厚生年金番号</mat-label>

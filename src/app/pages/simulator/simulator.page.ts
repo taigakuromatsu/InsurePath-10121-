@@ -193,43 +193,21 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
             <div class="info-section">
               <div class="info-section-header">
                 <h3 class="mat-h3 flex-row align-center gap-2 m-0">
-                  健康保険
+                  健康保険・介護保険（合算）
                 </h3>
               </div>
               <div class="info-grid">
                 <div class="info-item">
                   <span class="label">本人負担額</span>
-                  <span class="value employee">{{ result.amounts.healthEmployee | number }}円</span>
+                  <span class="value employee">{{ result.amounts.healthCareEmployee | number }}円</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">会社負担額</span>
-                  <span class="value employer">{{ result.amounts.healthEmployer | number }}円</span>
+                  <span class="label">会社負担額（参考）</span>
+                  <span class="value employer">{{ result.amounts.healthCareEmployer | number }}円</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">合計</span>
-                  <span class="value">{{ result.amounts.healthTotal | number }}円</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="info-section" *ngIf="result.amounts.careTotal > 0">
-              <div class="info-section-header">
-                <h3 class="mat-h3 flex-row align-center gap-2 m-0">
-                  介護保険
-                </h3>
-              </div>
-              <div class="info-grid">
-                <div class="info-item">
-                  <span class="label">本人負担額</span>
-                  <span class="value employee">{{ result.amounts.careEmployee | number }}円</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">会社負担額</span>
-                  <span class="value employer">{{ result.amounts.careEmployer | number }}円</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">合計</span>
-                  <span class="value">{{ result.amounts.careTotal | number }}円</span>
+                  <span class="label">全額（端数処理前）</span>
+                  <span class="value">{{ result.amounts.healthCareFull | number:'1.0-2' }}円</span>
                 </div>
               </div>
             </div>
@@ -246,12 +224,12 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
                   <span class="value employee">{{ result.amounts.pensionEmployee | number }}円</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">会社負担額</span>
+                  <span class="label">会社負担額（参考）</span>
                   <span class="value employer">{{ result.amounts.pensionEmployer | number }}円</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">合計</span>
-                  <span class="value">{{ result.amounts.pensionTotal | number }}円</span>
+                  <span class="label">全額（端数処理前）</span>
+                  <span class="value">{{ result.amounts.pensionFull | number:'1.0-2' }}円</span>
                 </div>
               </div>
             </div>
@@ -272,9 +250,9 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
                   <span class="value employer large">{{ result.amounts.totalEmployer | number }}円</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">合計額</span>
+                  <span class="label">全額（端数処理前）</span>
                   <span class="value large">
-                    {{ (result.amounts.totalEmployee + result.amounts.totalEmployer) | number }}円
+                    {{ result.amounts.totalFull | number:'1.0-2' }}円
                   </span>
                 </div>
               </div>
@@ -305,8 +283,10 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
         display: flex;
         flex-direction: column;
         gap: 24px;
+      }
 
-        @media (max-width: 600px) {
+      @media (max-width: 600px) {
+        .page-container {
           padding: 16px;
           gap: 16px;
         }
@@ -408,7 +388,7 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
         border-color: #d1d9e6;
       }
 
-      .placeholder-content {
+      .placeholder-card .placeholder-content {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -416,19 +396,19 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
         padding: 48px 24px;
         text-align: center;
         color: #999;
+      }
 
-        mat-icon {
+      .placeholder-card .placeholder-content mat-icon {
         font-size: 48px;
         width: 48px;
         height: 48px;
-          margin-bottom: 16px;
-          opacity: 0.3;
+        margin-bottom: 16px;
+        opacity: 0.3;
       }
 
-        p {
+      .placeholder-card .placeholder-content p {
         margin: 0;
-          font-size: 14px;
-        }
+        font-size: 14px;
       }
     `
   ]

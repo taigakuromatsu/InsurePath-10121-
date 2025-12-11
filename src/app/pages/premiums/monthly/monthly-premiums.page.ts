@@ -23,6 +23,19 @@ import { Employee, MonthlyPremium, Office } from '../../../types';
 import { CsvExportService } from '../../../utils/csv-export.service';
 import { HelpDialogComponent, HelpDialogData } from '../../../components/help-dialog.component';
 
+type MonthlyPremiumViewRow = MonthlyPremium & {
+  employeeName: string;
+  healthCareFull: number;
+  healthCareEmployee: number;
+  healthCareEmployer: number;
+  pensionFull: number;
+  pensionEmployee: number;
+  pensionEmployer: number;
+  totalFull: number;
+  totalEmployee: number;
+  totalEmployer: number;
+};
+
 @Component({
   selector: 'ip-monthly-premiums-page',
   standalone: true,
@@ -46,6 +59,26 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
   ],
   template: `
     <div class="page-container">
+      <header class="page-header">
+        <div class="flex-row align-center gap-2">
+          <h1 class="m-0">
+            月次保険料 一覧・再計算
+            <button
+              mat-icon-button
+              class="help-button"
+              type="button"
+              (click)="openHelp()"
+              aria-label="月次保険料のヘルプを表示"
+            >
+              <mat-icon>help_outline</mat-icon>
+            </button>
+          </h1>
+        </div>
+        <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
+          対象年月を指定し、マスタで定義された保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
+        </p>
+      </header>
+
       <mat-card class="content-card selection-card">
         <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
           <div>
@@ -68,26 +101,6 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
           </mat-form-field>
         </div>
       </mat-card>
-
-      <header class="page-header">
-        <div class="flex-row align-center gap-2">
-          <h1 class="m-0">
-          月次保険料 一覧・再計算
-          <button
-            mat-icon-button
-            class="help-button"
-            type="button"
-            (click)="openHelp()"
-            aria-label="月次保険料のヘルプを表示"
-          >
-            <mat-icon>help_outline</mat-icon>
-          </button>
-        </h1>
-        </div>
-        <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
-          対象年月を指定し、マスタで定義された保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
-        </p>
-      </header>
 
       <mat-card class="content-card">
         <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
@@ -194,75 +207,194 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
 
         <div class="table-container">
           <table mat-table [dataSource]="filteredRows()" class="admin-table">
-          <ng-container matColumnDef="employeeName">
-            <th mat-header-cell *matHeaderCellDef>氏名</th>
-            <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
-          </ng-container>
+            <!-- グループヘッダー -->
+            <ng-container matColumnDef="header-health">
+              <th mat-header-cell *matHeaderCellDef [attr.colspan]="4" class="group-header health-group">健康保険・介護保険</th>
+            </ng-container>
+            <ng-container matColumnDef="header-pension">
+              <th mat-header-cell *matHeaderCellDef [attr.colspan]="4" class="group-header pension-group">厚生年金</th>
+            </ng-container>
+            <ng-container matColumnDef="header-total">
+              <th mat-header-cell *matHeaderCellDef [attr.colspan]="3" class="group-header total-group">合計（参考）</th>
+            </ng-container>
 
-          <ng-container matColumnDef="healthStandardMonthly">
-            <th mat-header-cell *matHeaderCellDef>標準報酬（健保）</th>
-            <td mat-cell *matCellDef="let row">{{ row.healthStandardMonthly | number }}</td>
-          </ng-container>
+            <ng-container matColumnDef="employeeName">
+              <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="col-name group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">氏名</th>
+              <td mat-cell *matCellDef="let row" class="col-name font-bold">{{ row.employeeName }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="healthEmployee">
-            <th mat-header-cell *matHeaderCellDef>健康保険 本人</th>
-            <td mat-cell *matCellDef="let row">{{ row.healthEmployee | number }}</td>
-          </ng-container>
+            <ng-container matColumnDef="healthStandardMonthly">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">標準報酬</th>
+              <td mat-cell *matCellDef="let row" class="number-cell">{{ row.healthStandardMonthly | number }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="healthEmployer">
-            <th mat-header-cell *matHeaderCellDef>健康保険 会社</th>
-            <td mat-cell *matCellDef="let row">{{ row.healthEmployer | number }}</td>
-          </ng-container>
+            <ng-container matColumnDef="healthCareFull">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
+              <td mat-cell *matCellDef="let row" class="number-cell">{{ row.healthCareFull | number:'1.0-2' }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="careEmployee">
-            <th mat-header-cell *matHeaderCellDef>介護保険 本人</th>
-            <td mat-cell *matCellDef="let row">{{ row.careEmployee != null ? (row.careEmployee | number) : '-' }}</td>
-          </ng-container>
+            <ng-container matColumnDef="healthCareEmployee">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
+              <td mat-cell *matCellDef="let row" class="number-cell font-medium">{{ row.healthCareEmployee | number }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="careEmployer">
-            <th mat-header-cell *matHeaderCellDef>介護保険 会社</th>
-            <td mat-cell *matCellDef="let row">{{ row.careEmployer != null ? (row.careEmployer | number) : '-' }}</td>
-          </ng-container>
+            <ng-container matColumnDef="healthCareEmployer">
+              <th mat-header-cell *matHeaderCellDef class="number-cell group-end">会社負担</th>
+              <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">{{ row.healthCareEmployer | number }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="pensionEmployee">
-            <th mat-header-cell *matHeaderCellDef>厚生年金 本人</th>
-            <td mat-cell *matCellDef="let row">{{ row.pensionEmployee | number }}</td>
-          </ng-container>
+            <ng-container matColumnDef="pensionStandardMonthly">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">標準報酬</th>
+              <td mat-cell *matCellDef="let row" class="number-cell">{{ row.pensionStandardMonthly | number }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="pensionEmployer">
-            <th mat-header-cell *matHeaderCellDef>厚生年金 会社</th>
-            <td mat-cell *matCellDef="let row">{{ row.pensionEmployer | number }}</td>
-          </ng-container>
+            <ng-container matColumnDef="pensionFull">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
+              <td mat-cell *matCellDef="let row" class="number-cell">{{ row.pensionFull | number:'1.0-2' }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="totalEmployee">
-            <th mat-header-cell *matHeaderCellDef>本人合計</th>
-            <td mat-cell *matCellDef="let row">{{ row.totalEmployee | number }}</td>
-          </ng-container>
+            <ng-container matColumnDef="pensionEmployee">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
+              <td mat-cell *matCellDef="let row" class="number-cell font-medium">{{ row.pensionEmployee | number }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="totalEmployer">
-            <th mat-header-cell *matHeaderCellDef>会社合計</th>
-            <td mat-cell *matCellDef="let row">{{ row.totalEmployer | number }}</td>
-          </ng-container>
+            <ng-container matColumnDef="pensionEmployer">
+              <th mat-header-cell *matHeaderCellDef class="number-cell group-end">会社負担</th>
+              <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">{{ row.pensionEmployer | number }}</td>
+            </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-        </table>
+            <ng-container matColumnDef="totalFull">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
+              <td mat-cell *matCellDef="let row" class="number-cell">{{ row.totalFull | number:'1.0-2' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="totalEmployee">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
+              <td mat-cell *matCellDef="let row" class="number-cell font-bold">{{ row.totalEmployee | number }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="totalEmployer">
+              <th mat-header-cell *matHeaderCellDef class="number-cell">会社負担</th>
+              <td mat-cell *matCellDef="let row" class="number-cell text-secondary">{{ row.totalEmployer | number }}</td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="headerRowDef"></tr>
+            <tr mat-header-row *matHeaderRowDef="subHeaderRowDef"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns" class="hover-row"></tr>
+          </table>
         </div>
 
-        <div class="no-results" *ngIf="filteredRows().length === 0">
-          <mat-icon>info</mat-icon>
-          <span>該当するデータがありません。</span>
-        </div>
+        <div class="summary-section">
+          <div class="summary-grid">
+            <!-- 健康保険・介護保険 -->
+            <div class="summary-card health-card">
+              <div class="summary-header">
+                <mat-icon>medical_services</mat-icon> 健康保険・介護保険
+              </div>
+              <div class="summary-content">
+                <div class="main-row">
+                  <div class="label-group">
+                    <span class="main-label">納入告知額</span>
+                    <span class="sub-label">（端数処理前: {{ healthSummary().sumFull | number:'1.0-2' }}円）</span>
+                  </div>
+                  <span class="main-value">{{ healthSummary().sumFullRoundedDown | number }}<small>円</small></span>
+                </div>
+                
+                <div class="divider">
+                  <mat-icon class="operator-icon">remove</mat-icon>
+                </div>
 
-        <div class="totals">
-          <div class="total-item">
-            <span class="total-label">事業所合計（本人負担）</span>
-            <span class="total-value employee">{{ totalEmployee() | number }}円</span>
-            <span class="total-note" *ngIf="filterText()">（絞り込み後: {{ filteredRows().length }}件）</span>
+                <div class="detail-row">
+                  <span class="detail-label">従業員負担計</span>
+                  <span class="detail-value">{{ healthSummary().employeeTotal | number }}円</span>
+                </div>
+
+                <div class="divider">
+                  <mat-icon class="operator-icon">drag_handle</mat-icon>
+                </div>
+
+                <div class="result-row">
+                  <span class="result-label">会社負担計</span>
+                  <span class="result-value">{{ healthSummary().employerTotal | number }}円</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 厚生年金 -->
+            <div class="summary-card pension-card">
+              <div class="summary-header">
+                <mat-icon>elderly</mat-icon> 厚生年金
+              </div>
+              <div class="summary-content">
+                <div class="main-row">
+                  <div class="label-group">
+                    <span class="main-label">納入告知額</span>
+                    <span class="sub-label">（端数処理前: {{ pensionSummary().sumFull | number:'1.0-2' }}円）</span>
+                  </div>
+                  <span class="main-value">{{ pensionSummary().sumFullRoundedDown | number }}<small>円</small></span>
+                </div>
+
+                <div class="divider">
+                  <mat-icon class="operator-icon">remove</mat-icon>
+                </div>
+
+                <div class="detail-row">
+                  <span class="detail-label">従業員負担計</span>
+                  <span class="detail-value">{{ pensionSummary().employeeTotal | number }}円</span>
+                </div>
+
+                <div class="divider">
+                  <mat-icon class="operator-icon">drag_handle</mat-icon>
+                </div>
+
+                <div class="result-row">
+                  <span class="result-label">会社負担計</span>
+                  <span class="result-value">{{ pensionSummary().employerTotal | number }}円</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 総合計 -->
+            <div class="summary-card total-card">
+              <div class="summary-header">
+                <mat-icon>functions</mat-icon> 総合計
+              </div>
+              <div class="summary-content">
+                <div class="main-row">
+                  <div class="label-group">
+                    <span class="main-label">納入告知額 合計</span>
+                    <span class="sub-label">（端数処理前: {{ combinedSummary().sumFull | number:'1.0-2' }}円）</span>
+                  </div>
+                  <span class="main-value">{{ combinedSummary().sumFullRoundedDown | number }}<small>円</small></span>
+                </div>
+
+                <div class="divider">
+                  <mat-icon class="operator-icon">remove</mat-icon>
+                </div>
+
+                <div class="detail-row">
+                  <span class="detail-label">従業員負担 総計</span>
+                  <span class="detail-value">{{ combinedSummary().employeeTotal | number }}円</span>
+                </div>
+
+                <div class="divider">
+                  <mat-icon class="operator-icon">drag_handle</mat-icon>
+                </div>
+
+                <div class="result-row">
+                  <span class="result-label">会社負担 総計</span>
+                  <span class="result-value">{{ combinedSummary().employerTotal | number }}円</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="total-item">
-            <span class="total-label">事業所合計（会社負担）</span>
-            <span class="total-value employer">{{ totalEmployer() | number }}円</span>
+          
+          <div class="summary-footer-note">
+            <mat-icon class="note-icon">info</mat-icon>
+            <p>
+              従業員負担額には50銭ルール（50銭以下切り捨て／50銭超切り上げ）を適用しています。<br>
+              会社負担合計は「納入告知額（端数処理後の全額合計） − 従業員負担合計」で算出しています。
+            </p>
           </div>
         </div>
       </mat-card>
@@ -280,9 +412,15 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         gap: 24px;
       }
 
+      .page-header {
+        margin-bottom: 24px;
+      }
+
       .content-card {
         padding: 24px;
         border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
       }
 
       /* ユーティリティ */
@@ -388,7 +526,7 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         border: 1px solid #e0e0e0;
         overflow: hidden;
         background: #fff;
-        margin-bottom: 16px;
+        margin-bottom: 24px;
       }
 
       .filter-section {
@@ -410,39 +548,227 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         margin-bottom: 12px;
       }
 
-      .totals {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 12px;
-        padding: 16px;
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
+      /* テーブルスタイル */
+      .admin-table {
+        width: 100%;
+        min-width: 1200px; /* 横スクロールを許容 */
       }
 
-      .total-item {
+      .group-header {
+        text-align: center !important;
+        font-weight: 600;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .name-header {
+        background-color: #fff;
+      }
+
+      .health-group {
+        background-color: #e3f2fd; /* 薄い青 */
+        color: #0d47a1;
+      }
+
+      .pension-group {
+        background-color: #e8f5e9; /* 薄い緑 */
+        color: #1b5e20;
+      }
+
+      .total-group {
+        background-color: #fff3e0; /* 薄いオレンジ */
+        color: #e65100;
+      }
+
+      .col-name {
+        min-width: 120px;
+        position: sticky;
+        left: 0;
+        background: #fff;
+        z-index: 1;
+      }
+
+      .number-cell {
+        text-align: right;
+        padding-right: 16px;
+        white-space: nowrap;
+      }
+
+      .group-end {
+        border-right: 2px solid #e0e0e0 !important;
+      }
+      
+      .font-bold { font-weight: 700; }
+      .font-medium { font-weight: 500; }
+      .text-secondary { color: #666; }
+
+      .hover-row:hover {
+        background-color: #f5f5f5;
+      }
+
+      /* サマリーセクション */
+      .summary-section {
+        margin-top: 32px;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin-bottom: 16px;
+      }
+
+      .summary-card {
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e0e0e0;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      }
+
+      .summary-header {
+        padding: 12px 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      /* カードごとのテーマカラー */
+      .health-card { border-top: 4px solid #1976d2; }
+      .health-card .summary-header { background: #e3f2fd; color: #0d47a1; }
+      
+      .pension-card { border-top: 4px solid #2e7d32; }
+      .pension-card .summary-header { background: #e8f5e9; color: #1b5e20; }
+      
+      .total-card { border-top: 4px solid #ed6c02; }
+      .total-card .summary-header { background: #fff3e0; color: #e65100; }
+
+      .summary-content {
+        padding: 20px;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
       }
 
-      .total-label {
+      .main-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 4px;
+      }
+
+      .label-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .main-label {
         font-size: 0.9rem;
-        color: #666;
-        font-weight: 500;
+        font-weight: 600;
+        color: #444;
       }
 
-      .total-value {
-        font-size: 1.4rem;
+      .sub-label {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 2px;
+      }
+
+      .main-value {
+        font-size: 1.5rem;
         font-weight: 700;
+        color: #333;
+        line-height: 1;
       }
 
-      .total-value.employee { color: #1976d2; }
-      .total-value.employer { color: #2e7d32; }
-
-      .total-note {
-        color: #666;
+      .main-value small {
         font-size: 0.9rem;
+        margin-left: 2px;
+        font-weight: normal;
+      }
+
+      .divider {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        height: 16px;
+        color: #999;
+      }
+
+      .operator-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      .detail-row, .result-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .detail-label {
+        font-size: 0.9rem;
+        color: #666;
+      }
+
+      .detail-value {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #555;
+      }
+
+      .result-row {
+        padding-top: 8px;
+      }
+
+      .result-label {
+        font-weight: 600;
+        color: #333;
+      }
+
+      .result-value {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #333;
+      }
+
+      /* 会社負担を少し強調 */
+      .health-card .result-value { color: #1976d2; }
+      .pension-card .result-value { color: #2e7d32; }
+      .total-card .result-value { color: #ed6c02; }
+
+      .summary-footer-note {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 12px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .note-icon {
+        color: #64748b;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        margin-top: 2px;
+      }
+
+      .summary-footer-note p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #64748b;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 960px) {
+        .summary-grid {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
       }
 
       @media (max-width: 768px) {
@@ -467,7 +793,7 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
 
   readonly officeId$ = this.currentOffice.officeId$;
   readonly loading = signal(false);
-  readonly rows = signal<(MonthlyPremium & { employeeName: string })[]>([]);
+  readonly rows = signal<MonthlyPremiumViewRow[]>([]);
   readonly selectedYearMonth = signal<string>(new Date().toISOString().substring(0, 7));
   readonly filterText = signal<string>('');
   readonly rateSummary = signal<{ healthRate?: number; careRate?: number; pensionRate?: number } | null>(null);
@@ -493,15 +819,23 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
   readonly displayedColumns = [
     'employeeName',
     'healthStandardMonthly',
-    'healthEmployee',
-    'healthEmployer',
-    'careEmployee',
-    'careEmployer',
+    'healthCareFull',
+    'healthCareEmployee',
+    'healthCareEmployer',
+    'pensionStandardMonthly',
+    'pensionFull',
     'pensionEmployee',
     'pensionEmployer',
+    'totalFull',
     'totalEmployee',
     'totalEmployer'
   ];
+
+  readonly headerRowDef = ['employeeName', 'header-health', 'header-pension', 'header-total'];
+  
+  get subHeaderRowDef(): string[] {
+    return this.displayedColumns.filter(c => c !== 'employeeName');
+  }
 
   readonly filteredRows = computed(() => {
     const text = this.filterText().trim().toLowerCase();
@@ -514,12 +848,32 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
     return base.filter((r) => (r.employeeName ?? '').toLowerCase().includes(text));
   });
 
-  readonly totalEmployee = computed(() => {
-    return this.filteredRows().reduce((sum, r) => sum + r.totalEmployee, 0);
+  readonly healthSummary = computed(() => {
+    const rows = this.filteredRows();
+    const employeeTotal = rows.reduce((sum, r) => sum + (r.healthCareEmployee ?? 0), 0);
+    const sumFull = rows.reduce((sum, r) => sum + (r.healthCareFull ?? 0), 0);
+    const sumFullRoundedDown = Math.floor(sumFull);
+    const employerTotal = sumFullRoundedDown - employeeTotal;
+    return { employeeTotal, sumFull, sumFullRoundedDown, employerTotal };
   });
 
-  readonly totalEmployer = computed(() => {
-    return this.filteredRows().reduce((sum, r) => sum + r.totalEmployer, 0);
+  readonly pensionSummary = computed(() => {
+    const rows = this.filteredRows();
+    const employeeTotal = rows.reduce((sum, r) => sum + (r.pensionEmployee ?? 0), 0);
+    const sumFull = rows.reduce((sum, r) => sum + (r.pensionFull ?? 0), 0);
+    const sumFullRoundedDown = Math.floor(sumFull);
+    const employerTotal = sumFullRoundedDown - employeeTotal;
+    return { employeeTotal, sumFull, sumFullRoundedDown, employerTotal };
+  });
+
+  readonly combinedSummary = computed(() => {
+    const health = this.healthSummary();
+    const pension = this.pensionSummary();
+    const employeeTotal = health.employeeTotal + pension.employeeTotal;
+    const sumFull = health.sumFull + pension.sumFull;
+    const sumFullRoundedDown = Math.floor(sumFull);
+    const employerTotal = sumFullRoundedDown - employeeTotal;
+    return { employeeTotal, sumFull, sumFullRoundedDown, employerTotal };
   });
 
   constructor() {
@@ -560,6 +914,44 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
     this.snackBar.open('CSVエクスポートが完了しました', '閉じる', { duration: 3000 });
   }
 
+  private buildViewRow(
+    premium: MonthlyPremium,
+    employeeNameMap: Map<string, string>
+  ): MonthlyPremiumViewRow {
+    const healthCareFull =
+      premium.healthCareFull ?? (premium.healthTotal ?? 0) + (premium.careTotal ?? 0);
+    const healthCareEmployee =
+      premium.healthCareEmployee ??
+      (premium.healthEmployee ?? 0) +
+        (premium.careEmployee ?? 0);
+    const healthCareEmployer =
+      premium.healthCareEmployer ??
+      (premium.healthEmployer ?? 0) +
+        (premium.careEmployer ?? 0);
+
+    const pensionFull = premium.pensionFull ?? premium.pensionTotal ?? 0;
+    const pensionEmployee = premium.pensionEmployee ?? 0;
+    const pensionEmployer = premium.pensionEmployer ?? 0;
+
+    const totalFull = premium.totalFull ?? healthCareFull + pensionFull;
+    const totalEmployee = premium.totalEmployee ?? healthCareEmployee + pensionEmployee;
+    const totalEmployer = premium.totalEmployer ?? totalFull - totalEmployee;
+
+    return {
+      ...premium,
+      employeeName: employeeNameMap.get(premium.employeeId) ?? '(不明)',
+      healthCareFull,
+      healthCareEmployee,
+      healthCareEmployer,
+      pensionFull,
+      pensionEmployee,
+      pensionEmployer,
+      totalFull,
+      totalEmployee,
+      totalEmployer
+    };
+  }
+
   private async loadPremiumsForYearMonth(yearMonth: string): Promise<void> {
     const officeId = await firstValueFrom(this.officeId$);
     if (!officeId) {
@@ -578,10 +970,9 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         employeeNameMap.set(emp.id, emp.name);
       });
 
-      const rowsWithName = premiums.map((premium) => ({
-        ...premium,
-        employeeName: employeeNameMap.get(premium.employeeId) ?? '(不明)'
-      }));
+      const rowsWithName = premiums.map((premium) =>
+        this.buildViewRow(premium, employeeNameMap)
+      );
 
       this.rows.set(rowsWithName);
     } catch (error) {
@@ -659,10 +1050,9 @@ import { HelpDialogComponent, HelpDialogData } from '../../../components/help-di
         employeeNameMap.set(emp.id, emp.name);
       });
 
-      const resultsWithName = savedPremiums.map((premium) => ({
-        ...premium,
-        employeeName: employeeNameMap.get(premium.employeeId) ?? '(不明)'
-      }));
+      const resultsWithName = savedPremiums.map((premium) =>
+        this.buildViewRow(premium, employeeNameMap)
+      );
 
       this.rows.set(resultsWithName);
 

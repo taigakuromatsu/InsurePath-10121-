@@ -83,11 +83,11 @@ export interface PensionMasterDialogData {
           <div class="flex-row gap-2">
             <button mat-stroked-button color="primary" type="button" (click)="loadPreset()">
               <mat-icon>download</mat-icon>
-              初期値を読み込む
+              現在の料率を読み込む
             </button>
             <button mat-flat-button color="primary" type="button" (click)="addBand()">
             <mat-icon>add</mat-icon>
-              追加
+              行を追加
           </button>
         </div>
       </div>

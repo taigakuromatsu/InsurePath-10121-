@@ -504,6 +504,18 @@ export interface MonthlyPremium {
   pensionStandardMonthly: number;
   pensionGradeSource?: GradeDecisionSource;
 
+  // 合算後の健保＋介護、および厚年の全額／負担額（行レベル参考値）
+  healthCareFull?: number;
+  healthCareEmployee?: number;
+  healthCareEmployer?: number;
+
+  pensionFull?: number;
+
+  // 行レベル参考値（healthCare + pension）
+  totalFull?: number;
+  totalEmployee: number;
+  totalEmployer: number;
+
   healthTotal: number;
   healthEmployee: number;
   healthEmployer: number;
@@ -515,9 +527,6 @@ export interface MonthlyPremium {
   pensionTotal: number;
   pensionEmployee: number;
   pensionEmployer: number;
-
-  totalEmployee: number;
-  totalEmployer: number;
 
   calculatedAt: IsoDateString;
   calculatedByUserId?: string;

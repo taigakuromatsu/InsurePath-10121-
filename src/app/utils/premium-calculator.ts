@@ -22,20 +22,35 @@ export interface PremiumRateContext {
  * 月次保険料の金額（各保険の本人負担・事業主負担）
  */
 export interface MonthlyPremiumAmounts {
+  // 健康保険＋介護保険（合算）
+  healthCareFull: number; // 全額（端数処理前）
+  healthCareEmployee: number; // 従業員負担額（50銭ルール適用後）
+  healthCareEmployer: number; // 会社負担額（参考値）
+
+  // 厚生年金
+  pensionFull: number; // 全額（端数処理前）
+  pensionEmployee: number; // 従業員負担額（50銭ルール適用後）
+  pensionEmployer: number; // 会社負担額（参考値）
+
+  // 行レベル参考値（healthCare + pension の合計）
+  totalFull: number; // 全額合計（端数処理前、行レベル参考値）
+  totalEmployee: number; // 従業員負担合計（行レベル参考値）
+  totalEmployer: number; // 会社負担合計（行レベル参考値）
+
+  // 後方互換用（deprecated）
+  /** @deprecated 健康保険と介護保険は合算して healthCareFull を使用してください。 */
   healthTotal: number;
+  /** @deprecated 従業員負担（健保+介護の合算値） */
   healthEmployee: number;
+  /** @deprecated 会社負担（健保+介護の合算値） */
   healthEmployer: number;
-
+  /** @deprecated 介護保険を分離しません。healthCare* を使用してください。 */
   careTotal: number;
+  /** @deprecated 介護保険を分離しません。healthCare* を使用してください。 */
   careEmployee: number;
+  /** @deprecated 介護保険を分離しません。healthCare* を使用してください。 */
   careEmployer: number;
-
   pensionTotal: number;
-  pensionEmployee: number;
-  pensionEmployer: number;
-
-  totalEmployee: number;
-  totalEmployer: number;
 }
 
 /**
@@ -57,7 +72,6 @@ export interface MonthlyPremiumCalculationResult {
   amounts: MonthlyPremiumAmounts;
 }
 
-
 // 'YYYY-MM-DD' 形式の文字列 → 'YYYY-MM' だけ取り出す。
 // 空文字・undefined・null のときは null を返す。
 function toYearMonthOrNull(dateStr?: string | null): YearMonthString | null {
@@ -66,43 +80,68 @@ function toYearMonthOrNull(dateStr?: string | null): YearMonthString | null {
 }
 
 /**
+ * 従業員負担額に50銭ルールを適用する
+ * - 50銭以下: 切り捨て
+ * - 50銭超 : 切り上げて1円
+ */
+function roundForEmployeeDeduction(amount: number): number {
+  const integer = Math.floor(amount);
+  const fractional = amount - integer;
+  const cent = Math.round(fractional * 100); // 浮動小数の誤差を避ける
+  return cent <= 50 ? integer : integer + 1;
+}
+
+/**
+ * 資格取得日・喪失日ベースで、指定年月に該当保険種別の資格があるかを判定する。
+ *
+ * 基本ルール:
+ * - 取得日が属する月から、その月分の保険料が発生する
+ * - 喪失日が属する月の前月分まで保険料が発生する（喪失月は対象外）
+ *
+ * 重要:
+ * - 資格取得日が未入力の場合、その保険種別は常に対象外
+ * - hireDate / retireDate へのフォールバックは行わない
+ */
+function hasInsuranceInMonth(
+  employee: Employee,
+  yearMonth: YearMonthString,
+  insuranceKind: 'health' | 'pension'
+): boolean {
+  const acquisitionDate =
+    insuranceKind === 'health' ? employee.healthQualificationDate : employee.pensionQualificationDate;
+  const lossDate = insuranceKind === 'health' ? employee.healthLossDate : employee.pensionLossDate;
+
+  if (!acquisitionDate) {
+    return false;
+  }
+
+  const acquisitionYm = toYearMonthOrNull(acquisitionDate);
+  const lossYm = toYearMonthOrNull(lossDate);
+
+  if (acquisitionYm && yearMonth < acquisitionYm) {
+    return false;
+  }
+
+  if (lossYm && yearMonth >= lossYm) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * 資格取得日・喪失日ベースで、指定年月に社会保険の資格があるかどうか判定する。
  *
- * - 健康保険／厚生年金それぞれの資格期間を見て、
- *   「どちらか一方でも資格期間内なら対象」とみなす。
- * - 資格日が未入力のときは hireDate / retireDate をフォールバックとして利用する。
+ * - 健康保険／厚生年金それぞれの資格期間を判定し、どちらか一方でも資格期間内なら対象。
+ * - 取得日が未入力の保険種別は常に対象外（hireDate / retireDate にはフォールバックしない）。
+ * - 保険種別ごとの計算では必ず hasInsuranceInMonth(...) を使用すること。
  */
 function hasSocialInsuranceInMonth(
   employee: Employee,
   yearMonth: YearMonthString
 ): boolean {
-  const ym = yearMonth;
-
-  // 健康保険の資格期間（なければ雇用日・退職日で代用）
-  const healthStart = toYearMonthOrNull(
-    employee.healthQualificationDate || employee.hireDate
-  );
-  const healthEnd = toYearMonthOrNull(
-    employee.healthLossDate || employee.retireDate
-  );
-
-  // 厚生年金の資格期間（なければ雇用日・退職日で代用）
-  const pensionStart = toYearMonthOrNull(
-    employee.pensionQualificationDate || employee.hireDate
-  );
-  const pensionEnd = toYearMonthOrNull(
-    employee.pensionLossDate || employee.retireDate
-  );
-
-  const inRange = (start: YearMonthString | null, end: YearMonthString | null): boolean => {
-    if (start && ym < start) return false;
-    if (end && ym > end) return false;
-    return true;
-  };
-
-  const healthOk = inRange(healthStart, healthEnd);
-  const pensionOk = inRange(pensionStart, pensionEnd);
-
+  const healthOk = hasInsuranceInMonth(employee, yearMonth, 'health');
+  const pensionOk = hasInsuranceInMonth(employee, yearMonth, 'pension');
   // どちらかの社会保険で資格期間内なら、その月は「社会保険対象」とみなす
   return healthOk || pensionOk;
 }
@@ -147,8 +186,13 @@ export function calculateMonthlyPremiumForEmployee(
     return null;
   }
 
+  // 保険種別ごとの加入判定
+  const hasHealthInsurance = hasInsuranceInMonth(employee, rateContext.yearMonth, 'health');
+  const hasPensionInsurance = hasInsuranceInMonth(employee, rateContext.yearMonth, 'pension');
+
   // 2. 健康保険の計算可否を判定
   const canCalcHealth =
+    hasHealthInsurance &&
     employee.healthStandardMonthly != null &&
     employee.healthStandardMonthly > 0 &&
     employee.healthGrade != null &&
@@ -156,6 +200,7 @@ export function calculateMonthlyPremiumForEmployee(
 
   // 3. 厚生年金の計算可否を判定
   const canCalcPension =
+    hasPensionInsurance &&
     employee.pensionStandardMonthly != null &&
     employee.pensionStandardMonthly > 0 &&
     employee.pensionGrade != null &&
@@ -170,34 +215,28 @@ export function calculateMonthlyPremiumForEmployee(
   const healthStandardMonthly = employee.healthStandardMonthly ?? 0;
   const pensionStandardMonthly = employee.pensionStandardMonthly ?? 0;
 
-  // 健康保険
-  const healthTotal =
-    canCalcHealth && !isExempt ? healthStandardMonthly * rateContext.healthRate! : 0;
-
-  // 厚生年金
-  const pensionTotal =
-    canCalcPension && !isExempt ? pensionStandardMonthly * rateContext.pensionRate! : 0;
-
-  // 介護保険（40〜64歳かつ料率あり、かつ免除でない場合のみ）
+  // 健康保険 + 介護保険（合算率）
   const isCareTarget = isCareInsuranceTarget(employee.birthDate, rateContext.yearMonth);
   const hasCareRate = rateContext.careRate != null && rateContext.careRate > 0;
+  const healthRate = rateContext.healthRate ?? 0;
+  const careRate = hasCareRate && isCareTarget ? rateContext.careRate ?? 0 : 0;
+  const healthTotalRate = healthRate + careRate;
 
-  const careTotal =
-    !canCalcHealth || isExempt || !isCareTarget || !hasCareRate
-      ? 0
-      : healthStandardMonthly * rateContext.careRate!;
+  const healthCareFull =
+    canCalcHealth && !isExempt ? healthStandardMonthly * healthTotalRate : 0;
+  const healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
+  const healthCareEmployer = healthCareFull - healthCareEmployee;
 
-  const healthEmployee = Math.floor(healthTotal / 2);
-  const healthEmployer = healthTotal - healthEmployee;
+  // 厚生年金
+  const pensionFull =
+    canCalcPension && !isExempt ? pensionStandardMonthly * rateContext.pensionRate! : 0;
+  const pensionEmployee = roundForEmployeeDeduction(pensionFull / 2);
+  const pensionEmployer = pensionFull - pensionEmployee;
 
-  const pensionEmployee = Math.floor(pensionTotal / 2);
-  const pensionEmployer = pensionTotal - pensionEmployee;
-
-  const careEmployee = Math.floor(careTotal / 2);
-  const careEmployer = careTotal - careEmployee;
-
-  const totalEmployee = healthEmployee + careEmployee + pensionEmployee;
-  const totalEmployer = healthEmployer + careEmployer + pensionEmployer;
+  // 行レベル参考値
+  const totalFull = healthCareFull + pensionFull;
+  const totalEmployee = healthCareEmployee + pensionEmployee;
+  const totalEmployer = totalFull - totalEmployee;
 
   return {
     employeeId: employee.id,
@@ -208,17 +247,23 @@ export function calculateMonthlyPremiumForEmployee(
     pensionGrade: canCalcPension ? employee.pensionGrade! : 0,
     pensionStandardMonthly: canCalcPension ? pensionStandardMonthly : 0,
     amounts: {
-      healthTotal,
-      healthEmployee,
-      healthEmployer,
-      careTotal,
-      careEmployee,
-      careEmployer,
-      pensionTotal,
+      healthCareFull,
+      healthCareEmployee,
+      healthCareEmployer,
+      pensionFull,
       pensionEmployee,
       pensionEmployer,
+      totalFull,
       totalEmployee,
-      totalEmployer
+      totalEmployer,
+      // deprecated fields（後方互換）
+      healthTotal: healthCareFull,
+      healthEmployee: healthCareEmployee,
+      healthEmployer: healthCareEmployer,
+      careTotal: 0,
+      careEmployee: 0,
+      careEmployer: 0,
+      pensionTotal: pensionFull
     }
   };
 }
