@@ -218,70 +218,76 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
               <th mat-header-cell *matHeaderCellDef [attr.colspan]="3" class="group-header total-group">合計（参考）</th>
             </ng-container>
 
-            <ng-container matColumnDef="employeeName">
+          <ng-container matColumnDef="employeeName">
               <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="col-name group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">氏名</th>
               <td mat-cell *matCellDef="let row" class="col-name font-bold">{{ row.employeeName }}</td>
-            </ng-container>
+          </ng-container>
 
-            <ng-container matColumnDef="healthStandardMonthly">
+          <ng-container matColumnDef="healthStandardMonthly">
               <th mat-header-cell *matHeaderCellDef class="number-cell">標準報酬</th>
               <td mat-cell *matCellDef="let row" class="number-cell">{{ row.healthStandardMonthly | number }}</td>
-            </ng-container>
+          </ng-container>
 
-            <ng-container matColumnDef="healthCareFull">
+          <ng-container matColumnDef="healthCareFull">
               <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
               <td mat-cell *matCellDef="let row" class="number-cell">{{ row.healthCareFull | number:'1.0-2' }}</td>
-            </ng-container>
+          </ng-container>
 
-            <ng-container matColumnDef="healthCareEmployee">
+          <ng-container matColumnDef="healthCareEmployee">
               <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
               <td mat-cell *matCellDef="let row" class="number-cell font-medium">{{ row.healthCareEmployee | number }}</td>
-            </ng-container>
+          </ng-container>
 
             <ng-container matColumnDef="healthCareEmployer">
               <th mat-header-cell *matHeaderCellDef class="number-cell group-end">会社負担</th>
-              <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">{{ row.healthCareEmployer | number }}</td>
+              <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">
+                ({{ row.healthCareEmployer | number }})
+              </td>
             </ng-container>
 
-            <ng-container matColumnDef="pensionStandardMonthly">
+          <ng-container matColumnDef="pensionStandardMonthly">
               <th mat-header-cell *matHeaderCellDef class="number-cell">標準報酬</th>
               <td mat-cell *matCellDef="let row" class="number-cell">{{ row.pensionStandardMonthly | number }}</td>
-            </ng-container>
+          </ng-container>
 
-            <ng-container matColumnDef="pensionFull">
+          <ng-container matColumnDef="pensionFull">
               <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
               <td mat-cell *matCellDef="let row" class="number-cell">{{ row.pensionFull | number:'1.0-2' }}</td>
-            </ng-container>
+          </ng-container>
 
-            <ng-container matColumnDef="pensionEmployee">
+          <ng-container matColumnDef="pensionEmployee">
               <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
               <td mat-cell *matCellDef="let row" class="number-cell font-medium">{{ row.pensionEmployee | number }}</td>
-            </ng-container>
+          </ng-container>
 
             <ng-container matColumnDef="pensionEmployer">
               <th mat-header-cell *matHeaderCellDef class="number-cell group-end">会社負担</th>
-              <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">{{ row.pensionEmployer | number }}</td>
+              <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">
+                ({{ row.pensionEmployer | number }})
+              </td>
             </ng-container>
 
-            <ng-container matColumnDef="totalFull">
+          <ng-container matColumnDef="totalFull">
               <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
               <td mat-cell *matCellDef="let row" class="number-cell">{{ row.totalFull | number:'1.0-2' }}</td>
-            </ng-container>
+          </ng-container>
 
-            <ng-container matColumnDef="totalEmployee">
+          <ng-container matColumnDef="totalEmployee">
               <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
               <td mat-cell *matCellDef="let row" class="number-cell font-bold">{{ row.totalEmployee | number }}</td>
-            </ng-container>
+          </ng-container>
 
             <ng-container matColumnDef="totalEmployer">
               <th mat-header-cell *matHeaderCellDef class="number-cell">会社負担</th>
-              <td mat-cell *matCellDef="let row" class="number-cell text-secondary">{{ row.totalEmployer | number }}</td>
+              <td mat-cell *matCellDef="let row" class="number-cell text-secondary">
+                ({{ row.totalEmployer | number }})
+              </td>
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="headerRowDef"></tr>
             <tr mat-header-row *matHeaderRowDef="subHeaderRowDef"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns" class="hover-row"></tr>
-          </table>
+        </table>
         </div>
 
         <div class="summary-section">
@@ -298,20 +304,20 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
                     <span class="sub-label">（端数処理前: {{ healthSummary().sumFull | number:'1.0-2' }}円）</span>
                   </div>
                   <span class="main-value">{{ healthSummary().sumFullRoundedDown | number }}<small>円</small></span>
-                </div>
-                
+        </div>
+
                 <div class="divider">
                   <mat-icon class="operator-icon">remove</mat-icon>
-                </div>
+          </div>
 
                 <div class="detail-row">
                   <span class="detail-label">従業員負担計</span>
                   <span class="detail-value">{{ healthSummary().employeeTotal | number }}円</span>
-                </div>
+          </div>
 
                 <div class="divider">
                   <mat-icon class="operator-icon">drag_handle</mat-icon>
-                </div>
+          </div>
 
                 <div class="result-row">
                   <span class="result-label">会社負担計</span>
@@ -640,7 +646,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
       
       .pension-card { border-top: 4px solid #2e7d32; }
       .pension-card .summary-header { background: #e8f5e9; color: #1b5e20; }
-      
+
       .total-card { border-top: 4px solid #ed6c02; }
       .total-card .summary-header { background: #fff3e0; color: #e65100; }
 

@@ -1,6 +1,6 @@
 import { AsyncPipe, DatePipe, DecimalPipe, NgFor, NgIf, PercentPipe } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { Component, computed, effect, inject, OnDestroy, signal } from '@angular/core';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,8 +9,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { Subject, combineLatest, of, startWith, switchMap, map, firstValueFrom } from 'rxjs';
+import { combineLatest, of, switchMap, firstValueFrom, Subscription, map } from 'rxjs';
 
 import { CurrentOfficeService } from '../../../services/current-office.service';
 import { CurrentUserService } from '../../../services/current-user.service';
@@ -49,6 +50,7 @@ interface BonusPremiumViewRow extends BonusPremium {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MatTooltipModule,
     ReactiveFormsModule,
     AsyncPipe,
     NgIf,
@@ -160,124 +162,142 @@ interface BonusPremiumViewRow extends BonusPremium {
           </div>
 
           <div class="table-container" *ngIf="filteredRows() && filteredRows()!.length > 0; else emptyState">
-            <table mat-table [dataSource]="filteredRows()!" class="admin-table">
-              <!-- グループヘッダー -->
-              <ng-container matColumnDef="header-health">
-                <th mat-header-cell *matHeaderCellDef [attr.colspan]="4" class="group-header health-group">健康保険・介護保険</th>
-              </ng-container>
-              <ng-container matColumnDef="header-pension">
-                <th mat-header-cell *matHeaderCellDef [attr.colspan]="4" class="group-header pension-group">厚生年金</th>
-              </ng-container>
-              <ng-container matColumnDef="header-total">
-                <th mat-header-cell *matHeaderCellDef [attr.colspan]="3" class="group-header total-group">合計（参考）</th>
-              </ng-container>
-
-              <ng-container matColumnDef="payDate">
-                <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="col-name group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">支給日</th>
-                <td mat-cell *matCellDef="let row" class="col-name">{{ row.payDate | date: 'yyyy-MM-dd' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="employeeName">
-                <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="col-name group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">氏名</th>
-                <td mat-cell *matCellDef="let row" class="col-name font-bold">{{ row.employeeName }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="grossAmount">
-                <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="number-cell group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">賞与支給額（税引前）</th>
-                <td mat-cell *matCellDef="let row" class="number-cell">{{ row.grossAmount | number }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="standardBonusAmount">
-                <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="number-cell group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">標準賞与額（共通）</th>
-                <td mat-cell *matCellDef="let row" class="number-cell">{{ row.standardBonusAmount | number }}</td>
-              </ng-container>
-
-              <!-- 健康保険・介護保険グループ -->
-              <ng-container matColumnDef="healthEffectiveAmount">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">標準賞与額（健保）</th>
-                <td mat-cell *matCellDef="let row" class="number-cell">{{ row.healthEffectiveAmount | number }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="healthCareFull">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
-                <td mat-cell *matCellDef="let row" class="number-cell">{{ row.healthCareFull | number:'1.0-2' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="healthCareEmployee">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
-                <td mat-cell *matCellDef="let row" class="number-cell font-medium">{{ row.healthCareEmployee | number }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="healthCareEmployer">
-                <th mat-header-cell *matHeaderCellDef class="number-cell group-end">会社負担</th>
-                <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">{{ row.healthCareEmployer | number }}</td>
-              </ng-container>
-
-              <!-- 厚生年金グループ -->
-              <ng-container matColumnDef="pensionEffectiveAmount">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">標準賞与額（厚年）</th>
-                <td mat-cell *matCellDef="let row" class="number-cell">{{ row.pensionEffectiveAmount | number }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="pensionFull">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
-                <td mat-cell *matCellDef="let row" class="number-cell">{{ row.pensionFull | number:'1.0-2' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="pensionEmployee">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
-                <td mat-cell *matCellDef="let row" class="number-cell font-medium">{{ row.pensionEmployee | number }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="pensionEmployer">
-                <th mat-header-cell *matHeaderCellDef class="number-cell group-end">会社負担</th>
-                <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">{{ row.pensionEmployer | number }}</td>
-              </ng-container>
-
-              <!-- 合計グループ -->
-              <ng-container matColumnDef="totalFull">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
-                <td mat-cell *matCellDef="let row" class="number-cell">{{ row.totalFull | number:'1.0-2' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="totalEmployee">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
-                <td mat-cell *matCellDef="let row" class="number-cell font-bold">{{ row.totalEmployee | number }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="totalEmployer">
-                <th mat-header-cell *matHeaderCellDef class="number-cell">会社負担</th>
-                <td mat-cell *matCellDef="let row" class="number-cell text-secondary">{{ row.totalEmployer | number }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="document">
-                <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="actions-header group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">帳票</th>
-                <td mat-cell *matCellDef="let row" class="actions-cell">
-                  <button
-                    mat-icon-button
-                    color="primary"
-                    aria-label="賞与支払届を生成"
-                    (click)="openDocumentDialog(row)"
-                  >
-                    <mat-icon>picture_as_pdf</mat-icon>
-                  </button>
+            <table mat-table [dataSource]="filteredRows()!" class="admin-table dense-table">
+              
+              <!-- 1. 支給情報（固定） -->
+              <ng-container matColumnDef="payInfo">
+                <th mat-header-cell *matHeaderCellDef class="col-fixed-info">支給日 / 氏名</th>
+                <td mat-cell *matCellDef="let row" class="col-fixed-info cell-padding">
+                  <div class="info-cell">
+                    <span class="pay-date">{{ row.payDate | date: 'yyyy/MM/dd' }}</span>
+                    <span class="employee-name">{{ row.employeeName }}</span>
+                  </div>
                 </td>
               </ng-container>
 
+              <!-- 2. 賞与額 -->
+              <ng-container matColumnDef="bonusAmount">
+                <th mat-header-cell *matHeaderCellDef class="col-amount">賞与支給額<br><span class="sub-header">（千円未満切捨）</span></th>
+                <td mat-cell *matCellDef="let row" class="col-amount cell-padding">
+                  <div class="amount-cell">
+                    <div class="amount-row main-amount">
+                      <span class="label">支給</span>
+                      <span class="value">{{ row.grossAmount | number }}</span>
+                    </div>
+                    <div class="amount-row sub-amount">
+                      <span class="label">切捨後</span>
+                      <span class="value">{{ row.standardBonusAmount | number }}</span>
+                    </div>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- 3. 健康保険 -->
+              <ng-container matColumnDef="healthInfo">
+                <th mat-header-cell *matHeaderCellDef class="col-insurance health-col">健康保険・介護保険</th>
+                <td mat-cell *matCellDef="let row" class="col-insurance health-col cell-padding">
+                  <div class="insurance-cell-v2">
+                    <div class="std-section">
+                      <span class="label">標準賞与</span>
+                      <span class="value">{{ row.healthEffectiveAmount | number }}</span>
+                    </div>
+                    <div class="split-section">
+                      <div class="split-item">
+                        <span class="split-label">従業員</span>
+                        <span class="split-value emp-value">{{ row.healthCareEmployee | number }}</span>
+                      </div>
+                      <div class="split-divider"></div>
+                      <div class="split-item">
+                        <span class="split-label">会社</span>
+                        <span class="split-value comp-value">({{ row.healthCareEmployer | number }})</span>
+                      </div>
+                    </div>
+                    <div class="full-section">
+                      <span class="label">全額</span>
+                      <span class="value">{{ row.healthCareFull | number:'1.0-2' }}</span>
+                    </div>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- 4. 厚生年金 -->
+              <ng-container matColumnDef="pensionInfo">
+                <th mat-header-cell *matHeaderCellDef class="col-insurance pension-col">厚生年金</th>
+                <td mat-cell *matCellDef="let row" class="col-insurance pension-col cell-padding">
+                  <div class="insurance-cell-v2">
+                    <div class="std-section">
+                      <span class="label">標準賞与</span>
+                      <span class="value">{{ row.pensionEffectiveAmount | number }}</span>
+                    </div>
+                    <div class="split-section">
+                      <div class="split-item">
+                        <span class="split-label">従業員</span>
+                        <span class="split-value emp-value">{{ row.pensionEmployee | number }}</span>
+                      </div>
+                      <div class="split-divider"></div>
+                      <div class="split-item">
+                        <span class="split-label">会社</span>
+                        <span class="split-value comp-value">({{ row.pensionEmployer | number }})</span>
+                      </div>
+                    </div>
+                    <div class="full-section">
+                      <span class="label">全額</span>
+                      <span class="value">{{ row.pensionFull | number:'1.0-2' }}</span>
+                    </div>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- 5. 合計 -->
+              <ng-container matColumnDef="totalInfo">
+                <th mat-header-cell *matHeaderCellDef class="col-total total-col">合計</th>
+                <td mat-cell *matCellDef="let row" class="col-total total-col cell-padding">
+                  <div class="insurance-cell-v2">
+                    <div class="split-section mt-2">
+                      <div class="split-item">
+                        <span class="split-label">従業員</span>
+                        <span class="split-value emp-value">{{ row.totalEmployee | number }}</span>
+                      </div>
+                      <div class="split-divider"></div>
+                      <div class="split-item">
+                        <span class="split-label">会社</span>
+                        <span class="split-value comp-value">({{ row.totalEmployer | number }})</span>
+                      </div>
+                    </div>
+                    <div class="full-section">
+                      <span class="label">全額</span>
+                      <span class="value">{{ row.totalFull | number:'1.0-2' }}</span>
+                    </div>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- 6. 操作 -->
               <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="actions-header group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">操作</th>
-                <td mat-cell *matCellDef="let row" class="actions-cell">
-                  <button mat-icon-button color="primary" (click)="openDialog(row)">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button mat-icon-button color="warn" (click)="delete(row)">
-                    <mat-icon>delete</mat-icon>
-                  </button>
+                <th mat-header-cell *matHeaderCellDef class="col-actions">操作</th>
+                <td mat-cell *matCellDef="let row" class="col-actions cell-padding">
+                  <div class="actions-cell">
+                    <button
+                      mat-icon-button
+                      color="primary"
+                      class="small-icon-btn"
+                      aria-label="賞与支払届を生成"
+                      (click)="openDocumentDialog(row)"
+                      matTooltip="帳票出力"
+                    >
+                      <mat-icon>picture_as_pdf</mat-icon>
+                    </button>
+                    <button mat-icon-button color="primary" class="small-icon-btn" (click)="openDialog(row)" matTooltip="編集">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button mat-icon-button color="warn" class="small-icon-btn" (click)="delete(row)" matTooltip="削除">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
                 </td>
               </ng-container>
 
-              <tr mat-header-row *matHeaderRowDef="headerRowDef"></tr>
-              <tr mat-header-row *matHeaderRowDef="subHeaderRowDef"></tr>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: displayedColumns" class="hover-row"></tr>
             </table>
           </div>
@@ -523,6 +543,7 @@ interface BonusPremiumViewRow extends BonusPremium {
         border-radius: 8px;
         border: 1px solid #e0e0e0;
         overflow: hidden;
+        overflow-x: auto; /* 横スクロールを有効化 */
         background: #fff;
         margin-bottom: 24px;
       }
@@ -530,71 +551,174 @@ interface BonusPremiumViewRow extends BonusPremium {
       /* テーブルスタイル */
       .admin-table {
         width: 100%;
-        min-width: 1200px;
+        border-collapse: collapse;
       }
 
-      .group-header {
-        text-align: center !important;
-        font-weight: 600;
-        border-bottom: 1px solid #e0e0e0;
+      /* カラム定義 */
+      .col-fixed-info { width: 15%; min-width: 140px; }
+      .col-amount { width: 15%; min-width: 140px; }
+      .col-insurance { width: 22%; min-width: 200px; }
+      .col-total { width: 18%; min-width: 180px; }
+      .col-actions { width: 10%; min-width: 100px; text-align: center; }
+
+      .cell-padding {
+        padding: 12px !important;
+        vertical-align: top;
       }
 
-      .name-header {
-        background-color: #fff;
+      /* 情報セル */
+      .info-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .pay-date { font-size: 0.85rem; color: #666; }
+      .employee-name { font-weight: 700; font-size: 1rem; color: #333; }
+
+      /* 金額セル */
+      .amount-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .amount-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9rem;
+      }
+      .main-amount .value { font-weight: 700; font-size: 1rem; }
+      .sub-amount { color: #666; font-size: 0.85rem; }
+      .sub-header { font-size: 0.75rem; font-weight: normal; color: #666; }
+
+      /* 保険料セル */
+      .health-col { background-color: #fafdff; }
+      .pension-col { background-color: #fafffa; }
+      .total-col { background-color: #fffaf0; }
+
+      .insurance-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .std-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: #666;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        padding-bottom: 4px;
+        margin-bottom: 2px;
+      }
+      
+      .premium-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr; /* 2列グリッドに変更 */
+        gap: 4px;
+        font-size: 0.85rem;
+      }
+      
+      .insurance-cell-v2 {
+        display: flex;
+        flex-direction: column;
+        background: rgba(255,255,255,0.5);
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.05);
       }
 
-      .health-group {
-        background-color: #e3f2fd;
-        color: #0d47a1;
-      }
-
-      .pension-group {
-        background-color: #e8f5e9;
-        color: #1b5e20;
-      }
-
-      .total-group {
-        background-color: #fff3e0;
-        color: #e65100;
-      }
-
-      .col-name {
-        min-width: 120px;
-        position: sticky;
-        left: 0;
-        background: #fff;
-        z-index: 1;
-      }
-
-      .number-cell {
-        text-align: right;
-        padding-right: 16px;
-        white-space: nowrap;
-      }
-
-      .group-end {
-        border-right: 2px solid #e0e0e0 !important;
-      }
-
-      .font-bold {
-        font-weight: 700;
-      }
-
-      .font-medium {
-        font-weight: 500;
-      }
-
-      .text-secondary {
+      .std-section, .full-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 8px;
+        font-size: 0.8rem;
         color: #666;
       }
-
-      .hover-row:hover {
-        background-color: #f5f5f5;
+      
+      .std-section {
+        background-color: rgba(0,0,0,0.02);
+        border-bottom: 1px solid rgba(0,0,0,0.05);
       }
+      
+      .full-section {
+        border-top: 1px solid rgba(0,0,0,0.05);
+      }
+      
+      .split-section {
+        display: flex;
+        align-items: center;
+        padding: 6px 0;
+      }
+      
+      .mt-2 { margin-top: 8px; }
 
-      .actions-header,
+      .split-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      
+      .split-divider {
+        width: 1px;
+        height: 24px;
+        background-color: #e0e0e0;
+      }
+      
+      .split-label {
+        font-size: 0.7rem;
+        color: #888;
+      }
+      
+      .split-value {
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+      
+      .emp-value { color: #333; }
+      .comp-value { color: #666; }
+
+      .p-row.full {
+        grid-column: 1 / -1; /* 全額は横幅いっぱい */
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px dashed #e0e0e0;
+        padding-bottom: 2px;
+        margin-bottom: 2px;
+      }
+      
+      .p-split {
+        display: contents; /* p-split自体はレイアウトに影響させない */
+      }
+      
+      .p-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+      }
+      .p-item .p-label { font-size: 0.7rem; color: #888; }
+      .p-item .p-value { font-weight: 500; }
+      .emp .p-value { color: #333; }
+      .comp .p-value { color: #666; }
+
+      /* アクション */
       .actions-cell {
-        text-align: center;
+        display: flex;
+        justify-content: center;
+        gap: 4px;
+      }
+      .small-icon-btn {
+        width: 32px;
+        height: 32px;
+        line-height: 32px;
+      }
+      .small-icon-btn mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
       }
 
       /* サマリーカード */
@@ -770,7 +894,7 @@ interface BonusPremiumViewRow extends BonusPremium {
     `
   ]
 })
-export class BonusPremiumsPage {
+export class BonusPremiumsPage implements OnDestroy {
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly employeesService = inject(EmployeesService);
@@ -802,25 +926,13 @@ export class BonusPremiumsPage {
     return options;
   });
 
-  readonly headerRowDef = ['payDate', 'employeeName', 'grossAmount', 'standardBonusAmount', 'header-health', 'header-pension', 'header-total', 'document', 'actions'];
-  readonly subHeaderRowDef = ['healthEffectiveAmount', 'healthCareFull', 'healthCareEmployee', 'healthCareEmployer', 'pensionEffectiveAmount', 'pensionFull', 'pensionEmployee', 'pensionEmployer', 'totalFull', 'totalEmployee', 'totalEmployer'];
+  readonly headerRowDef = ['payInfo', 'bonusAmount', 'healthInfo', 'pensionInfo', 'totalInfo', 'actions'];
   readonly displayedColumns = [
-    'payDate',
-    'employeeName',
-    'grossAmount',
-    'standardBonusAmount',
-    'healthEffectiveAmount',
-    'healthCareFull',
-    'healthCareEmployee',
-    'healthCareEmployer',
-    'pensionEffectiveAmount',
-    'pensionFull',
-    'pensionEmployee',
-    'pensionEmployer',
-    'totalFull',
-    'totalEmployee',
-    'totalEmployer',
-    'document',
+    'payInfo',
+    'bonusAmount',
+    'healthInfo',
+    'pensionInfo',
+    'totalInfo',
     'actions'
   ];
 
@@ -830,20 +942,120 @@ export class BonusPremiumsPage {
 
   readonly rateSummary = signal<{ healthRate?: number; careRate?: number; pensionRate?: number } | null>(null);
   readonly rows = signal<BonusPremiumViewRow[]>([]);
+  private dataSubscription?: Subscription;
 
   constructor() {
-    // selectedYearMonthが変更されたときにrowsを再計算
-    effect(() => {
+    effect((onCleanup) => {
       const yearMonth = this.selectedYearMonth();
-      const subscription = this.officeId$.subscribe((officeId) => {
+  
+      // officeId$ の購読を開始
+      const officeSub = this.officeId$.subscribe((officeId) => {
         if (officeId) {
-          this.loadRowsForYearMonth(officeId, yearMonth);
+          this.setupReactiveSubscription(officeId, yearMonth);
         } else {
           this.rows.set([]);
         }
       });
-      return () => subscription.unsubscribe();
+  
+      // cleanup で Rx の購読も解除
+      onCleanup(() => {
+        officeSub.unsubscribe();
+        this.dataSubscription?.unsubscribe();
+        this.dataSubscription = undefined;
+      });
     });
+  }
+  
+
+  ngOnDestroy(): void {
+    this.dataSubscription?.unsubscribe();
+  }
+
+  private setupReactiveSubscription(officeId: string, yearMonth: YearMonthString): void {
+    // 既存の購読を解除
+    this.dataSubscription?.unsubscribe();
+
+    const bonuses$ = this.bonusPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth);
+    const employees$ = this.employees$;
+    const office$ = this.office$;
+
+    this.dataSubscription = combineLatest([bonuses$, employees$, office$]).subscribe(
+      async ([bonuses, employees, office]) => {
+        if (!office) {
+          this.rows.set([]);
+          return;
+        }
+
+        const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
+        this.rateSummary.set({
+          healthRate: rates.healthRate ?? undefined,
+          careRate: rates.careRate ?? undefined,
+          pensionRate: rates.pensionRate ?? undefined
+        });
+
+        const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+        const rows: BonusPremiumViewRow[] = bonuses
+          .filter((b) => {
+            const employee = employeeMap.get(b.employeeId);
+            if (!employee) return false;
+            const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
+            const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
+            return (hasHealth && b.healthEffectiveAmount > 0) || (hasPension && b.pensionEffectiveAmount > 0);
+          })
+          .map((b) => {
+            const employee = employeeMap.get(b.employeeId)!;
+            const employeeName = employee.name;
+
+            // 健康保険＋介護保険の計算（毎回計算）
+            let healthCareFull = 0;
+            let healthCareEmployee = 0;
+            let healthCareEmployer = 0;
+
+            const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
+            if (hasHealth && b.healthEffectiveAmount > 0) {
+              const isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
+              const careRate = isCareTarget && rates.careRate ? rates.careRate : 0;
+              const combinedRate = (rates.healthRate ?? 0) + careRate;
+              healthCareFull = b.healthEffectiveAmount * combinedRate;
+              healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
+              healthCareEmployer = healthCareFull - healthCareEmployee;
+            }
+
+            // 厚生年金の計算（毎回計算）
+            let pensionFull = 0;
+            let pensionEmployee = 0;
+            let pensionEmployer = 0;
+
+            const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
+            if (hasPension && b.pensionEffectiveAmount > 0) {
+              pensionFull = b.pensionEffectiveAmount * (rates.pensionRate ?? 0);
+              pensionEmployee = roundForEmployeeDeduction(pensionFull / 2);
+              pensionEmployer = pensionFull - pensionEmployee;
+            }
+
+            const totalFull = healthCareFull + pensionFull;
+            const totalEmployee = healthCareEmployee + pensionEmployee;
+            const totalEmployer = healthCareEmployer + pensionEmployer;
+
+            return {
+              ...b,
+              employeeName,
+              healthCareFull,
+              healthCareEmployee,
+              healthCareEmployer,
+              pensionFull,
+              pensionEmployee,
+              pensionEmployer,
+              totalFull,
+              totalEmployee,
+              totalEmployer
+            };
+          });
+
+        this.rows.set(rows);
+      }
+    );
   }
 
   readonly filteredRows = computed(() => {
@@ -877,100 +1089,12 @@ export class BonusPremiumsPage {
     const pension = this.pensionSummary();
     const employeeTotal = health.employeeTotal + pension.employeeTotal;
     const sumFull = health.sumFull + pension.sumFull;
-    // 浮動小数点誤差対策
-    const sumFullRounded = Math.round(sumFull * 100) / 100;
-    const sumFullRoundedDown = Math.floor(sumFullRounded);
+    // 納入告知額は各制度の納入告知額を足したもの
+    const sumFullRoundedDown = health.sumFullRoundedDown + pension.sumFullRoundedDown;
     const employerTotal = sumFullRoundedDown - employeeTotal;
     return { employeeTotal, sumFull, sumFullRoundedDown, employerTotal };
   });
 
-  private async loadRowsForYearMonth(officeId: string, yearMonth: YearMonthString): Promise<void> {
-    try {
-      const bonuses = await firstValueFrom(
-        this.bonusPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
-      );
-      const employees = await firstValueFrom(this.employeesService.list(officeId));
-      const office = await firstValueFrom(this.office$);
-
-      if (!office) {
-        this.rows.set([]);
-        return;
-      }
-
-      const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
-      this.rateSummary.set({
-        healthRate: rates.healthRate ?? undefined,
-        careRate: rates.careRate ?? undefined,
-        pensionRate: rates.pensionRate ?? undefined
-      });
-
-      const employeeMap = new Map(employees.map((e) => [e.id, e]));
-
-      const rows: BonusPremiumViewRow[] = bonuses
-        .filter((b) => {
-          const employee = employeeMap.get(b.employeeId);
-          if (!employee) return false;
-          const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
-          const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
-          return (hasHealth && b.healthEffectiveAmount > 0) || (hasPension && b.pensionEffectiveAmount > 0);
-        })
-        .map((b) => {
-          const employee = employeeMap.get(b.employeeId)!;
-          const employeeName = employee.name;
-
-          // 健康保険＋介護保険の計算（毎回計算）
-          let healthCareFull = 0;
-          let healthCareEmployee = 0;
-          let healthCareEmployer = 0;
-
-          const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
-          if (hasHealth && b.healthEffectiveAmount > 0) {
-            const isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
-            const careRate = isCareTarget && rates.careRate ? rates.careRate : 0;
-            const combinedRate = (rates.healthRate ?? 0) + careRate;
-            healthCareFull = b.healthEffectiveAmount * combinedRate;
-            healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
-            healthCareEmployer = healthCareFull - healthCareEmployee;
-          }
-
-          // 厚生年金の計算（毎回計算）
-          let pensionFull = 0;
-          let pensionEmployee = 0;
-          let pensionEmployer = 0;
-
-          const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
-          if (hasPension && b.pensionEffectiveAmount > 0) {
-            pensionFull = b.pensionEffectiveAmount * (rates.pensionRate ?? 0);
-            pensionEmployee = roundForEmployeeDeduction(pensionFull / 2);
-            pensionEmployer = pensionFull - pensionEmployee;
-          }
-
-          const totalFull = healthCareFull + pensionFull;
-          const totalEmployee = healthCareEmployee + pensionEmployee;
-          const totalEmployer = healthCareEmployer + pensionEmployer;
-
-          return {
-            ...b,
-            employeeName,
-            healthCareFull,
-            healthCareEmployee,
-            healthCareEmployer,
-            pensionFull,
-            pensionEmployee,
-            pensionEmployer,
-            totalFull,
-            totalEmployee,
-            totalEmployer
-          };
-        });
-
-      this.rows.set(rows);
-    } catch (error) {
-      console.error('賞与保険料の取得に失敗しました', error);
-      this.snackBar.open('賞与保険料の取得に失敗しました', '閉じる', { duration: 3000 });
-      this.rows.set([]);
-    }
-  }
 
   onYearMonthSelectionChange(yearMonth: YearMonthString): void {
     this.selectedYearMonth.set(yearMonth);
@@ -1019,14 +1143,7 @@ export class BonusPremiumsPage {
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
         this.snackBar.open('賞与情報を更新しました', '閉じる', { duration: 3000 });
-        // selectedYearMonthが変わらないので、手動で再読み込み
-        const officeId = firstValueFrom(this.officeId$);
-        const yearMonth = this.selectedYearMonth();
-        officeId.then((id) => {
-          if (id) {
-            this.loadRowsForYearMonth(id, yearMonth);
-          }
-        });
+        // リアルタイム購読により自動で更新される
       }
     });
   }
@@ -1046,9 +1163,7 @@ export class BonusPremiumsPage {
     try {
       await this.bonusPremiumsService.deleteBonusPremium(officeId, row.id);
       this.snackBar.open('削除しました', '閉じる', { duration: 3000 });
-      // selectedYearMonthが変わらないので、手動で再読み込み
-      const yearMonth = this.selectedYearMonth();
-      this.loadRowsForYearMonth(officeId, yearMonth);
+      // リアルタイム購読により自動で更新される
     } catch (error) {
       console.error('削除に失敗しました', error);
       this.snackBar.open('削除に失敗しました', '閉じる', { duration: 3000 });

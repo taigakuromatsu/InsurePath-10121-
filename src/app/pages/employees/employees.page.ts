@@ -146,7 +146,7 @@ interface EmployeeWithUpdatedBy extends Employee {
           <table
             mat-table
             [dataSource]="(employeesWithUpdatedBy$ | async) || []"
-            class="admin-table"
+              class="admin-table"
           >
             <!-- 1. 従業員情報 -->
             <ng-container matColumnDef="employeeInfo">
@@ -234,23 +234,23 @@ interface EmployeeWithUpdatedBy extends Employee {
 
                   <div class="flex-row align-center gap-2">
                     <span class="label-fixed">扶養</span>
-                    <button
-                      mat-stroked-button
+                <button
+                  mat-stroked-button
                       class="dependents-button small-btn"
                       [class.has-dependents]="((getDependentsCount(row) | async) ?? 0) > 0"
-                      type="button"
-                      (click)="openDetailWithFocus(row, 'dependents')"
-                    >
+                  type="button"
+                  (click)="openDetailWithFocus(row, 'dependents')"
+                >
                       <mat-icon class="tiny-icon">group</mat-icon>
                       <span class="dependents-count">{{ (getDependentsCount(row) | async) ?? 0 }}人</span>
-                    </button>
+                </button>
                   </div>
 
                   <div class="flex-row align-center gap-2">
                     <span class="label-fixed">ポータル</span>
                     <span class="portal-badge" [ngClass]="getPortalStatus(row)">
                       {{ getPortalStatusLabel(getPortalStatus(row)) }}
-                    </span>
+                </span>
                   </div>
                 </div>
               </td>
@@ -283,42 +283,42 @@ interface EmployeeWithUpdatedBy extends Employee {
               <td mat-cell *matCellDef="let row" class="col-actions cell-padding">
                 <div class="action-cell">
                   <div class="action-buttons flex-row gap-1 justify-end">
-                    <button
+                <button
                       mat-icon-button
                       [color]="getPortalStatus(row) === 'invited' ? 'accent' : 'primary'"
                       class="action-btn"
-                      (click)="openInviteDialog(row)"
-                      [disabled]="isInviteDisabled(getPortalStatus(row)) || !(officeId$ | async)"
+                  (click)="openInviteDialog(row)"
+                  [disabled]="isInviteDisabled(getPortalStatus(row)) || !(officeId$ | async)"
                       [matTooltip]="getInviteButtonLabel(getPortalStatus(row))"
-                    >
-                      <mat-icon fontIcon="mail"></mat-icon>
-                    </button>
-                    <button
-                      mat-icon-button
+                >
+                  <mat-icon fontIcon="mail"></mat-icon>
+                </button>
+                <button
+                  mat-icon-button
                       class="action-btn"
-                      (click)="openDetail(row)"
+                  (click)="openDetail(row)"
                       matTooltip="詳細"
-                    >
-                      <mat-icon>visibility</mat-icon>
-                    </button>
-                    <button
-                      mat-icon-button
-                      color="primary"
+                >
+                  <mat-icon>visibility</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  color="primary"
                       class="action-btn"
-                      (click)="openDialog(row)"
+                  (click)="openDialog(row)"
                       matTooltip="編集"
-                    >
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                    <button
-                      mat-icon-button
-                      color="warn"
+                >
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  color="warn"
                       class="action-btn"
-                      (click)="confirmDeleteEmployee(row)"
+                  (click)="confirmDeleteEmployee(row)"
                       matTooltip="削除"
-                    >
-                      <mat-icon>delete</mat-icon>
-                    </button>
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
                   </div>
                   <div class="update-info">
                     <span class="update-date">{{ row.updatedAt ? (row.updatedAt | date: 'yyyy/MM/dd') : '-' }}</span>
@@ -328,7 +328,7 @@ interface EmployeeWithUpdatedBy extends Employee {
               </td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns" class="hover-row"></tr>
           </table>
           <div class="empty-state" *ngIf="(employeesWithUpdatedBy$ | async)?.length === 0">
@@ -440,7 +440,7 @@ interface EmployeeWithUpdatedBy extends Employee {
       /* 従業員情報列 */
       .name-row { margin-bottom: 4px; }
       .employee-name { font-weight: 700; font-size: 1rem; color: #333; }
-      
+
       .meta-row {
         display: flex;
         align-items: center;
@@ -486,7 +486,7 @@ interface EmployeeWithUpdatedBy extends Employee {
         align-items: center;
         font-size: 0.85rem;
       }
-      
+
       .wage-item {
         border-bottom: 1px solid #e2e8f0;
         padding-bottom: 4px;
@@ -495,7 +495,7 @@ interface EmployeeWithUpdatedBy extends Employee {
       
       .reward-label { color: #64748b; font-size: 0.8rem; }
       .reward-value { font-weight: 600; font-size: 0.95rem; }
-      
+
       .reward-detail {
         display: flex;
         align-items: center;
@@ -510,7 +510,7 @@ interface EmployeeWithUpdatedBy extends Employee {
       }
       .grade-badge.health { background: #e3f2fd; color: #0d47a1; }
       .grade-badge.pension { background: #e8f5e9; color: #1b5e20; }
-      
+
       .monthly-val { font-weight: 500; }
 
       /* ステータス列 */
@@ -596,7 +596,7 @@ interface EmployeeWithUpdatedBy extends Employee {
 
       .hover-row:hover {
         background-color: #fcfcfc;
-      }
+        }
 
       /* 古いスタイルの一部削除・調整 */
       .col-name, .basic-col, .group-end { border: none; }

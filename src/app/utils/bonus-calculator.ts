@@ -1,5 +1,5 @@
 import { Employee, IsoDateString, YearMonthString } from '../types';
-import { isCareInsuranceTarget, roundForEmployeeDeduction } from './premium-calculator';
+import { isCareInsuranceTarget, roundForEmployeeDeduction, hasInsuranceInMonth } from './premium-calculator';
 
 /**
  * 日付から年度（4月1日基準）を取得
@@ -144,6 +144,13 @@ export function calculateBonusPremium(
 
   const fiscalYear = String(getFiscalYear(payDate));
   const yearMonth = payDate.substring(0, 7) as YearMonthString;
+
+  // 資格取得日・喪失日ベースの資格判定
+  const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
+  const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
+  if (!hasHealth && !hasPension) {
+    return null;
+  }
 
   // 上限チェック
   const healthCheck = checkHealthInsuranceLimit(

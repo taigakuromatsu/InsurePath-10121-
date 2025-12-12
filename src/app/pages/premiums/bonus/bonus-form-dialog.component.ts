@@ -1,5 +1,5 @@
 import { AsyncPipe, DatePipe, DecimalPipe, NgForOf, NgIf } from '@angular/common';
-import { Component, Inject, inject, signal } from '@angular/core';
+import { Component, Inject, inject, signal, OnDestroy } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Auth } from '@angular/fire/auth';
+import { debounceTime, Subscription } from 'rxjs';
 
 import { BonusPremium, Employee, Office } from '../../../types';
 import { BonusPremiumsService } from '../../../services/bonus-premiums.service';
@@ -121,7 +122,7 @@ export interface BonusFormDialogData {
         <button mat-button (click)="close()" type="button">キャンセル</button>
         <button mat-raised-button color="primary" type="submit" [disabled]="loading()">
           <mat-icon>save</mat-icon>
-          計算して保存
+          保存
         </button>
       </div>
     </form>
@@ -204,7 +205,7 @@ export interface BonusFormDialogData {
     `
   ]
 })
-export class BonusFormDialogComponent {
+export class BonusFormDialogComponent implements OnDestroy {
   private readonly dialogRef = inject(MatDialogRef<BonusFormDialogComponent>);
   private readonly fb = inject(FormBuilder);
   private readonly mastersService = inject(MastersService);
@@ -214,6 +215,7 @@ export class BonusFormDialogComponent {
 
   readonly calculationResult = signal<BonusPremiumCalculationResult | null>(null);
   readonly loading = signal(false);
+  private formSubscription?: Subscription;
 
   get insuredEmployees(): Employee[] {
     return (this.data.employees || []).filter((e) => e.isInsured);
@@ -236,36 +238,53 @@ export class BonusFormDialogComponent {
       grossAmount: this.data.bonus?.grossAmount ?? null,
       note: this.data.bonus?.note ?? ''
     });
+
+    // 社会保険加入者が0件の場合はダイアログを閉じる
+    if (this.insuredEmployees.length === 0) {
+      this.snackBar.open('社会保険加入者がいないため、賞与を登録できません。', '閉じる', {
+        duration: 4000
+      });
+      this.dialogRef.close(false);
+      return;
+    }
+
+    // フォーム変更時にプレビューを更新
+    this.formSubscription = this.form.valueChanges
+      .pipe(debounceTime(300))
+      .subscribe(() => {
+        this.refreshPreview();
+      });
+
+    // 初期プレビューを表示
+    this.refreshPreview();
   }
 
-  async submit(): Promise<void> {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
+  ngOnDestroy(): void {
+    this.formSubscription?.unsubscribe();
+  }
+
+  private async refreshPreview(): Promise<void> {
+    const { employeeId, payDate, grossAmount } = this.form.value;
+
+    // 入力が揃っていない場合はプレビューをクリア
+    if (!employeeId || !payDate || grossAmount == null || grossAmount <= 0) {
+      this.calculationResult.set(null);
       return;
     }
 
-    const { employeeId, payDate, grossAmount, note } = this.form.value;
     const employee = this.insuredEmployees.find((e) => e.id === employeeId);
-
     if (!employee || !employee.isInsured) {
-      this.snackBar.open('社会保険加入者を選択してください', '閉じる', { duration: 3000 });
-      return;
-    }
-
-    if (!payDate || !grossAmount || grossAmount <= 0) {
-      this.snackBar.open('支給日と賞与支給額を入力してください', '閉じる', { duration: 3000 });
+      this.calculationResult.set(null);
       return;
     }
 
     try {
-      this.loading.set(true);
       const yearMonth = String(payDate).substring(0, 7);
       const rates = await this.mastersService.getRatesForYearMonth(this.data.office, yearMonth);
 
       if (rates.healthRate == null || rates.pensionRate == null) {
-        this.snackBar.open('保険料率が設定されていません。マスタを確認してください。', '閉じる', {
-          duration: 4000
-        });
+        // 料率未設定の場合はプレビューをクリア（エラーは出さない）
+        this.calculationResult.set(null);
         return;
       }
 
@@ -288,17 +307,39 @@ export class BonusFormDialogComponent {
         rates.pensionRate ?? 0
       );
 
-      if (!result) {
-        this.snackBar.open('計算対象外です（未加入または金額が無効）', '閉じる', { duration: 3000 });
-        return;
-      }
-
       this.calculationResult.set(result);
+    } catch (error) {
+      // プレビュー更新中のエラーは無視（保存時にエラーを出す）
+      console.error('プレビュー更新に失敗しました', error);
+      this.calculationResult.set(null);
+    }
+  }
+
+  async submit(): Promise<void> {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    // プレビューが最新でない可能性があるので、一度更新
+    await this.refreshPreview();
+
+    const result = this.calculationResult();
+    if (!result) {
+      this.snackBar.open('計算対象外です（未加入、金額が無効、または保険料率が未設定）', '閉じる', {
+        duration: 4000
+      });
+      return;
+    }
+
+    try {
+      this.loading.set(true);
 
       if (result.healthExceededAmount > 0 || result.pensionExceededAmount > 0) {
         this.snackBar.open('上限超過分は保険料計算から除外されます', '閉じる', { duration: 4000 });
       }
 
+      const { note } = this.form.value;
       const currentUser = this.auth.currentUser;
 
       const payload: Partial<BonusPremium> = {
@@ -308,12 +349,16 @@ export class BonusFormDialogComponent {
         createdByUserId: currentUser?.uid
       };
 
-      await this.bonusPremiumsService.saveBonusPremium(this.data.office.id, payload as BonusPremium, this.data.bonus?.id);
+      await this.bonusPremiumsService.saveBonusPremium(
+        this.data.office.id,
+        payload as BonusPremium,
+        this.data.bonus?.id
+      );
       this.snackBar.open('賞与情報を保存しました', '閉じる', { duration: 3000 });
       this.dialogRef.close(true);
     } catch (error) {
-      console.error('賞与計算に失敗しました', error);
-      this.snackBar.open('賞与計算・保存に失敗しました', '閉じる', { duration: 4000 });
+      console.error('賞与保存に失敗しました', error);
+      this.snackBar.open('賞与保存に失敗しました', '閉じる', { duration: 4000 });
     } finally {
       this.loading.set(false);
     }
