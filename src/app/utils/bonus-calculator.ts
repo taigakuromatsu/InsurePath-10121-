@@ -52,18 +52,33 @@ export function checkHealthInsuranceLimit(
 }
 
 /**
- * 厚生年金の上限チェック（1回の賞与150万円）
+ * 厚生年金の上限チェック（同一月の標準賞与額累計150万円）
+ *
+ * @param standardBonusAmount 今回の標準賞与額（千円未満切捨て済み）
+ * @param monthlyCumulative 当月すでにカウント済みの標準賞与額累計（今回分を含まない）
  */
 export function checkPensionLimit(
-  standardBonusAmount: number
+  standardBonusAmount: number,
+  monthlyCumulative: number
 ): {
   withinLimit: boolean;
   effectiveAmount: number;
   exceededAmount: number;
 } {
-  const limit = 1500000; // 150万円
+  const limit = 1500000; // 150万円（同一月合計）
 
-  if (standardBonusAmount <= limit) {
+  // すでに上限到達済みの場合
+  const remaining = Math.max(0, limit - monthlyCumulative);
+  if (remaining <= 0) {
+    return {
+      withinLimit: false,
+      effectiveAmount: 0,
+      exceededAmount: standardBonusAmount
+    };
+  }
+
+  // まだ枠内
+  if (standardBonusAmount <= remaining) {
     return {
       withinLimit: true,
       effectiveAmount: standardBonusAmount,
@@ -71,10 +86,11 @@ export function checkPensionLimit(
     };
   }
 
+  // 一部だけ枠に入る
   return {
     withinLimit: false,
-    effectiveAmount: limit,
-    exceededAmount: standardBonusAmount - limit
+    effectiveAmount: remaining,
+    exceededAmount: standardBonusAmount - remaining
   };
 }
 
@@ -115,6 +131,7 @@ export interface BonusPremiumCalculationResult {
  * @param grossAmount 賞与支給額（税引前）
  * @param payDate 支給日
  * @param healthStandardBonusCumulative 健保の年度内累計（既存分）
+ * @param pensionStandardBonusMonthlyCumulative 厚年の同一月の標準賞与額累計（既存分、今回分を含まない）
  * @param healthRate 健康保険料率（事業主＋被保険者合計）
  * @param careRate 介護保険料率（事業主＋被保険者合計、オプション）
  * @param pensionRate 厚生年金保険料率（事業主＋被保険者合計）
@@ -126,6 +143,7 @@ export function calculateBonusPremium(
   grossAmount: number,
   payDate: IsoDateString,
   healthStandardBonusCumulative: number,
+  pensionStandardBonusMonthlyCumulative: number,
   healthRate: number,
   careRate: number | null | undefined,
   pensionRate: number
@@ -158,7 +176,8 @@ export function calculateBonusPremium(
     healthStandardBonusCumulative
   );
 
-  const pensionCheck = checkPensionLimit(standardBonusAmount);
+  // 厚生年金の上限チェック（同一月の累計150万円）
+  const pensionCheck = checkPensionLimit(standardBonusAmount, pensionStandardBonusMonthlyCumulative);
 
   // 健康保険＋介護保険の計算
   const isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);

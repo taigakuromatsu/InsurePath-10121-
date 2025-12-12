@@ -11,7 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Auth } from '@angular/fire/auth';
 import { debounceTime, Subscription } from 'rxjs';
 
-import { BonusPremium, Employee, Office } from '../../../types';
+import { BonusPremium, Employee, Office, YearMonthString } from '../../../types';
 import { BonusPremiumsService } from '../../../services/bonus-premiums.service';
 import { MastersService } from '../../../services/masters.service';
 import {
@@ -80,41 +80,45 @@ export interface BonusFormDialogData {
         <div class="preview" *ngIf="calculationResult() as result">
           <h3>
             <mat-icon>insights</mat-icon>
-            計算結果プレビュー
+            標準賞与額と上限チェック
           </h3>
           <div class="preview-grid">
+            <!-- 1. 1000円未満切り捨て後の額 -->
             <div class="preview-item">
-              <span class="label">標準賞与額</span>
+              <span class="label">1000円未満切り捨て後の額</span>
               <span class="value">{{ result.standardBonusAmount | number }} 円</span>
+              <div class="note">
+                入力した賞与支給額を 1,000 円未満切り捨てした金額です。
+              </div>
             </div>
+
+            <!-- 2. 健康保険の標準賞与額 -->
             <div class="preview-item">
-              <span class="label">健康保険</span>
+              <span class="label">健康保険の標準賞与額</span>
               <span class="value">
-                本人 {{ result.healthEmployee | number }} 円 /
-                会社 {{ result.healthEmployer | number }} 円
+                有効額 {{ result.healthEffectiveAmount | number }} 円
               </span>
               <div class="note" *ngIf="result.healthExceededAmount > 0">
-                上限超過額: {{ result.healthExceededAmount | number }} 円
+                <span class="exceeded">上限超過額: {{ result.healthExceededAmount | number }} 円</span>
               </div>
             </div>
+
+            <!-- 3. 厚生年金の標準賞与額 -->
             <div class="preview-item">
-              <span class="label">厚生年金</span>
+              <span class="label">厚生年金の標準賞与額</span>
               <span class="value">
-                本人 {{ result.pensionEmployee | number }} 円 /
-                会社 {{ result.pensionEmployer | number }} 円
+                有効額 {{ result.pensionEffectiveAmount | number }} 円
               </span>
               <div class="note" *ngIf="result.pensionExceededAmount > 0">
-                上限超過額: {{ result.pensionExceededAmount | number }} 円
+                <span class="exceeded">上限超過額: {{ result.pensionExceededAmount | number }} 円</span>
               </div>
             </div>
-            <div class="preview-item total">
-              <span class="label">合計</span>
-              <span class="value">
-                本人 {{ result.totalEmployee | number }} 円 /
-                会社 {{ result.totalEmployer | number }} 円
-              </span>
-            </div>
           </div>
+
+          <p class="preview-note">
+            ※ 実際の保険料は同じ月の他の賞与も含めて一覧画面側で再計算されます。
+            このプレビューは入力中の賞与単体の標準額と上限超過の目安です。
+          </p>
         </div>
       </div>
 
@@ -192,11 +196,18 @@ export interface BonusFormDialogData {
       .preview-item .note {
         margin-top: 0.25rem;
         font-size: 0.85rem;
-        color: #dc2626;
+        color: #6b7280;
       }
 
-      .preview-item.total {
-        background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+      .preview-item .note .exceeded {
+        color: #dc2626;
+        font-weight: 600;
+      }
+
+      .preview-note {
+        margin: 0.75rem 0 0;
+        font-size: 0.8rem;
+        color: #6b7280;
       }
 
       [mat-dialog-actions] {
@@ -279,7 +290,7 @@ export class BonusFormDialogComponent implements OnDestroy {
     }
 
     try {
-      const yearMonth = String(payDate).substring(0, 7);
+      const yearMonth = String(payDate).substring(0, 7) as YearMonthString;
       const rates = await this.mastersService.getRatesForYearMonth(this.data.office, yearMonth);
 
       if (rates.healthRate == null || rates.pensionRate == null) {
@@ -288,11 +299,21 @@ export class BonusFormDialogComponent implements OnDestroy {
         return;
       }
 
+      // 健保: 年度内累計（既存処理）
       const fiscalYear = String(getFiscalYear(payDate));
-      const cumulative = await this.bonusPremiumsService.getHealthStandardBonusCumulative(
+      const healthCumulative = await this.bonusPremiumsService.getHealthStandardBonusCumulative(
         this.data.office.id,
         employeeId as string,
         fiscalYear,
+        this.data.bonus?.payDate
+      );
+
+      // 厚生年金: 同一月の標準賞与額累計
+      const pensionMonthlyCumulative =
+        await this.bonusPremiumsService.getPensionStandardBonusMonthlyCumulative(
+          this.data.office.id,
+          employeeId as string,
+          yearMonth,
         this.data.bonus?.payDate
       );
 
@@ -301,7 +322,8 @@ export class BonusFormDialogComponent implements OnDestroy {
         employee,
         Number(grossAmount),
         payDate as string,
-        cumulative,
+        healthCumulative,
+        pensionMonthlyCumulative,
         rates.healthRate ?? 0,
         rates.careRate,
         rates.pensionRate ?? 0
@@ -325,12 +347,12 @@ export class BonusFormDialogComponent implements OnDestroy {
     await this.refreshPreview();
 
     const result = this.calculationResult();
-    if (!result) {
+      if (!result) {
       this.snackBar.open('計算対象外です（未加入、金額が無効、または保険料率が未設定）', '閉じる', {
         duration: 4000
       });
-      return;
-    }
+        return;
+      }
 
     try {
       this.loading.set(true);
@@ -339,7 +361,7 @@ export class BonusFormDialogComponent implements OnDestroy {
         this.snackBar.open('上限超過分は保険料計算から除外されます', '閉じる', { duration: 4000 });
       }
 
-      const { note } = this.form.value;
+      const { note, employeeId, payDate } = this.form.value;
       const currentUser = this.auth.currentUser;
 
       const payload: Partial<BonusPremium> = {
@@ -354,6 +376,25 @@ export class BonusFormDialogComponent implements OnDestroy {
         payload as BonusPremium,
         this.data.bonus?.id
       );
+
+      // 保存後に「従業員 × 年月」の一括再計算を実行
+      if (employeeId && payDate) {
+        const targetEmployee = this.insuredEmployees.find((e) => e.id === employeeId);
+        if (targetEmployee) {
+          const yearMonth = String(payDate).substring(0, 7) as YearMonthString;
+          try {
+            await this.bonusPremiumsService.recalculateForEmployeeMonth(
+              this.data.office,
+              targetEmployee,
+              yearMonth
+            );
+          } catch (e) {
+            console.error('賞与の一括再計算に失敗しました', e);
+            // ここでは致命的エラーにはしない（保存自体は完了している）
+          }
+        }
+      }
+
       this.snackBar.open('賞与情報を保存しました', '閉じる', { duration: 3000 });
       this.dialogRef.close(true);
     } catch (error) {

@@ -64,15 +64,15 @@ interface BonusPremiumViewRow extends BonusPremium {
       <header class="page-header">
         <div class="flex-row align-center gap-2">
           <h1 class="m-0">賞与保険料管理</h1>
-          <button
-            mat-icon-button
-            class="help-button"
-            type="button"
-            (click)="openHelp()"
-            aria-label="賞与保険料のヘルプを表示"
-          >
-            <mat-icon>help_outline</mat-icon>
-          </button>
+              <button
+                mat-icon-button
+                class="help-button"
+                type="button"
+                (click)="openHelp()"
+                aria-label="賞与保険料のヘルプを表示"
+              >
+                <mat-icon>help_outline</mat-icon>
+              </button>
         </div>
         <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
           対象年月を指定し、その月に支給された賞与データから健康保険・介護保険と厚生年金の保険料を集計します。
@@ -163,7 +163,7 @@ interface BonusPremiumViewRow extends BonusPremium {
 
           <div class="table-container" *ngIf="filteredRows() && filteredRows()!.length > 0; else emptyState">
             <table mat-table [dataSource]="filteredRows()!" class="admin-table dense-table">
-              
+
               <!-- 1. 支給情報（固定） -->
               <ng-container matColumnDef="payInfo">
                 <th mat-header-cell *matHeaderCellDef class="col-fixed-info">支給日 / 氏名</th>
@@ -277,22 +277,22 @@ interface BonusPremiumViewRow extends BonusPremium {
                 <th mat-header-cell *matHeaderCellDef class="col-actions">操作</th>
                 <td mat-cell *matCellDef="let row" class="col-actions cell-padding">
                   <div class="actions-cell">
-                    <button
-                      mat-icon-button
-                      color="primary"
+                  <button
+                    mat-icon-button
+                    color="primary"
                       class="small-icon-btn"
-                      aria-label="賞与支払届を生成"
-                      (click)="openDocumentDialog(row)"
+                    aria-label="賞与支払届を生成"
+                    (click)="openDocumentDialog(row)"
                       matTooltip="帳票出力"
-                    >
-                      <mat-icon>picture_as_pdf</mat-icon>
-                    </button>
+                  >
+                    <mat-icon>picture_as_pdf</mat-icon>
+                  </button>
                     <button mat-icon-button color="primary" class="small-icon-btn" (click)="openDialog(row)" matTooltip="編集">
-                      <mat-icon>edit</mat-icon>
-                    </button>
+                    <mat-icon>edit</mat-icon>
+                  </button>
                     <button mat-icon-button color="warn" class="small-icon-btn" (click)="delete(row)" matTooltip="削除">
-                      <mat-icon>delete</mat-icon>
-                    </button>
+                    <mat-icon>delete</mat-icon>
+                  </button>
                   </div>
                 </td>
               </ng-container>
@@ -416,16 +416,16 @@ interface BonusPremiumViewRow extends BonusPremium {
             </div>
           </div>
 
-          <ng-template #emptyState>
-            <div class="empty-state">
-              <mat-icon>pending_actions</mat-icon>
+        <ng-template #emptyState>
+          <div class="empty-state">
+            <mat-icon>pending_actions</mat-icon>
               <p>対象年月（{{ selectedYearMonth() }}）に登録済みの賞与がありません。まずは賞与を登録してください。</p>
-              <button mat-stroked-button color="primary" (click)="openDialog()" [disabled]="!(officeId$ | async)">
-                <mat-icon>note_add</mat-icon>
-                賞与を登録
-              </button>
-            </div>
-          </ng-template>
+            <button mat-stroked-button color="primary" (click)="openDialog()" [disabled]="!(officeId$ | async)">
+              <mat-icon>note_add</mat-icon>
+              賞与を登録
+            </button>
+          </div>
+        </ng-template>
         </ng-container>
 
         <ng-template #noOffice>
@@ -1039,7 +1039,7 @@ export class BonusPremiumsPage implements OnDestroy {
             const totalEmployer = healthCareEmployer + pensionEmployer;
 
             return {
-              ...b,
+        ...b,
               employeeName,
               healthCareFull,
               healthCareEmployee,
@@ -1101,15 +1101,15 @@ export class BonusPremiumsPage implements OnDestroy {
     // effectで自動的に再計算される
   }
 
-  openHelp(): void {
-    this.dialog.open(HelpDialogComponent, {
-      width: '720px',
-      data: {
-        topicIds: ['bonusRange'],
-        title: '賞与保険料に関するヘルプ'
-      } satisfies HelpDialogData
-    });
-  }
+    openHelp(): void {
+      this.dialog.open(HelpDialogComponent, {
+        width: '720px',
+        data: {
+          topicIds: ['bonusRange'],
+          title: '賞与保険料に関するヘルプ'
+        } satisfies HelpDialogData
+      });
+    }
 
   exportToCsv(): void {
     const rows = this.filteredRows();
@@ -1154,16 +1154,34 @@ export class BonusPremiumsPage implements OnDestroy {
     );
     if (!confirmed) return;
 
-    const officeId = await firstValueFrom(this.officeId$);
-    if (!officeId) {
+    const office = await firstValueFrom(this.office$);
+    if (!office) {
       this.snackBar.open('事業所が設定されていません', '閉じる', { duration: 3000 });
       return;
     }
 
     try {
-      await this.bonusPremiumsService.deleteBonusPremium(officeId, row.id);
+      await this.bonusPremiumsService.deleteBonusPremium(office.id, row.id);
+
+      // 削除後にその従業員 × 年月の賞与を一括再計算
+      try {
+        const employees = await firstValueFrom(this.employees$);
+        const targetEmployee = (employees as Employee[]).find((e) => e.id === row.employeeId);
+        if (targetEmployee) {
+          const yearMonth = row.payDate.substring(0, 7) as YearMonthString;
+          await this.bonusPremiumsService.recalculateForEmployeeMonth(
+            office,
+            targetEmployee,
+            yearMonth
+          );
+        }
+      } catch (e) {
+        console.error('賞与削除後の一括再計算に失敗しました', e);
+        // ここも保存同様、致命的エラーとはしない
+      }
+
       this.snackBar.open('削除しました', '閉じる', { duration: 3000 });
-      // リアルタイム購読により自動で更新される
+      // リアルタイム購読により一覧は自動更新される
     } catch (error) {
       console.error('削除に失敗しました', error);
       this.snackBar.open('削除に失敗しました', '閉じる', { duration: 3000 });

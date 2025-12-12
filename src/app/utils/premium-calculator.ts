@@ -39,18 +39,18 @@ export interface MonthlyPremiumAmounts {
 
   // 後方互換用（deprecated）
     /** @deprecated 健康保険と介護保険は合算して healthCareFull を使用してください。 */
-    healthTotal: number;
+  healthTotal: number;
     /** @deprecated 従業員負担（健保+介護の合算値）。通常は healthCareEmployee を使用してください。 */
-    healthEmployee: number;
+  healthEmployee: number;
     /** @deprecated 会社負担（健保+介護の合算値）。通常は healthCareEmployer を使用してください。 */
-    healthEmployer: number;
+  healthEmployer: number;
     /** @deprecated 介護保険分のみの参考値です。通常は healthCare* を使用してください。 */
-    careTotal: number;
+  careTotal: number;
     /** @deprecated 介護保険の従業員負担（参考値） */
-    careEmployee: number;
+  careEmployee: number;
     /** @deprecated 介護保険の会社負担（参考値） */
-    careEmployer: number;
-  
+  careEmployer: number;
+
   pensionTotal: number;
 }
 
