@@ -21,6 +21,7 @@ import { EmployeesService } from './employees.service';
 import { MonthlyPremiumsService } from './monthly-premiums.service';
 import { StandardRewardHistoryService } from './standard-reward-history.service';
 import { todayYmd, ymdToDateLocal } from '../utils/date-helpers';
+import { isCareInsuranceTarget } from '../utils/premium-calculator';
 
 @Injectable({ providedIn: 'root' })
 export class DataQualityService {
@@ -208,9 +209,9 @@ export class DataQualityService {
         }
       }
 
-      // ルール5: 介護保険料の年齢不整合
+      // ルール5: 介護保険料の年齢不整合（介護対象判定は共通ロジックに統一）
       empPremiums.forEach((p) => {
-        const isCareTarget = this.isCareInsuranceTarget(emp.birthDate, p.yearMonth);
+        const isCareTarget = isCareInsuranceTarget(emp.birthDate, p.yearMonth);
         const careVal = p.careTotal ?? 0;
         if (isCareTarget && careVal <= 0) {
           issues.push(
@@ -351,21 +352,6 @@ export class DataQualityService {
     const parsed = dates.map((d) => ymdToDateLocal(d));
     parsed.sort((a, b) => a.getTime() - b.getTime());
     return parsed[0];
-  }
-
-  private isCareInsuranceTarget(birthDate: string, yearMonth: YearMonthString): boolean {
-    const [year, month] = yearMonth.split('-');
-    // 月末基準で年齢判定
-    const targetDate = new Date(Number(year), Number(month), 0);
-    const birth = ymdToDateLocal(birthDate);
-
-    let age = targetDate.getFullYear() - birth.getFullYear();
-    const monthDiff = targetDate.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && targetDate.getDate() < birth.getDate())) {
-      age--;
-    }
-
-    return age >= 40 && age <= 64;
   }
 
   private isWithinHireGrace(hireDate?: string): boolean {

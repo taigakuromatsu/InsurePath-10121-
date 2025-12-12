@@ -38,18 +38,19 @@ export interface MonthlyPremiumAmounts {
   totalEmployer: number; // 会社負担合計（行レベル参考値）
 
   // 後方互換用（deprecated）
-  /** @deprecated 健康保険と介護保険は合算して healthCareFull を使用してください。 */
-  healthTotal: number;
-  /** @deprecated 従業員負担（健保+介護の合算値） */
-  healthEmployee: number;
-  /** @deprecated 会社負担（健保+介護の合算値） */
-  healthEmployer: number;
-  /** @deprecated 介護保険を分離しません。healthCare* を使用してください。 */
-  careTotal: number;
-  /** @deprecated 介護保険を分離しません。healthCare* を使用してください。 */
-  careEmployee: number;
-  /** @deprecated 介護保険を分離しません。healthCare* を使用してください。 */
-  careEmployer: number;
+    /** @deprecated 健康保険と介護保険は合算して healthCareFull を使用してください。 */
+    healthTotal: number;
+    /** @deprecated 従業員負担（健保+介護の合算値）。通常は healthCareEmployee を使用してください。 */
+    healthEmployee: number;
+    /** @deprecated 会社負担（健保+介護の合算値）。通常は healthCareEmployer を使用してください。 */
+    healthEmployer: number;
+    /** @deprecated 介護保険分のみの参考値です。通常は healthCare* を使用してください。 */
+    careTotal: number;
+    /** @deprecated 介護保険の従業員負担（参考値） */
+    careEmployee: number;
+    /** @deprecated 介護保険の会社負担（参考値） */
+    careEmployer: number;
+  
   pensionTotal: number;
 }
 
@@ -147,23 +148,44 @@ function hasSocialInsuranceInMonth(
 }
 
 /**
- * 介護保険の対象判定（40〜64歳）
+ * 介護保険第2号被保険者かどうかを判定する。
+ *
+ * 協会けんぽの説明に合わせて、
+ * - 満40歳に達した日の前日が属する月から
+ * - 満65歳に達した日の前日が属する月の「前月」まで
+ * を第2号被保険者（介護保険料徴収対象）とみなす。
+ *
+ * 実装では、40歳到達前日の年月を startYm、65歳到達前日の年月を lossYm とし、
+ * 対象年月 ym が startYm <= ym < lossYm のとき true を返す。
+ *
+ * @param birthDate 'YYYY-MM-DD' 形式
+ * @param yearMonth 'YYYY-MM' 形式
  */
-function isCareInsuranceTarget(
+export function isCareInsuranceTarget(
   birthDate: string,
   yearMonth: YearMonthString
 ): boolean {
-  const [year, month] = yearMonth.split('-');
-  const targetDate = new Date(`${year}-${month}-01`);
+  const ym = toYearMonthOrNull(`${yearMonth}-01`);
+  if (!birthDate || !ym) return false;
+
   const birth = new Date(birthDate);
+  if (isNaN(birth.getTime())) return false;
 
-  let age = targetDate.getFullYear() - birth.getFullYear();
-  const monthDiff = targetDate.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && targetDate.getDate() < birth.getDate())) {
-    age--;
-  }
+  // 40歳到達前日が属する年月
+  const dayBefore40 = new Date(birth);
+  dayBefore40.setFullYear(dayBefore40.getFullYear() + 40);
+  dayBefore40.setDate(dayBefore40.getDate() - 1);
+  const startYm = toYearMonthOrNull(dayBefore40.toISOString().substring(0, 10));
+  if (!startYm) return false;
 
-  return age >= 40 && age <= 64;
+  // 65歳到達前日が属する年月
+  const dayBefore65 = new Date(birth);
+  dayBefore65.setFullYear(dayBefore65.getFullYear() + 65);
+  dayBefore65.setDate(dayBefore65.getDate() - 1);
+  const lossYm = toYearMonthOrNull(dayBefore65.toISOString().substring(0, 10));
+  if (!lossYm) return false;
+
+  return startYm <= ym && ym < lossYm;
 }
 
 /**
@@ -215,17 +237,24 @@ export function calculateMonthlyPremiumForEmployee(
   const healthStandardMonthly = employee.healthStandardMonthly ?? 0;
   const pensionStandardMonthly = employee.pensionStandardMonthly ?? 0;
 
-  // 健康保険 + 介護保険（合算率）
-  const isCareTarget = isCareInsuranceTarget(employee.birthDate, rateContext.yearMonth);
-  const hasCareRate = rateContext.careRate != null && rateContext.careRate > 0;
-  const healthRate = rateContext.healthRate ?? 0;
-  const careRate = hasCareRate && isCareTarget ? rateContext.careRate ?? 0 : 0;
-  const healthTotalRate = healthRate + careRate;
-
-  const healthCareFull =
-    canCalcHealth && !isExempt ? healthStandardMonthly * healthTotalRate : 0;
-  const healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
-  const healthCareEmployer = healthCareFull - healthCareEmployee;
+    // 健康保険 + 介護保険（合算率）
+    const isCareTarget = isCareInsuranceTarget(employee.birthDate, rateContext.yearMonth);
+    const hasCareRate = rateContext.careRate != null && rateContext.careRate > 0;
+    const healthRate = rateContext.healthRate ?? 0;
+    const careRate = hasCareRate && isCareTarget ? rateContext.careRate ?? 0 : 0;
+    const healthTotalRate = healthRate + careRate;
+  
+    // ★ 介護保険「単体」の金額（参考値：データ品質チェック用など）
+    const careFull =
+      canCalcHealth && !isExempt ? healthStandardMonthly * careRate : 0;
+    const careEmployee = roundForEmployeeDeduction(careFull / 2);
+    const careEmployer = careFull - careEmployee;
+  
+    const healthCareFull =
+      canCalcHealth && !isExempt ? healthStandardMonthly * healthTotalRate : 0;
+    const healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
+    const healthCareEmployer = healthCareFull - healthCareEmployee;
+  
 
   // 厚生年金
   const pensionFull =
@@ -257,13 +286,16 @@ export function calculateMonthlyPremiumForEmployee(
       totalEmployee,
       totalEmployer,
       // deprecated fields（後方互換）
+      // healthTotal* は「健保＋介護の合算値」として従来どおり維持
       healthTotal: healthCareFull,
       healthEmployee: healthCareEmployee,
       healthEmployer: healthCareEmployer,
-      careTotal: 0,
-      careEmployee: 0,
-      careEmployer: 0,
+      // care* は「介護保険分のみ」の参考値
+      careTotal: careFull,
+      careEmployee,
+      careEmployer,
       pensionTotal: pensionFull
     }
+
   };
 }
