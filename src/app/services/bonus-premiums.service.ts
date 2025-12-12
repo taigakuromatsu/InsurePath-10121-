@@ -152,6 +152,77 @@ export class BonusPremiumsService {
   }
 
   /**
+   * 支給日が属する「7月1日〜翌年6月30日」の期間の開始日と終了日を取得
+   * この関数は年4回制限チェック専用であり、他の機能には影響しない
+   *
+   * @param payDate 支給日
+   * @returns 期間の開始日（7月1日）と終了日（翌年6月30日）をISO形式で返す
+   */
+  private getBonusLimitPeriod(payDate: IsoDateString): { startDate: IsoDateString; endDate: IsoDateString } {
+    const date = new Date(payDate);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // 1-12
+
+    let startYear: number;
+    let endYear: number;
+
+    if (month >= 7) {
+      // 7月1日以降は、その年の7月1日〜翌年6月30日
+      startYear = year;
+      endYear = year + 1;
+    } else {
+      // 7月1日より前は、前年の7月1日〜その年の6月30日
+      startYear = year - 1;
+      endYear = year;
+    }
+
+    const startDate = `${startYear}-07-01` as IsoDateString;
+    const endDate = `${endYear}-06-30` as IsoDateString;
+
+    return { startDate, endDate };
+  }
+
+  /**
+   * 指定期間内（7月1日〜翌年6月30日）の賞与支給回数を取得
+   * この関数は年4回制限チェック専用であり、他の機能には影響しない
+   *
+   * @param officeId 事業所ID
+   * @param employeeId 従業員ID
+   * @param payDate 支給日（この日が属する期間を判定）
+   * @param excludePayDate 編集時に自分自身を除外するための支給日（オプション）
+   * @returns 期間内の賞与支給回数
+   */
+  async getBonusCountInPeriod(
+    officeId: string,
+    employeeId: string,
+    payDate: IsoDateString,
+    excludePayDate?: IsoDateString
+  ): Promise<number> {
+    const { startDate, endDate } = this.getBonusLimitPeriod(payDate);
+
+    const ref = this.getCollectionRef(officeId);
+    const q = query(
+      ref,
+      where('employeeId', '==', employeeId),
+      orderBy('payDate', 'asc')
+    );
+
+    const snapshot = await getDocs(q);
+    const bonuses = snapshot.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) } as BonusPremium))
+      .filter((b) => {
+        // 編集時に自分自身を除外
+        if (excludePayDate && b.payDate === excludePayDate) {
+          return false;
+        }
+        // 期間内かどうかを判定
+        return b.payDate >= startDate && b.payDate <= endDate;
+      });
+
+    return bonuses.length;
+  }
+
+  /**
    * 健康保険の年度内累計標準賞与額（有効額）を取得する
    * 編集時には excludePayDate で現在編集中の支給日を除外できる
    */

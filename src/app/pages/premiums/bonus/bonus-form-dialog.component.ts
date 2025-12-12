@@ -11,7 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Auth } from '@angular/fire/auth';
 import { debounceTime, Subscription } from 'rxjs';
 
-import { BonusPremium, Employee, Office, YearMonthString } from '../../../types';
+import { BonusPremium, Employee, Office, YearMonthString, IsoDateString } from '../../../types';
 import { BonusPremiumsService } from '../../../services/bonus-premiums.service';
 import { MastersService } from '../../../services/masters.service';
 import {
@@ -123,6 +123,15 @@ export interface BonusFormDialogData {
             このプレビューは入力中の賞与単体の標準額と上限超過の目安です。
           </p>
         </div>
+
+        <!-- 年4回制限の警告 -->
+        <div class="bonus-limit-warning" *ngIf="bonusLimitWarning()">
+          <mat-icon class="warning-icon">warning</mat-icon>
+          <div class="warning-content">
+            <strong>年4回制限の警告</strong>
+            <p>{{ bonusLimitWarning() }}</p>
+          </div>
+        </div>
       </div>
 
       <div mat-dialog-actions align="end">
@@ -213,6 +222,40 @@ export interface BonusFormDialogData {
         color: #6b7280;
       }
 
+      .bonus-limit-warning {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 8px;
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .warning-icon {
+        color: #ff9800;
+        margin-top: 2px;
+      }
+
+      .warning-content {
+        flex: 1;
+      }
+
+      .warning-content strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #856404;
+        font-size: 0.95rem;
+      }
+
+      .warning-content p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #856404;
+        line-height: 1.5;
+      }
+
       [mat-dialog-actions] {
         padding: 1rem;
       }
@@ -229,6 +272,7 @@ export class BonusFormDialogComponent implements OnDestroy {
 
   readonly calculationResult = signal<BonusPremiumCalculationResult | null>(null);
   readonly loading = signal(false);
+  readonly bonusLimitWarning = signal<string | null>(null);
   private formSubscription?: Subscription;
 
   get insuredEmployees(): Employee[] {
@@ -283,16 +327,36 @@ export class BonusFormDialogComponent implements OnDestroy {
     // 入力が揃っていない場合はプレビューをクリア
     if (!employeeId || !payDate || grossAmount == null || grossAmount <= 0) {
       this.calculationResult.set(null);
+      this.bonusLimitWarning.set(null);
       return;
     }
 
     const employee = this.insuredEmployees.find((e) => e.id === employeeId);
     if (!employee || !employee.isInsured) {
       this.calculationResult.set(null);
+      this.bonusLimitWarning.set(null);
       return;
     }
 
     try {
+      // 年4回制限のチェック（プレビュー段階で警告を表示）
+      const bonusCount = await this.bonusPremiumsService.getBonusCountInPeriod(
+        this.data.office.id,
+        employeeId as string,
+        payDate as IsoDateString,
+        this.data.bonus?.payDate
+      );
+
+      if (bonusCount >= 3) {
+        this.bonusLimitWarning.set(
+          `この従業員は、7月1日から翌年6月30日までの期間に既に${bonusCount}回の賞与が登録されています。` +
+          `4回目以降の支給は賞与として計算されず、標準報酬月額の算定に含まれます。` +
+          `このまま登録することはできません。`
+        );
+      } else {
+        this.bonusLimitWarning.set(null);
+      }
+
       const yearMonth = String(payDate).substring(0, 7) as YearMonthString;
       const rates = await this.mastersService.getRatesForYearMonth(this.data.office, yearMonth);
 
@@ -337,6 +401,7 @@ export class BonusFormDialogComponent implements OnDestroy {
       // プレビュー更新中のエラーは無視（保存時にエラーを出す）
       console.error('プレビュー更新に失敗しました', error);
       this.calculationResult.set(null);
+      this.bonusLimitWarning.set(null);
     }
   }
 
@@ -357,6 +422,26 @@ export class BonusFormDialogComponent implements OnDestroy {
         return;
       }
 
+    // 年4回制限のチェック（保存を完全にブロック）
+    const { employeeId, payDate } = this.form.value;
+    if (employeeId && payDate) {
+      const bonusCount = await this.bonusPremiumsService.getBonusCountInPeriod(
+        this.data.office.id,
+        employeeId as string,
+        payDate as IsoDateString,
+        this.data.bonus?.payDate
+      );
+
+      if (bonusCount >= 3) {
+        this.snackBar.open(
+          `年4回以上の支給は賞与として計算されません。この従業員は既に${bonusCount}回の賞与が登録されています。`,
+          '閉じる',
+          { duration: 6000 }
+        );
+        return;
+      }
+    }
+
     try {
       this.loading.set(true);
 
@@ -364,7 +449,7 @@ export class BonusFormDialogComponent implements OnDestroy {
         this.snackBar.open('上限超過分は保険料計算から除外されます', '閉じる', { duration: 4000 });
       }
 
-      const { note, employeeId, payDate } = this.form.value;
+      const { note } = this.form.value;
       const currentUser = this.auth.currentUser;
 
       const payload: Partial<BonusPremium> = {
