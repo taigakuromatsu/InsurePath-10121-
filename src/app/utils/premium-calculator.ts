@@ -85,7 +85,7 @@ function toYearMonthOrNull(dateStr?: string | null): YearMonthString | null {
  * - 50銭以下: 切り捨て
  * - 50銭超 : 切り上げて1円
  */
-function roundForEmployeeDeduction(amount: number): number {
+export function roundForEmployeeDeduction(amount: number): number {
   const integer = Math.floor(amount);
   const fractional = amount - integer;
   const cent = Math.round(fractional * 100); // 浮動小数の誤差を避ける
@@ -103,7 +103,7 @@ function roundForEmployeeDeduction(amount: number): number {
  * - 資格取得日が未入力の場合、その保険種別は常に対象外
  * - hireDate / retireDate へのフォールバックは行わない
  */
-function hasInsuranceInMonth(
+export function hasInsuranceInMonth(
   employee: Employee,
   yearMonth: YearMonthString,
   insuranceKind: 'health' | 'pension'

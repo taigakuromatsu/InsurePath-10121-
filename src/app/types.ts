@@ -542,24 +542,32 @@ export interface BonusPremium {
   standardBonusAmount: number;
   fiscalYear: string;
 
-  healthTotal: number;
-  healthEmployee: number;
-  healthEmployer: number;
+  // 上限関連（必須）
+  healthEffectiveAmount: number; // 健康保険の有効な標準賞与額（上限適用後）
+  healthExceededAmount: number; // 健康保険の上限超過額
+  healthStandardBonusCumulative: number; // 健康保険の年度内累計
+  pensionEffectiveAmount: number; // 厚生年金の有効な標準賞与額（上限適用後）
+  pensionExceededAmount: number; // 厚生年金の上限超過額
 
-  pensionTotal: number;
-  pensionEmployee: number;
-  pensionEmployer: number;
+  // 新規追加フィールド（UI表示用の補助値）
+  healthCareFull?: number; // 健康保険＋介護保険の全額（端数処理前）
+  healthCareEmployee?: number; // 健康保険＋介護保険の従業員負担額（50銭ルール適用後）
+  healthCareEmployer?: number; // 健康保険＋介護保険の会社負担額（参考値）
+  pensionFull?: number; // 厚生年金の全額（端数処理前）
+  totalFull?: number; // 行レベル参考値（healthCareFull + pensionFull）
 
-  totalEmployee: number;
-  totalEmployer: number;
+  // 既存フィールドを新ロジックの結果で上書き保存（月次と同じ意味）
+  healthTotal: number; // 健康保険＋介護保険の全額（月次と同じ意味）
+  healthEmployee: number; // 健康保険＋介護保険の従業員負担額
+  healthEmployer: number; // 健康保険＋介護保険の会社負担額
+  pensionTotal: number; // 厚生年金の全額
+  pensionEmployee: number; // 厚生年金の従業員負担額
+  pensionEmployer: number; // 厚生年金の会社負担額
+  totalEmployee: number; // 従業員負担合計（健康＋厚年）
+  totalEmployer: number; // 会社負担合計（健康＋厚年）
 
   // オプション情報
-  healthStandardBonusCumulative?: number;
   note?: string;
-  healthEffectiveAmount?: number;
-  healthExceededAmount?: number;
-  pensionEffectiveAmount?: number;
-  pensionExceededAmount?: number;
 
   createdAt: IsoDateString;
   createdByUserId?: string;

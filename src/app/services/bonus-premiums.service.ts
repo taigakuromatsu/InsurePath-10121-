@@ -99,6 +99,19 @@ export class BonusPremiumsService {
       grossAmount: Number(bonus.grossAmount ?? 0),
       standardBonusAmount: Number(bonus.standardBonusAmount ?? 0),
       fiscalYear: bonus.fiscalYear ?? String(getFiscalYear(bonus.payDate)),
+      // 上限関連（必須）
+      healthEffectiveAmount: Number(bonus.healthEffectiveAmount ?? 0),
+      healthExceededAmount: Number(bonus.healthExceededAmount ?? 0),
+      healthStandardBonusCumulative: Number(bonus.healthStandardBonusCumulative ?? 0),
+      pensionEffectiveAmount: Number(bonus.pensionEffectiveAmount ?? 0),
+      pensionExceededAmount: Number(bonus.pensionExceededAmount ?? 0),
+      // 新規追加フィールド（UI表示用の補助値）
+      healthCareFull: bonus.healthCareFull != null ? Number(bonus.healthCareFull) : undefined,
+      healthCareEmployee: bonus.healthCareEmployee != null ? Number(bonus.healthCareEmployee) : undefined,
+      healthCareEmployer: bonus.healthCareEmployer != null ? Number(bonus.healthCareEmployer) : undefined,
+      pensionFull: bonus.pensionFull != null ? Number(bonus.pensionFull) : undefined,
+      totalFull: bonus.totalFull != null ? Number(bonus.totalFull) : undefined,
+      // 既存フィールドを新ロジックの結果で上書き（月次と同じ意味）
       healthTotal: Number(bonus.healthTotal ?? 0),
       healthEmployee: Number(bonus.healthEmployee ?? 0),
       healthEmployer: Number(bonus.healthEmployer ?? 0),
@@ -107,29 +120,11 @@ export class BonusPremiumsService {
       pensionEmployer: Number(bonus.pensionEmployer ?? 0),
       totalEmployee: Number(bonus.totalEmployee ?? 0),
       totalEmployer: Number(bonus.totalEmployer ?? 0),
+      // オプション情報
+      note: bonus.note ?? undefined,
       createdAt: bonus.createdAt ?? now,
       createdByUserId: bonus.createdByUserId
     };
-
-    // オプショナル
-    if (bonus.healthStandardBonusCumulative != null) {
-      payload.healthStandardBonusCumulative = Number(
-        bonus.healthStandardBonusCumulative
-      );
-    }
-    if (bonus.note != null) payload.note = bonus.note;
-    if (bonus.healthEffectiveAmount != null) {
-      payload.healthEffectiveAmount = Number(bonus.healthEffectiveAmount);
-    }
-    if (bonus.healthExceededAmount != null) {
-      payload.healthExceededAmount = Number(bonus.healthExceededAmount);
-    }
-    if (bonus.pensionEffectiveAmount != null) {
-      payload.pensionEffectiveAmount = Number(bonus.pensionEffectiveAmount);
-    }
-    if (bonus.pensionExceededAmount != null) {
-      payload.pensionExceededAmount = Number(bonus.pensionExceededAmount);
-    }
 
     const cleanPayload = Object.fromEntries(
       Object.entries(payload).filter(([, value]) => value !== undefined)

@@ -283,8 +283,9 @@ export class BonusFormDialogComponent {
         Number(grossAmount),
         payDate as string,
         cumulative,
-        rates.healthRate,
-        rates.pensionRate
+        rates.healthRate ?? 0,
+        rates.careRate,
+        rates.pensionRate ?? 0
       );
 
       if (!result) {

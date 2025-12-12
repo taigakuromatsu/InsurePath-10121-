@@ -285,7 +285,7 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
         gap: 24px;
       }
 
-      @media (max-width: 600px) {
+        @media (max-width: 600px) {
         .page-container {
           padding: 16px;
           gap: 16px;
@@ -402,13 +402,13 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
         font-size: 48px;
         width: 48px;
         height: 48px;
-        margin-bottom: 16px;
-        opacity: 0.3;
+          margin-bottom: 16px;
+          opacity: 0.3;
       }
 
       .placeholder-card .placeholder-content p {
         margin: 0;
-        font-size: 14px;
+          font-size: 14px;
       }
     `
   ]

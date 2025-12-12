@@ -110,9 +110,9 @@ export class MonthlyPremiumsService {
     }
   
     // 介護保険（分離しないが後方互換で残す）
-    (base as any).careTotal = result.amounts.careTotal;
-    (base as any).careEmployee = result.amounts.careEmployee;
-    (base as any).careEmployer = result.amounts.careEmployer;
+      (base as any).careTotal = result.amounts.careTotal;
+      (base as any).careEmployee = result.amounts.careEmployee;
+      (base as any).careEmployer = result.amounts.careEmployer;
   
     return base;
   }
