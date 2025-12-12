@@ -13,7 +13,7 @@ import {
 } from '@angular/fire/firestore';
 import { firstValueFrom, from, map, Observable } from 'rxjs';
 
-import { BonusPremium, Employee, IsoDateString, Office, YearMonthString } from '../types';
+import { BonusPremium, BonusNatureCode, Employee, IsoDateString, Office, YearMonthString } from '../types';
 import { calculateBonusPremium, getFiscalYear } from '../utils/bonus-calculator';
 import { MastersService } from './masters.service';
 
@@ -102,6 +102,9 @@ export class BonusPremiumsService {
       grossAmount: Number(bonus.grossAmount ?? 0),
       standardBonusAmount: Number(bonus.standardBonusAmount ?? 0),
       fiscalYear: bonus.fiscalYear ?? String(getFiscalYear(bonus.payDate)),
+      // 賞与の性質（既存レコードで未設定の場合はデフォルト値を設定）
+      bonusNatureCode: bonus.bonusNatureCode ?? 'REGULAR_SEASONAL',
+      bonusNatureLabel: bonus.bonusNatureLabel ?? undefined,
       // 上限関連（必須）
       healthEffectiveAmount: Number(bonus.healthEffectiveAmount ?? 0),
       healthExceededAmount: Number(bonus.healthExceededAmount ?? 0),
@@ -183,19 +186,21 @@ export class BonusPremiumsService {
   }
 
   /**
-   * 指定期間内（7月1日〜翌年6月30日）の賞与支給回数を取得
+   * 指定期間内（7月1日〜翌年6月30日）の賞与支給回数を取得（同じ性質ベース）
    * この関数は年4回制限チェック専用であり、他の機能には影響しない
    *
    * @param officeId 事業所ID
    * @param employeeId 従業員ID
    * @param payDate 支給日（この日が属する期間を判定）
+   * @param natureCode 賞与の性質コード
    * @param excludePayDate 編集時に自分自身を除外するための支給日（オプション）
-   * @returns 期間内の賞与支給回数
+   * @returns 期間内の同じ性質の賞与支給回数
    */
   async getBonusCountInPeriod(
     officeId: string,
     employeeId: string,
     payDate: IsoDateString,
+    natureCode: BonusNatureCode,
     excludePayDate?: IsoDateString
   ): Promise<number> {
     const { startDate, endDate } = this.getBonusLimitPeriod(payDate);
@@ -204,6 +209,7 @@ export class BonusPremiumsService {
     const q = query(
       ref,
       where('employeeId', '==', employeeId),
+      where('bonusNatureCode', '==', natureCode),
       orderBy('payDate', 'asc')
     );
 

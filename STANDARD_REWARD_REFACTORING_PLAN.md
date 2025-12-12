@@ -197,7 +197,7 @@ resolvePensionStandardFromSalary(
 
 ---
 
-### Phase 2：従業員フォーム & シミュレーターでの自動等級決定
+### Phase 2.1：従業員フォーム & シミュレーターでの自動等級決定
 
 **目的:** ユーザー入力から正しい標準報酬が落ちてくるようにする。
 
@@ -262,7 +262,7 @@ resolvePensionStandardFromSalary(
 
 ---
 
-### Phase 2.5：月次保険料計算ロジックの厳密化
+### Phase 2.2：月次保険料計算ロジックの厳密化
 
 **目的:** 月次保険料計算ロジックを正式ルールに沿って厳密化し、「50銭ルール」「月末退職／月中退職」「取得／喪失月」の扱いを明文化したうえで実装する。また、月次保険料ページの表示内容（行レベル・フッター集計）を「納入告知額」との関係が分かりやすい形に整理する。
 
@@ -801,12 +801,3 @@ salary_monthly,health_grade,health_standard_monthly,pension_grade,pension_standa
 - `src/app/types.ts`: 型定義
 - `src/app/utils/premium-calculator.ts`: 保険料計算ロジック
 - `src/app/services/masters.service.ts`: マスタサービス
-
----
-
-## 6. 次のステップ
-
-1. Phase 1 の実装開始
-2. 各フェーズごとにレビュー・テスト
-3. 段階的にリリース
-

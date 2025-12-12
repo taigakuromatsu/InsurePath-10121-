@@ -533,6 +533,13 @@ export interface MonthlyPremium {
 }
 
 // Bonus premiums
+export type BonusNatureCode =
+  | 'REGULAR_SEASONAL' // 通常の季節賞与（夏季・冬季・期末）
+  | 'PERFORMANCE' // 業績連動インセンティブ
+  | 'SETTLEMENT' // 決算賞与
+  | 'SPECIAL_ONEOFF' // 特別一時金・スポット
+  | 'OTHER'; // その他（任意入力）
+
 export interface BonusPremium {
   id: string;
   officeId: string;
@@ -541,6 +548,10 @@ export interface BonusPremium {
   grossAmount: number;
   standardBonusAmount: number;
   fiscalYear: string;
+
+  // 賞与の性質
+  bonusNatureCode: BonusNatureCode;
+  bonusNatureLabel?: string; // ユーザー向け表示（OTHER の時などに使用）
 
   // 上限関連（必須）
   healthEffectiveAmount: number; // 健康保険の有効な標準賞与額（上限適用後）

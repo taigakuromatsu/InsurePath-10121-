@@ -11,7 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Auth } from '@angular/fire/auth';
 import { debounceTime, Subscription } from 'rxjs';
 
-import { BonusPremium, Employee, Office, YearMonthString, IsoDateString } from '../../../types';
+import { BonusPremium, BonusNatureCode, Employee, Office, YearMonthString, IsoDateString } from '../../../types';
 import { BonusPremiumsService } from '../../../services/bonus-premiums.service';
 import { MastersService } from '../../../services/masters.service';
 import {
@@ -73,7 +73,23 @@ export interface BonusFormDialogData {
             <mat-label>賞与支給額（税引前）</mat-label>
             <input matInput type="number" formControlName="grossAmount" required />
           </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>賞与の性質</mat-label>
+            <mat-select formControlName="bonusNatureCode" required>
+              <mat-option value="REGULAR_SEASONAL">通常の季節賞与（夏季・冬季・期末）</mat-option>
+              <mat-option value="PERFORMANCE">業績連動インセンティブ</mat-option>
+              <mat-option value="SETTLEMENT">決算賞与</mat-option>
+              <mat-option value="SPECIAL_ONEOFF">特別一時金・スポット</mat-option>
+              <mat-option value="OTHER">その他</mat-option>
+            </mat-select>
+          </mat-form-field>
         </div>
+
+        <mat-form-field appearance="outline" class="note-field" *ngIf="form.get('bonusNatureCode')?.value === 'OTHER'">
+          <mat-label>賞与の性質（詳細）</mat-label>
+          <input matInput formControlName="bonusNatureLabel" placeholder="その他の賞与の詳細を入力してください" />
+        </mat-form-field>
 
         <mat-form-field appearance="outline" class="note-field">
           <mat-label>メモ（任意）</mat-label>
@@ -283,6 +299,8 @@ export class BonusFormDialogComponent implements OnDestroy {
     employeeId: ['', Validators.required],
     payDate: [new Date().toISOString().substring(0, 10), Validators.required],
     grossAmount: [null as number | null, [Validators.required, Validators.min(1)]],
+    bonusNatureCode: ['', Validators.required],
+    bonusNatureLabel: [''],
     note: ['']
   });
 
@@ -294,6 +312,8 @@ export class BonusFormDialogComponent implements OnDestroy {
       employeeId: this.data.bonus?.employeeId ?? this.insuredEmployees[0]?.id ?? '',
       payDate: this.data.bonus?.payDate ?? new Date().toISOString().substring(0, 10),
       grossAmount: this.data.bonus?.grossAmount ?? null,
+      bonusNatureCode: (this.data.bonus?.bonusNatureCode ?? 'REGULAR_SEASONAL') as BonusNatureCode,
+      bonusNatureLabel: this.data.bonus?.bonusNatureLabel ?? '',
       note: this.data.bonus?.note ?? ''
     });
 
@@ -322,10 +342,10 @@ export class BonusFormDialogComponent implements OnDestroy {
   }
 
   private async refreshPreview(): Promise<void> {
-    const { employeeId, payDate, grossAmount } = this.form.value;
+    const { employeeId, payDate, grossAmount, bonusNatureCode } = this.form.value;
 
     // 入力が揃っていない場合はプレビューをクリア
-    if (!employeeId || !payDate || grossAmount == null || grossAmount <= 0) {
+    if (!employeeId || !payDate || grossAmount == null || grossAmount <= 0 || !bonusNatureCode) {
       this.calculationResult.set(null);
       this.bonusLimitWarning.set(null);
       return;
@@ -339,19 +359,21 @@ export class BonusFormDialogComponent implements OnDestroy {
     }
 
     try {
-      // 年4回制限のチェック（プレビュー段階で警告を表示）
+      // 年4回制限のチェック（プレビュー段階で警告を表示・同じ性質ベース）
       const bonusCount = await this.bonusPremiumsService.getBonusCountInPeriod(
         this.data.office.id,
         employeeId as string,
         payDate as IsoDateString,
+        bonusNatureCode as BonusNatureCode,
         this.data.bonus?.payDate
       );
 
       if (bonusCount >= 3) {
+        const natureLabel = this.getNatureLabel(bonusNatureCode as BonusNatureCode);
         this.bonusLimitWarning.set(
-          `この従業員は、7月1日から翌年6月30日までの期間に既に${bonusCount}回の賞与が登録されています。` +
-          `4回目以降の支給は賞与として計算されず、標準報酬月額の算定に含まれます。` +
-          `このまま登録することはできません。`
+          `この従業員は、7月1日から翌年6月30日までの期間に同じ性質（${natureLabel}）で既に${bonusCount}回の賞与が登録されています。` +
+          `社会保険上、同じ性質の賞与が年4回以上支給される場合は「賞与」ではなく「賞与に係る報酬」として扱う必要があります。` +
+          `そのため InsurePath では同じ性質の4回目の賞与は保存できません。過去の履歴を確認し、必要に応じて編集・削除してください。`
         );
       } else {
         this.bonusLimitWarning.set(null);
@@ -422,19 +444,22 @@ export class BonusFormDialogComponent implements OnDestroy {
         return;
       }
 
-    // 年4回制限のチェック（保存を完全にブロック）
-    const { employeeId, payDate } = this.form.value;
-    if (employeeId && payDate) {
+    // 年4回制限のチェック（保存を完全にブロック・同じ性質ベース）
+    const { employeeId, payDate, bonusNatureCode } = this.form.value;
+    if (employeeId && payDate && bonusNatureCode) {
       const bonusCount = await this.bonusPremiumsService.getBonusCountInPeriod(
         this.data.office.id,
         employeeId as string,
         payDate as IsoDateString,
+        bonusNatureCode as BonusNatureCode,
         this.data.bonus?.payDate
       );
 
       if (bonusCount >= 3) {
+        const natureLabel = this.getNatureLabel(bonusNatureCode as BonusNatureCode);
         this.snackBar.open(
-          `年4回以上の支給は賞与として計算されません。この従業員は既に${bonusCount}回の賞与が登録されています。`,
+          `同じ性質（${natureLabel}）の賞与が年4回以上支給される場合は賞与として計算されません。` +
+          `この従業員は既に同じ性質で${bonusCount}回の賞与が登録されています。`,
           '閉じる',
           { duration: 6000 }
         );
@@ -449,11 +474,13 @@ export class BonusFormDialogComponent implements OnDestroy {
         this.snackBar.open('上限超過分は保険料計算から除外されます', '閉じる', { duration: 4000 });
       }
 
-      const { note } = this.form.value;
+      const { note, bonusNatureCode, bonusNatureLabel } = this.form.value;
       const currentUser = this.auth.currentUser;
 
       const payload: Partial<BonusPremium> = {
         ...result,
+        bonusNatureCode: (bonusNatureCode ?? 'REGULAR_SEASONAL') as BonusNatureCode,
+        bonusNatureLabel: bonusNatureCode === 'OTHER' ? (bonusNatureLabel ?? undefined) : undefined,
         note: note ?? undefined,
         createdAt: this.data.bonus?.createdAt ?? new Date().toISOString(),
         createdByUserId: currentUser?.uid
@@ -495,5 +522,19 @@ export class BonusFormDialogComponent implements OnDestroy {
 
   close(): void {
     this.dialogRef.close(false);
+  }
+
+  /**
+   * 賞与の性質コードから表示ラベルを取得
+   */
+  private getNatureLabel(natureCode: BonusNatureCode): string {
+    const labels: Record<BonusNatureCode, string> = {
+      REGULAR_SEASONAL: '通常の季節賞与',
+      PERFORMANCE: '業績連動インセンティブ',
+      SETTLEMENT: '決算賞与',
+      SPECIAL_ONEOFF: '特別一時金・スポット',
+      OTHER: 'その他'
+    };
+    return labels[natureCode] || '不明';
   }
 }
