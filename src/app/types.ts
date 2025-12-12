@@ -555,6 +555,10 @@ export interface BonusPremium {
   healthCareEmployer?: number; // 健康保険＋介護保険の会社負担額（参考値）
   pensionFull?: number; // 厚生年金の全額（端数処理前）
   totalFull?: number; // 行レベル参考値（healthCareFull + pensionFull）
+  // 介護保険「単体」の金額（参考値：データ品質チェック用など）
+  careFull?: number; // 介護保険の全額（端数処理前）
+  careEmployee?: number; // 介護保険の従業員負担額（50銭ルール適用後）
+  careEmployer?: number; // 介護保険の会社負担額（参考値）
 
   // 既存フィールドを新ロジックの結果で上書き保存（月次と同じ意味）
   healthTotal: number; // 健康保険＋介護保険の全額（月次と同じ意味）

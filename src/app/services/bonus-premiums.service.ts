@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import {
   Firestore,
   collection,
+  collectionData,
   deleteDoc,
   doc,
   getDocs,
@@ -58,6 +59,7 @@ export class BonusPremiumsService {
 
   /**
    * 事業所・対象年月ごとの賞与支給履歴一覧
+   * リアルタイムリスナーを使用して、データ変更を自動的に検知します。
    */
   listByOfficeAndYearMonth(
     officeId: string,
@@ -69,11 +71,10 @@ export class BonusPremiumsService {
     const targetYear = yearMonth.substring(0, 4);
     const targetMonth = yearMonth.substring(5, 7);
 
-    return from(getDocs(q)).pipe(
-      map((snapshot) =>
-        snapshot.docs
-          .map((d) => ({ id: d.id, ...(d.data() as any) } as BonusPremium))
-          .filter((b) =>
+    return collectionData(q, { idField: 'id' }).pipe(
+      map((bonuses) =>
+        (bonuses as BonusPremium[]).filter(
+          (b) =>
             b.payDate.substring(0, 4) === targetYear && b.payDate.substring(5, 7) === targetMonth
           )
       )
@@ -341,6 +342,127 @@ export class BonusPremiumsService {
 
       const docRef = doc(ref, bonus.id);
       await setDoc(docRef, updated, { merge: true });
+    }
+  }
+
+  /**
+   * 従業員 × 年度 単位で賞与保険料を一括再計算する
+   *
+   * - 健康保険：年度内累計をレコード順に積み上げながら上限判定
+   * - 厚生年金：月単位で累計をリセットし、同月内の累計を使って上限判定
+   *
+   * @param office 対象事業所
+   * @param employee 対象従業員
+   * @param fiscalYear "YYYY" 形式の対象年度
+   */
+  async recalculateForEmployeeFiscalYear(
+    office: Office,
+    employee: Employee,
+    fiscalYear: string
+  ): Promise<void> {
+    const officeId = office.id;
+    const ref = this.getCollectionRef(officeId);
+
+    // 対象従業員 × 対象年度 の賞与を支給日昇順で取得
+    const q = query(
+      ref,
+      where('employeeId', '==', employee.id),
+      where('fiscalYear', '==', fiscalYear),
+      orderBy('payDate', 'asc')
+    );
+
+    const snapshot = await getDocs(q);
+    const bonuses = snapshot.docs.map(
+      (d) =>
+        ({
+          id: d.id,
+          ...(d.data() as any)
+        } as BonusPremium)
+    );
+
+    if (bonuses.length === 0) {
+      // 対象年度に賞与がなければ何もしない
+      return;
+    }
+
+    // 月ごとの料率をキャッシュ
+    const rateCache = new Map<
+      YearMonthString,
+      Awaited<ReturnType<MastersService['getRatesForYearMonth']>>
+    >();
+
+    let healthCumulative = 0; // 健保：年度内累計
+    let currentYearMonth: YearMonthString | null = null;
+    let pensionMonthlyCumulative = 0; // 厚年：月内累計
+
+    for (const bonus of bonuses) {
+      const ym = bonus.payDate.substring(0, 7) as YearMonthString;
+
+      // 月が変わったら厚年の月内累計をリセット
+      if (currentYearMonth !== ym) {
+        currentYearMonth = ym;
+        pensionMonthlyCumulative = 0;
+      }
+
+      // 対象年月の料率をキャッシュ経由で取得
+      let rates = rateCache.get(ym);
+      if (!rates) {
+        rates = await this.mastersService.getRatesForYearMonth(office, ym);
+        rateCache.set(ym, rates);
+      }
+
+      // どちらか未設定ならこのレコードはスキップ（既存値を維持）
+      if (rates.healthRate == null || rates.pensionRate == null) {
+        continue;
+      }
+
+      const result = calculateBonusPremium(
+        officeId,
+        employee,
+        Number(bonus.grossAmount ?? 0),
+        bonus.payDate as IsoDateString,
+        healthCumulative,
+        pensionMonthlyCumulative,
+        rates.healthRate ?? 0,
+        rates.careRate,
+        rates.pensionRate ?? 0
+      );
+
+      if (!result) {
+        continue;
+      }
+
+      // 次レコード用に累計を更新
+      healthCumulative = result.healthStandardBonusCumulative;
+      pensionMonthlyCumulative += result.pensionEffectiveAmount;
+
+      const updated: Partial<BonusPremium> = {
+        fiscalYear: result.fiscalYear,
+        grossAmount: result.grossAmount,
+        standardBonusAmount: result.standardBonusAmount,
+        healthStandardBonusCumulative: result.healthStandardBonusCumulative,
+        healthEffectiveAmount: result.healthEffectiveAmount,
+        healthExceededAmount: result.healthExceededAmount,
+        pensionEffectiveAmount: result.pensionEffectiveAmount,
+        pensionExceededAmount: result.pensionExceededAmount,
+        // UI 補助フィールド
+        healthCareFull: result.healthCareFull,
+        healthCareEmployee: result.healthCareEmployee,
+        healthCareEmployer: result.healthCareEmployer,
+        pensionFull: result.pensionFull,
+        totalFull: result.totalFull,
+        // 月次と同じ意味のフィールド群
+        healthTotal: result.healthTotal,
+        healthEmployee: result.healthEmployee,
+        healthEmployer: result.healthEmployer,
+        pensionTotal: result.pensionTotal,
+        pensionEmployee: result.pensionEmployee,
+        pensionEmployer: result.pensionEmployer,
+        totalEmployee: result.totalEmployee,
+        totalEmployer: result.totalEmployer
+      };
+
+      await setDoc(doc(ref, bonus.id), updated, { merge: true });
     }
   }
 }

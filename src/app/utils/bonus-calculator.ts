@@ -112,6 +112,10 @@ export interface BonusPremiumCalculationResult {
   healthCareEmployer: number; // 健康保険＋介護保険の会社負担額（参考値）
   pensionFull: number; // 厚生年金の全額（端数処理前）
   totalFull: number; // 行レベル参考値（healthCareFull + pensionFull）
+  // 介護保険「単体」の金額（参考値：データ品質チェック用など）
+  careFull: number; // 介護保険の全額（端数処理前）
+  careEmployee: number; // 介護保険の従業員負担額（50銭ルール適用後）
+  careEmployer: number; // 介護保険の会社負担額（参考値）
   // 既存フィールドを新ロジックの結果で上書き保存（月次と同じ意味）
   healthTotal: number; // 健康保険＋介護保険の全額（月次と同じ意味）
   healthEmployee: number; // 健康保険＋介護保険の従業員負担額
@@ -179,19 +183,20 @@ export function calculateBonusPremium(
   // 厚生年金の上限チェック（同一月の累計150万円）
   const pensionCheck = checkPensionLimit(standardBonusAmount, pensionStandardBonusMonthlyCumulative);
 
-  // 健康保険＋介護保険の計算
+  // 健康保険 + 介護保険（月次保険料と同じパターン）
   const isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
   const hasCareRate = careRate != null && careRate > 0;
   const effectiveCareRate = hasCareRate && isCareTarget ? careRate : 0;
-  const combinedRate = healthRate + effectiveCareRate;
+  const healthTotalRate = healthRate + effectiveCareRate;
 
-  // 全額計算（端数処理前）
-  const healthCareFull = healthCheck.effectiveAmount * combinedRate;
+  // ★ 介護保険「単体」の金額（参考値：データ品質チェック用など）
+  const careFull = hasHealth && healthCheck.effectiveAmount > 0 ? healthCheck.effectiveAmount * effectiveCareRate : 0;
+  const careEmployee = roundForEmployeeDeduction(careFull / 2);
+  const careEmployer = careFull - careEmployee;
 
-  // 従業員負担（50銭ルール適用）
+  // 健康保険＋介護保険の合算（月次保険料と同じパターン）
+  const healthCareFull = hasHealth && healthCheck.effectiveAmount > 0 ? healthCheck.effectiveAmount * healthTotalRate : 0;
   const healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
-
-  // 会社負担（参考値）
   const healthCareEmployer = healthCareFull - healthCareEmployee;
 
   // 厚生年金の計算
@@ -228,6 +233,10 @@ export function calculateBonusPremium(
     healthCareEmployer,
     pensionFull,
     totalFull,
+    // 介護保険「単体」の金額（参考値）
+    careFull,
+    careEmployee,
+    careEmployer,
     // 既存フィールドを新ロジックの結果で上書き（月次と同じ意味）
     healthTotal: healthCareFull,
     healthEmployee: healthCareEmployee,

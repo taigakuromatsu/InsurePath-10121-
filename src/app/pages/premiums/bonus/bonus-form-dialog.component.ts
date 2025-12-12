@@ -63,7 +63,10 @@ export interface BonusFormDialogData {
 
           <mat-form-field appearance="outline">
             <mat-label>支給日</mat-label>
-            <input matInput type="date" formControlName="payDate" required />
+            <input matInput type="date" formControlName="payDate" required [readonly]="!!data.bonus" />
+            <mat-hint *ngIf="data.bonus">
+              登録済みの賞与は支給日を変更できません。変更が必要な場合は削除して再登録してください。
+            </mat-hint>
           </mat-form-field>
 
           <mat-form-field appearance="outline">

@@ -11,6 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { combineLatest, of, switchMap, firstValueFrom, Subscription, map } from 'rxjs';
 
 import { CurrentOfficeService } from '../../../services/current-office.service';
@@ -18,13 +19,14 @@ import { CurrentUserService } from '../../../services/current-user.service';
 import { EmployeesService } from '../../../services/employees.service';
 import { BonusPremiumsService } from '../../../services/bonus-premiums.service';
 import { MastersService } from '../../../services/masters.service';
-import { BonusPremium, Employee, Office, YearMonthString } from '../../../types';
+import { BonusPremium, Employee, Office, YearMonthString, IsoDateString } from '../../../types';
 import { BonusFormDialogComponent } from './bonus-form-dialog.component';
 import { CsvExportService } from '../../../utils/csv-export.service';
 import { HelpDialogComponent, HelpDialogData } from '../../../components/help-dialog.component';
 import { DocumentGenerationDialogComponent } from '../../documents/document-generation-dialog.component';
 import { isCareInsuranceTarget, roundForEmployeeDeduction } from '../../../utils/premium-calculator';
 import { hasInsuranceInMonth } from '../../../utils/premium-calculator';
+import { getFiscalYear } from '../../../utils/bonus-calculator';
 
 interface BonusPremiumViewRow extends BonusPremium {
   employeeName: string;
@@ -51,6 +53,7 @@ interface BonusPremiumViewRow extends BonusPremium {
     MatInputModule,
     MatSelectModule,
     MatTooltipModule,
+    MatExpansionModule,
     ReactiveFormsModule,
     AsyncPipe,
     NgIf,
@@ -102,6 +105,158 @@ interface BonusPremiumViewRow extends BonusPremium {
         </div>
       </mat-card>
 
+      <mat-card class="content-card info-card">
+        <mat-accordion multi="true">
+          <!-- 計算ロジックの説明（詳細版） -->
+          <mat-expansion-panel>
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <mat-icon class="info-icon">calculate</mat-icon>
+                計算ロジックの概要
+              </mat-panel-title>
+              <mat-panel-description>
+                賞与保険料がどのような手順で計算されるか
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="info-body">
+              <p class="info-intro">
+                このページでは、選択した「対象年月」に支給された賞与データから、<br />
+                健康保険・介護保険・厚生年金の保険料と「納入告知額」を自動計算します。
+              </p>
+
+              <ol class="info-list">
+                <li>
+                  <strong>対象となる賞与データの抽出</strong><br />
+                  ・選択した対象年月（例：2025-12）に支給日が属する賞与のみを対象とします。<br />
+                  ・事業所と従業員IDで紐づく賞与データ（BonusPremium）を読み込みます。
+                </li>
+
+                <li>
+                  <strong>従業員の資格判定</strong><br />
+                  ・健康保険／厚生年金の資格取得日・喪失日から、対象年月に資格があるかを判定します。<br />
+                  ・資格がない保険種別については、その賞与は計算対象外（0円）になります。<br />
+                  ・生年月日と対象年月から40〜65歳未満かどうかを判定し、介護保険の対象を判定します。<br />
+                  ・従業員が社会保険未加入（isInsured = false）の場合は、賞与は一覧に表示されません。
+                </li>
+
+                <li>
+                  <strong>標準賞与額（千円未満切り捨て）の算出</strong><br />
+                  ・賞与支給額（税引前）から <strong>1,000円未満を切り捨てた金額</strong> を標準賞与額とします。<br />
+                  ・この標準賞与額をもとに、健康保険・厚生年金の上限チェックと保険料計算を行います。
+                </li>
+
+                <li>
+                  <strong>上限額のチェック</strong><br />
+                  【健康保険の上限】<br />
+                  ・健康保険では、<strong>同じ年度（毎年 4/1〜翌年 3/31）内の標準賞与額の合計</strong>に、<br />
+                  &nbsp;&nbsp;賞与を足し込んでいき、<strong>年間 5,730,000 円</strong>を上限とします。<br />
+                  ・今回の賞与分を足し込んだ結果が 5,730,000 円を超える場合、<br />
+                  &nbsp;&nbsp;超えた分は <span class="info-em">「上限超過額（健康保険）」</span>として切り捨て、<br />
+                  &nbsp;&nbsp;上限内に収まる金額だけを「有効額」として計算に使います。<br />
+                  <br />
+                  【厚生年金の上限】<br />
+                  ・厚生年金では、<strong>同じ年月内の標準賞与額の合計</strong>に、賞与を足し込んでいき、<br />
+                  &nbsp;&nbsp;<strong>月間 1,500,000 円</strong>を上限とします。<br />
+                  ・同じ月の他の賞与を含めた合計が 1,500,000 円を超える場合、<br />
+                  &nbsp;&nbsp;超えた分は <span class="info-em">「上限超過額（厚生年金）」</span>として切り捨てます。
+                </li>
+
+                <li>
+                  <strong>保険料率の適用</strong><br />
+                  ・対象年月ごとに、マスタ画面で設定した<br />
+                  &nbsp;&nbsp;健康保険料率／介護保険料率／厚生年金保険料率を参照します。<br />
+                  ・健康保険＋介護保険については、介護保険の対象年齢（40〜65歳未満）の場合、<br />
+                  &nbsp;&nbsp;<strong>健康保険率 ＋ 介護保険率</strong> を合算した率を用いて保険料を計算します。<br />
+                  ・厚生年金は、厚生年金保険料率を用いて計算します。
+                </li>
+
+                <li>
+                  <strong>被保険者負担分と事業主負担分への分割</strong><br />
+                  ・健康保険＋介護保険、厚生年金それぞれについて、<br />
+                  &nbsp;&nbsp;「有効な標準賞与額 × 保険料率」で <strong>保険料の全額</strong>を算出します。<br />
+                  ・全額を 2 等分し、従業員負担分と会社負担分を計算します。<br />
+                  ・このとき、<strong>「事業主が給与（賞与）から被保険者負担分を控除する」</strong>ことを前提に、<br />
+                  &nbsp;&nbsp;従業員負担分の端数については<br />
+                  &nbsp;&nbsp;<strong>50銭以下は切り捨て、50銭を超える場合は切り上げて1円</strong>とするルールで丸めます。<br />
+                  ・個人毎の会社負担分はあくまでも参考値で「保険料全額 − 従業員負担分」で求めます。<br />
+                  ・端数処理のルールにより、（参考値である）個人毎の会社負担分の合計と会社負担総額との差が発生する場合がありますが、これは正常な現象です。
+                </li>
+
+                <li>
+                  <strong>納入告知額の算出と表示</strong><br />
+                  ・各制度ごとに、「保険料の全額」を社員分すべて合計した値を基準に、<br />
+                  &nbsp;&nbsp;端数処理（円未満切り捨て）を行った金額を <strong>納入告知額</strong>として表示します。<br />
+                  &nbsp;&nbsp;納入告知額から全対象従業員負担分を引いた金額が事業所負担分となります。<br />
+                  ・画面下部のサマリーでは、<br />
+                  &nbsp;&nbsp;「健康保険・介護保険」「厚生年金」「総合計」それぞれの<br />
+                  &nbsp;&nbsp;<strong>納入告知額・従業員負担総額・会社負担総額</strong>を確認できます。
+                </li>
+              </ol>
+
+              <p class="info-note">
+                ※ 上記の上限額（健康保険：年度内 573 万円、厚生年金：月間 150 万円）と<br />
+                &nbsp;&nbsp;50銭ルール（従業員負担分の端数処理）は、一般的な社会保険料の実務運用を前提としています。<br />
+                &nbsp;&nbsp;この画面の金額はあくまでシステム上の計算結果であり、最終的な納付額は各保険者からの<br />
+                &nbsp;&nbsp;「納入告知書」等と照らし合わせてご確認ください。
+              </p>
+            </div>
+          </mat-expansion-panel>
+
+          <!-- 従業員台帳で必要な入力項目 -->
+          <mat-expansion-panel>
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <mat-icon class="info-icon">badge</mat-icon>
+                従業員台帳で必要な入力項目
+              </mat-panel-title>
+              <mat-panel-description>
+                賞与保険料を正しく計算するための必須情報
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="info-body">
+              <p class="info-intro">
+                賞与保険料ページでは、従業員台帳の次の情報を使用して<br />
+                「資格の有無」「介護保険の対象かどうか」を判定しています。
+              </p>
+
+              <ul class="info-list">
+                <li>
+                  <strong>健康保険の資格期間</strong><br />
+                  ・健康保険の資格取得日（healthQualificationDate）<br />
+                  ・健康保険の資格喪失日（healthLossDate）<br />
+                  ⇒ 対象年月に健康保険の資格があるかどうかを判定します。
+                </li>
+                <li>
+                  <strong>厚生年金の資格期間</strong><br />
+                  ・厚生年金の資格取得日（pensionQualificationDate）<br />
+                  ・厚生年金の資格喪失日（pensionLossDate）<br />
+                  ⇒ 対象年月に厚生年金の資格があるかどうかを判定します。
+                </li>
+                <li>
+                  <strong>生年月日（birthDate）</strong><br />
+                  ⇒ 40〜65歳未満の期間かどうかを判定し、<br />
+                  介護保険料を加算するかどうかを決めます。
+                </li>
+                <li>
+                  <strong>社会保険加入フラグ（isInsured）</strong><br />
+                  ⇒ false の場合は賞与保険料の計算対象外となります。
+                </li>
+              </ul>
+
+              <p class="info-note">
+                これらの項目が未入力または誤っている場合、<br />
+                ・賞与が一覧に表示されない<br />
+                ・介護保険料が 0 円のままになる<br />
+                などの挙動になることがあります。<br />
+                賞与保険料ページを利用する前に、従業員台帳の情報をご確認ください。
+              </p>
+            </div>
+          </mat-expansion-panel>
+        </mat-accordion>
+      </mat-card>
+
       <mat-card class="content-card">
         <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
           <div>
@@ -120,6 +275,16 @@ interface BonusPremiumViewRow extends BonusPremium {
             >
               <mat-icon>download</mat-icon>
               CSVエクスポート
+            </button>
+            <!-- ★ 追加: 事業所全体 × 年度再集計ボタン -->
+            <button
+              mat-stroked-button
+              color="warn"
+              (click)="recalculateFiscalYearForOffice()"
+              [disabled]="!(office$ | async)"
+            >
+              <mat-icon>refresh</mat-icon>
+              年度の賞与を再集計（事業所全体）
             </button>
             <button
               mat-flat-button
@@ -208,7 +373,7 @@ interface BonusPremiumViewRow extends BonusPremium {
                       </div>
                       <div class="split-divider"></div>
                       <div class="split-item">
-                        <span class="split-label">会社</span>
+                        <span class="split-label">（会社）</span>
                         <span class="split-value comp-value">({{ row.healthCareEmployer | number }})</span>
                       </div>
                     </div>
@@ -236,7 +401,7 @@ interface BonusPremiumViewRow extends BonusPremium {
                       </div>
                       <div class="split-divider"></div>
                       <div class="split-item">
-                        <span class="split-label">会社</span>
+                        <span class="split-label">（会社）</span>
                         <span class="split-value comp-value">({{ row.pensionEmployer | number }})</span>
                       </div>
                     </div>
@@ -260,7 +425,7 @@ interface BonusPremiumViewRow extends BonusPremium {
                       </div>
                       <div class="split-divider"></div>
                       <div class="split-item">
-                        <span class="split-label">会社</span>
+                        <span class="split-label">（会社）</span>
                         <span class="split-value comp-value">({{ row.totalEmployer | number }})</span>
                       </div>
                     </div>
@@ -891,6 +1056,43 @@ interface BonusPremiumViewRow extends BonusPremium {
         opacity: 0.5;
         margin-bottom: 8px;
       }
+
+      /* 説明カードのスタイル */
+      .info-card {
+        padding-top: 16px;
+        padding-bottom: 16px;
+      }
+
+      .info-icon {
+        margin-right: 4px;
+      }
+
+      .info-body {
+        padding: 8px 4px 12px;
+      }
+
+      .info-list {
+        margin: 0;
+        padding-left: 1.2rem;
+        font-size: 0.9rem;
+        line-height: 1.6;
+      }
+
+      .info-list li {
+        margin-bottom: 8px;
+      }
+
+      .info-note,
+      .info-intro {
+        margin-top: 8px;
+        font-size: 0.85rem;
+        color: #666;
+      }
+
+      .info-em {
+        color: #d32f2f;
+        font-weight: 600;
+      }
     `
   ]
 })
@@ -1120,6 +1322,59 @@ export class BonusPremiumsPage implements OnDestroy {
 
     this.csvExportService.exportBonusPremiums(rows);
     this.snackBar.open('CSVエクスポートが完了しました', '閉じる', { duration: 3000 });
+  }
+
+  async recalculateFiscalYearForOffice(): Promise<void> {
+    const office = await firstValueFrom(this.office$);
+    if (!office) {
+      this.snackBar.open('事業所が設定されていません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const yearMonth = this.selectedYearMonth();
+    const fiscalYear = String(
+      getFiscalYear(`${yearMonth}-01` as IsoDateString)
+    );
+
+    const confirmed = window.confirm(
+      `${fiscalYear}年度の賞与保険料を、事業所全体で再集計します。\n\n` +
+        '支給日順に並べ直し、健康保険・厚生年金の上限チェックを年度単位で再計算します。\n' +
+        'よろしいですか？'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const employees = await firstValueFrom(this.employees$);
+      if (!employees || employees.length === 0) {
+        this.snackBar.open('再集計対象の従業員がいません', '閉じる', { duration: 3000 });
+        return;
+      }
+
+      this.snackBar.open(
+        `${fiscalYear}年度の賞与再集計を開始しました…`,
+        undefined,
+        { duration: 3000 }
+      );
+
+      // 従業員ごとに年度全体の賞与を再計算
+      for (const emp of employees as Employee[]) {
+        await this.bonusPremiumsService.recalculateForEmployeeFiscalYear(
+          office,
+          emp,
+          fiscalYear
+        );
+      }
+
+      this.snackBar.open(
+        `${fiscalYear}年度の賞与再集計が完了しました`,
+        '閉じる',
+        { duration: 4000 }
+      );
+    } catch (e) {
+      console.error('年度再集計に失敗しました', e);
+      this.snackBar.open('年度再集計に失敗しました', '閉じる', { duration: 4000 });
+    }
   }
 
   async openDialog(bonus?: BonusPremiumViewRow): Promise<void> {
