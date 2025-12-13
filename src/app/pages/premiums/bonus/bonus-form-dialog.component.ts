@@ -438,7 +438,7 @@ export class BonusFormDialogComponent implements OnDestroy {
 
     const result = this.calculationResult();
       if (!result) {
-      this.snackBar.open('計算対象外です（未加入、金額が無効、または保険料率が未設定）', '閉じる', {
+      this.snackBar.open('計算対象外です（未加入、資格対象外、金額が無効、または保険料率が未設定）', '閉じる', {
         duration: 4000
       });
         return;

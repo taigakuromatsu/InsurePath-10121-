@@ -132,15 +132,15 @@ interface BonusPremiumViewRow extends BonusPremium {
 
         <div class="year-month-selector dense-form">
           <div class="flex-row gap-2 align-center flex-wrap">
-            <mat-form-field appearance="outline" class="dense-form-field">
-              <mat-label>対象年月</mat-label>
-              <mat-select
-                [value]="selectedYearMonth()"
-                (selectionChange)="onYearMonthSelectionChange($event.value)"
-              >
-                <mat-option *ngFor="let ym of yearMonthOptions()" [value]="ym">{{ ym }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline" class="dense-form-field">
+            <mat-label>対象年月</mat-label>
+            <mat-select
+              [value]="selectedYearMonth()"
+              (selectionChange)="onYearMonthSelectionChange($event.value)"
+            >
+              <mat-option *ngFor="let ym of yearMonthOptions()" [value]="ym">{{ ym }}</mat-option>
+            </mat-select>
+          </mat-form-field>
             
             <mat-slide-toggle
               [checked]="showPastMonths()"
@@ -319,7 +319,7 @@ interface BonusPremiumViewRow extends BonusPremium {
         <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
           <div>
             <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
-              <mat-icon color="primary">list</mat-icon> 賞与支給一覧（{{ selectedYearMonth() }}）
+              <mat-icon color="primary">list</mat-icon> 賞与保険料一覧（{{ selectedYearMonth() }}）
             </h2>
             <p class="mat-body-2" style="color: #666">対象年月に支給された賞与と保険料の一覧です。</p>
           </div>
@@ -545,7 +545,11 @@ interface BonusPremiumViewRow extends BonusPremium {
                 <div class="summary-content">
                   <div class="main-row">
                     <div class="label-group">
-                      <span class="main-label">納入告知額</span>
+                      <span class="main-label">
+                        納入告知額
+                        <mat-icon matTooltip="各従業員に係る健康・介護保険の全額をすべて足したもの" 
+                                  class="info-icon-small">info</mat-icon>
+                      </span>
                       <span class="sub-label">（端数処理前: {{ healthSummary().sumFull | number:'1.0-2' }}円）</span>
                     </div>
                     <span class="main-value">{{ healthSummary().sumFullRoundedDown | number }}<small>円</small></span>
@@ -579,7 +583,11 @@ interface BonusPremiumViewRow extends BonusPremium {
                 <div class="summary-content">
                   <div class="main-row">
                     <div class="label-group">
-                      <span class="main-label">納入告知額</span>
+                      <span class="main-label">
+                        納入告知額
+                        <mat-icon matTooltip="各従業員に係る厚生年金の全額をすべて足したもの" 
+                                  class="info-icon-small">info</mat-icon>
+                      </span>
                       <span class="sub-label">（端数処理前: {{ pensionSummary().sumFull | number:'1.0-2' }}円）</span>
                     </div>
                     <span class="main-value">{{ pensionSummary().sumFullRoundedDown | number }}<small>円</small></span>
@@ -1055,6 +1063,18 @@ interface BonusPremiumViewRow extends BonusPremium {
         font-size: 1rem;
         font-weight: 600;
         color: #333;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .info-icon-small {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #666;
+        cursor: help;
+        vertical-align: middle;
       }
 
       .sub-label {

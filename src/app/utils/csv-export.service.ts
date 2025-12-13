@@ -84,9 +84,9 @@ export class CsvExportService {
           (row as any).healthCareFull ??
           (row.healthTotal ?? 0) + (row.careTotal ?? 0)
       },
-      { label: '介護保険本人負担', getValue: (row) => row.careEmployee ?? '' },
-      { label: '介護保険会社負担', getValue: (row) => row.careEmployer ?? '' },
-      { label: '介護保険合計', getValue: (row) => row.careTotal ?? '' },
+      { label: '介護保険本人負担', getValue: (row) => row.careEmployee ?? 0 },
+      { label: '介護保険会社負担', getValue: (row) => row.careEmployer ?? 0 },
+      { label: '介護保険合計', getValue: (row) => row.careTotal ?? 0 },
       { label: '厚生年金等級', getValue: (row) => row.pensionGrade },
       { label: '厚生年金標準報酬月額', getValue: (row) => row.pensionStandardMonthly },
       { label: '厚生年金本人負担', getValue: (row) => (row as any).pensionEmployee ?? row.pensionEmployee },
@@ -97,8 +97,60 @@ export class CsvExportService {
       { label: '計算日時', getValue: (row) => row.calculatedAt }
     ];
 
+    // サマリーの計算
+    const healthCareFullTotal = premiums.reduce(
+      (sum, row) =>
+        sum +
+        ((row as any).healthCareFull ?? (row.healthTotal ?? 0) + (row.careTotal ?? 0)),
+      0
+    );
+    const healthCareFullRoundedDown = Math.floor(healthCareFullTotal);
+    const healthCareEmployeeTotal = premiums.reduce(
+      (sum, row) =>
+        sum +
+        ((row as any).healthCareEmployee ??
+          (row.healthEmployee ?? 0) + (row.careEmployee ?? 0)),
+      0
+    );
+    const healthCareEmployerTotal = healthCareFullRoundedDown - healthCareEmployeeTotal;
+
+    const pensionFullTotal = premiums.reduce(
+      (sum, row) => sum + ((row as any).pensionFull ?? row.pensionTotal ?? 0),
+      0
+    );
+    const pensionFullRoundedDown = Math.floor(pensionFullTotal);
+    const pensionEmployeeTotal = premiums.reduce(
+      (sum, row) => sum + ((row as any).pensionEmployee ?? row.pensionEmployee ?? 0),
+      0
+    );
+    const pensionEmployerTotal = pensionFullRoundedDown - pensionEmployeeTotal;
+
+    const totalFullTotal = premiums.reduce(
+      (sum, row) => sum + ((row as any).totalFull ?? (row.totalEmployee ?? 0) + (row.totalEmployer ?? 0)),
+      0
+    );
+    const totalFullRoundedDown = Math.floor(totalFullTotal);
+    const totalEmployeeTotal = premiums.reduce(
+      (sum, row) => sum + (row.totalEmployee ?? 0),
+      0
+    );
+    const totalEmployerTotal = totalFullRoundedDown - totalEmployeeTotal;
+
     const finalFileName = this.generateFileName(fileName, yearMonth);
-    this.exportCsv(premiums, columns, finalFileName);
+    this.exportCsvWithSummary(premiums, columns, finalFileName, {
+      healthCareFullTotal,
+      healthCareFullRoundedDown,
+      healthCareEmployeeTotal,
+      healthCareEmployerTotal,
+      pensionFullTotal,
+      pensionFullRoundedDown,
+      pensionEmployeeTotal,
+      pensionEmployerTotal,
+      totalFullTotal,
+      totalFullRoundedDown,
+      totalEmployeeTotal,
+      totalEmployerTotal
+    });
   }
 
   exportBonusPremiums(
@@ -184,6 +236,142 @@ export class CsvExportService {
       });
       rows.push(values);
     });
+
+    const blob = this.createCsvBlob(rows);
+    this.downloadBlob(blob, fileName);
+  }
+
+  private exportCsvWithSummary<T>(
+    data: T[],
+    columns: CsvColumn<T>[],
+    fileName: string,
+    summary: {
+      healthCareFullTotal: number;
+      healthCareFullRoundedDown: number;
+      healthCareEmployeeTotal: number;
+      healthCareEmployerTotal: number;
+      pensionFullTotal: number;
+      pensionFullRoundedDown: number;
+      pensionEmployeeTotal: number;
+      pensionEmployerTotal: number;
+      totalFullTotal: number;
+      totalFullRoundedDown: number;
+      totalEmployeeTotal: number;
+      totalEmployerTotal: number;
+    }
+  ): void {
+    if (!data?.length) {
+      return;
+    }
+
+    const rows: string[][] = [];
+    rows.push(columns.map((c) => this.escapeCsvValue(c.label)));
+
+    data.forEach((row) => {
+      const values = columns.map((column) => {
+        const raw = column.getValue(row);
+        const formatted = column.format ? column.format(raw) : raw;
+        const text = formatted == null ? '' : String(formatted);
+        return this.escapeCsvValue(text);
+      });
+      rows.push(values);
+    });
+
+    // 空行を追加
+    rows.push(columns.map(() => ''));
+
+    // ===== 健康保険・介護保険のサマリー =====
+    const healthSectionHeader: string[] = new Array(columns.length).fill('');
+    healthSectionHeader[0] = this.escapeCsvValue('【健康保険・介護保険】');
+    rows.push(healthSectionHeader);
+    
+    // 納入告知額（端数処理前）
+    const healthNotificationRow1: string[] = new Array(columns.length).fill('');
+    healthNotificationRow1[0] = this.escapeCsvValue('納入告知額（端数処理前）');
+    healthNotificationRow1[7] = this.escapeCsvValue(String(summary.healthCareFullTotal));
+    rows.push(healthNotificationRow1);
+
+    // 納入告知額（端数処理後）
+    const healthNotificationRow2: string[] = new Array(columns.length).fill('');
+    healthNotificationRow2[0] = this.escapeCsvValue('納入告知額（端数処理後）');
+    healthNotificationRow2[7] = this.escapeCsvValue(String(summary.healthCareFullRoundedDown));
+    rows.push(healthNotificationRow2);
+
+    // 従業員負担計
+    const healthEmployeeRow: string[] = new Array(columns.length).fill('');
+    healthEmployeeRow[0] = this.escapeCsvValue('従業員負担計');
+    healthEmployeeRow[5] = this.escapeCsvValue(String(summary.healthCareEmployeeTotal));
+    rows.push(healthEmployeeRow);
+
+    // 会社負担計
+    const healthEmployerRow: string[] = new Array(columns.length).fill('');
+    healthEmployerRow[0] = this.escapeCsvValue('会社負担計');
+    healthEmployerRow[6] = this.escapeCsvValue(String(summary.healthCareEmployerTotal));
+    rows.push(healthEmployerRow);
+
+    // 空行を追加
+    rows.push(columns.map(() => ''));
+
+    // ===== 厚生年金のサマリー =====
+    const pensionSectionHeader: string[] = new Array(columns.length).fill('');
+    pensionSectionHeader[0] = this.escapeCsvValue('【厚生年金】');
+    rows.push(pensionSectionHeader);
+    
+    // 納入告知額（端数処理前）
+    const pensionNotificationRow1: string[] = new Array(columns.length).fill('');
+    pensionNotificationRow1[0] = this.escapeCsvValue('納入告知額（端数処理前）');
+    pensionNotificationRow1[14] = this.escapeCsvValue(String(summary.pensionFullTotal));
+    rows.push(pensionNotificationRow1);
+
+    // 納入告知額（端数処理後）
+    const pensionNotificationRow2: string[] = new Array(columns.length).fill('');
+    pensionNotificationRow2[0] = this.escapeCsvValue('納入告知額（端数処理後）');
+    pensionNotificationRow2[14] = this.escapeCsvValue(String(summary.pensionFullRoundedDown));
+    rows.push(pensionNotificationRow2);
+
+    // 従業員負担計
+    const pensionEmployeeRow: string[] = new Array(columns.length).fill('');
+    pensionEmployeeRow[0] = this.escapeCsvValue('従業員負担計');
+    pensionEmployeeRow[13] = this.escapeCsvValue(String(summary.pensionEmployeeTotal));
+    rows.push(pensionEmployeeRow);
+
+    // 会社負担計
+    const pensionEmployerRow: string[] = new Array(columns.length).fill('');
+    pensionEmployerRow[0] = this.escapeCsvValue('会社負担計');
+    pensionEmployerRow[14] = this.escapeCsvValue(String(summary.pensionEmployerTotal));
+    rows.push(pensionEmployerRow);
+
+    // 空行を追加
+    rows.push(columns.map(() => ''));
+
+    // ===== 総合計のサマリー =====
+    const totalSectionHeader: string[] = new Array(columns.length).fill('');
+    totalSectionHeader[0] = this.escapeCsvValue('【総合計】');
+    rows.push(totalSectionHeader);
+    
+    // 納入告知額 合計（端数処理前）
+    const totalNotificationRow1: string[] = new Array(columns.length).fill('');
+    totalNotificationRow1[0] = this.escapeCsvValue('納入告知額 合計（端数処理前）');
+    totalNotificationRow1[15] = this.escapeCsvValue(String(summary.totalFullTotal));
+    rows.push(totalNotificationRow1);
+
+    // 納入告知額 合計（端数処理後）
+    const totalNotificationRow2: string[] = new Array(columns.length).fill('');
+    totalNotificationRow2[0] = this.escapeCsvValue('納入告知額 合計（端数処理後）');
+    totalNotificationRow2[15] = this.escapeCsvValue(String(summary.totalFullRoundedDown));
+    rows.push(totalNotificationRow2);
+
+    // 従業員負担 総計
+    const totalEmployeeRow: string[] = new Array(columns.length).fill('');
+    totalEmployeeRow[0] = this.escapeCsvValue('従業員負担 総計');
+    totalEmployeeRow[16] = this.escapeCsvValue(String(summary.totalEmployeeTotal));
+    rows.push(totalEmployeeRow);
+
+    // 会社負担 総計
+    const totalEmployerRow: string[] = new Array(columns.length).fill('');
+    totalEmployerRow[0] = this.escapeCsvValue('会社負担 総計');
+    totalEmployerRow[17] = this.escapeCsvValue(String(summary.totalEmployerTotal));
+    rows.push(totalEmployerRow);
 
     const blob = this.createCsvBlob(rows);
     this.downloadBlob(blob, fileName);

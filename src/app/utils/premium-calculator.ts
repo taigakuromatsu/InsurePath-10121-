@@ -257,9 +257,9 @@ export function calculateMonthlyPremiumForEmployee(
   const hasHealthInsurance = hasInsuranceInMonth(employee, rateContext.yearMonth, 'health');
   const hasPensionInsurance = hasInsuranceInMonth(employee, rateContext.yearMonth, 'pension');
 
-  // 標準報酬を履歴から取得（履歴がない場合は従業員データから取得）
-  let healthStandardMonthly = employee.healthStandardMonthly ?? 0;
-  let pensionStandardMonthly = employee.pensionStandardMonthly ?? 0;
+  // 標準報酬を履歴から取得（履歴がない場合は計算不可）
+  let healthStandardMonthly: number | null = null;
+  let pensionStandardMonthly: number | null = null;
   
   if (standardRewardHistories && standardRewardHistories.length > 0) {
     // 健康保険の履歴から標準報酬を取得
@@ -276,18 +276,36 @@ export function calculateMonthlyPremiumForEmployee(
       pensionStandardMonthly = pensionFromHistory;
     }
   }
+  
+  // 履歴から標準報酬が取得できない場合は計算不可
+  // （健康保険または厚生年金のいずれかが加入している場合、その保険種別の履歴が必要）
+  if (hasHealthInsurance && healthStandardMonthly == null) {
+    return null; // 健康保険に加入しているが履歴がない場合は計算不可
+  }
+  if (hasPensionInsurance && pensionStandardMonthly == null) {
+    return null; // 厚生年金に加入しているが履歴がない場合は計算不可
+  }
+  
+  // どちらの保険にも加入していない場合は計算不可
+  if (!hasHealthInsurance && !hasPensionInsurance) {
+    return null;
+  }
+  
+  // nullの場合は0として扱う（実際には上記のチェックでnullの場合はreturnされるため、ここには到達しない）
+  const healthStandard = healthStandardMonthly ?? 0;
+  const pensionStandard = pensionStandardMonthly ?? 0;
 
-  // 2. 健康保険の計算可否を判定（履歴から取得した標準報酬も考慮）
+  // 2. 健康保険の計算可否を判定（履歴から取得した標準報酬を使用）
   const canCalcHealth =
     hasHealthInsurance &&
-    healthStandardMonthly > 0 &&
+    healthStandard > 0 &&
     employee.healthGrade != null &&
     rateContext.healthRate != null;
 
-  // 3. 厚生年金の計算可否を判定（履歴から取得した標準報酬も考慮）
+  // 3. 厚生年金の計算可否を判定（履歴から取得した標準報酬を使用）
   const canCalcPension =
     hasPensionInsurance &&
-    pensionStandardMonthly > 0 &&
+    pensionStandard > 0 &&
     employee.pensionGrade != null &&
     rateContext.pensionRate != null;
 
@@ -307,19 +325,19 @@ export function calculateMonthlyPremiumForEmployee(
   
     // ★ 介護保険「単体」の金額（参考値：データ品質チェック用など）
     const careFull =
-      canCalcHealth && !isExempt ? healthStandardMonthly * careRate : 0;
+      canCalcHealth && !isExempt ? healthStandard * careRate : 0;
     const careEmployee = roundForEmployeeDeduction(careFull / 2);
     const careEmployer = careFull - careEmployee;
   
     const healthCareFull =
-      canCalcHealth && !isExempt ? healthStandardMonthly * healthTotalRate : 0;
+      canCalcHealth && !isExempt ? healthStandard * healthTotalRate : 0;
     const healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
     const healthCareEmployer = healthCareFull - healthCareEmployee;
   
 
   // 厚生年金
   const pensionFull =
-    canCalcPension && !isExempt ? pensionStandardMonthly * rateContext.pensionRate! : 0;
+    canCalcPension && !isExempt ? pensionStandard * rateContext.pensionRate! : 0;
   const pensionEmployee = roundForEmployeeDeduction(pensionFull / 2);
   const pensionEmployer = pensionFull - pensionEmployee;
 
@@ -333,9 +351,9 @@ export function calculateMonthlyPremiumForEmployee(
     officeId: employee.officeId,
     yearMonth: rateContext.yearMonth,
     healthGrade: canCalcHealth ? employee.healthGrade! : 0,
-    healthStandardMonthly: canCalcHealth ? healthStandardMonthly : 0,
+    healthStandardMonthly: canCalcHealth ? healthStandard : 0,
     pensionGrade: canCalcPension ? employee.pensionGrade! : 0,
-    pensionStandardMonthly: canCalcPension ? pensionStandardMonthly : 0,
+    pensionStandardMonthly: canCalcPension ? pensionStandard : 0,
     amounts: {
       healthCareFull,
       healthCareEmployee,
