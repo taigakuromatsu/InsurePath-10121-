@@ -63,13 +63,47 @@ import { HealthPlanType, Office } from '../../types';
             <h3 class="section-title">基本情報</h3>
           <div class="form-grid">
             <mat-form-field appearance="outline">
-              <mat-label>事業所名</mat-label>
+              <mat-label>事業所名称</mat-label>
               <input matInput formControlName="name" required />
             </mat-form-field>
 
             <mat-form-field appearance="outline">
-              <mat-label>所在地</mat-label>
+              <mat-label>事業所整理記号</mat-label>
+              <input matInput formControlName="officeSymbol" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>事業所番号</mat-label>
+              <input matInput formControlName="officeNumber" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>郵便番号</mat-label>
+              <input
+                matInput
+                formControlName="officePostalCode"
+                placeholder="1234567"
+                maxlength="7"
+              />
+              <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
+              <mat-error *ngIf="form.get('officePostalCode')?.hasError('pattern')">
+                7桁の数字を入力してください
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>事業所所在地</mat-label>
               <input matInput formControlName="address" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>事業主（代表者）氏名</mat-label>
+              <input matInput formControlName="officeOwnerName" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>電話番号</mat-label>
+              <input matInput formControlName="officePhone" />
             </mat-form-field>
             </div>
           </div>
@@ -104,53 +138,6 @@ import { HealthPlanType, Office } from '../../types';
               <mat-label>組合コード</mat-label>
               <input matInput formControlName="unionCode" />
             </mat-form-field>
-            </div>
-          </div>
-
-          <div class="form-section">
-            <h3 class="section-title">
-              <mat-icon>business_center</mat-icon>
-              事業所識別情報
-            </h3>
-            <div class="form-grid">
-              <mat-form-field appearance="outline">
-                <mat-label>事業所記号</mat-label>
-                <input matInput formControlName="officeSymbol" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>事業所番号</mat-label>
-                <input matInput formControlName="officeNumber" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>郡市区符号</mat-label>
-                <input matInput formControlName="officeCityCode" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>郵便番号</mat-label>
-                <input
-                  matInput
-                  formControlName="officePostalCode"
-                  placeholder="1234567"
-                  maxlength="7"
-                />
-                <mat-hint>7桁の数字（ハイフンなし）</mat-hint>
-                <mat-error *ngIf="form.get('officePostalCode')?.hasError('pattern')">
-                  7桁の数字を入力してください
-                </mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>電話番号</mat-label>
-                <input matInput formControlName="officePhone" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>事業主（代表者）氏名</mat-label>
-                <input matInput formControlName="officeOwnerName" />
-              </mat-form-field>
             </div>
           </div>
 
@@ -334,7 +321,6 @@ export class OfficesPage implements OnDestroy {
     unionCode: [''],
     officeSymbol: [''],
     officeNumber: [''],
-    officeCityCode: [''],
     officePostalCode: ['', [Validators.pattern(/^\d{7}$/)]],
     officePhone: [''],
     officeOwnerName: ['']
@@ -389,7 +375,7 @@ export class OfficesPage implements OnDestroy {
       unionCode: normalizeString(formValue.unionCode),
       officeSymbol: normalizeString(formValue.officeSymbol),
       officeNumber: normalizeString(formValue.officeNumber),
-      officeCityCode: normalizeString(formValue.officeCityCode),
+      officeCityCode: null, // フォームから削除されたため、常にnullを設定
       officePostalCode: normalizeString(formValue.officePostalCode),
       officePhone: normalizeString(formValue.officePhone),
       officeOwnerName: normalizeString(formValue.officeOwnerName)

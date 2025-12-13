@@ -247,7 +247,7 @@ interface BonusPremiumViewRow extends BonusPremium {
 
               <p class="info-note">
                 これらの項目が未入力または誤っている場合、<br />
-                ・賞与が一覧に表示されない<br />
+                ・賞与登録が保存できない<br />
                 ・介護保険料が 0 円のままになる<br />
                 などの挙動になることがあります。<br />
                 賞与保険料ページを利用する前に、従業員台帳の情報をご確認ください。
