@@ -38,7 +38,7 @@ export class App {
     { label: '従業員台帳', path: '/employees', icon: 'group', roles: ['admin', 'hr'] },
     { label: '月次保険料', path: '/premiums/monthly', icon: 'table_chart', roles: ['admin', 'hr'] },
     { label: '賞与保険料', path: '/premiums/bonus', icon: 'card_giftcard', roles: ['admin', 'hr'] },
-    { label: '社会保険料納付状況', path: '/payments', icon: 'account_balance', roles: ['admin', 'hr'] },
+    { label: '保険料納付状況管理', path: '/payments', icon: 'account_balance', roles: ['admin', 'hr'] },
     { label: '保険料率管理', path: '/masters', icon: 'settings', roles: ['admin'] },
     { label: '申請ワークフロー', path: '/requests', icon: 'assignment', roles: ['admin', 'hr'] },
     { label: '社会保険手続き状況', path: '/procedures', icon: 'assignment_turned_in', roles: ['admin', 'hr'] },

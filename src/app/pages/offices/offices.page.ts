@@ -1,4 +1,4 @@
-import { NgIf } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,6 +18,7 @@ import { MastersService } from '../../services/masters.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { UserManagementTabComponent } from './user-management-tab.component';
 import { HealthPlanType, Office } from '../../types';
+import { PREFECTURE_CODES } from '../../utils/kyokai-presets';
 
 @Component({
   selector: 'ip-offices-page',
@@ -33,6 +34,7 @@ import { HealthPlanType, Office } from '../../types';
     MatSnackBarModule,
     ReactiveFormsModule,
     NgIf,
+    NgFor,
     UserManagementTabComponent
   ],
   template: `
@@ -120,13 +122,19 @@ import { HealthPlanType, Office } from '../../types';
             </mat-form-field>
 
             <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kyokai'">
-              <mat-label>協会けんぽ 都道府県コード</mat-label>
-              <input matInput formControlName="kyokaiPrefCode" />
+              <mat-label>協会けんぽ 都道府県</mat-label>
+              <mat-select formControlName="kyokaiPrefName" (selectionChange)="onPrefNameChange($event.value)">
+                <mat-option value="">未選択</mat-option>
+                <mat-option *ngFor="let code of prefCodes" [value]="PREFECTURE_CODES[code]">
+                  {{ PREFECTURE_CODES[code] }}
+                </mat-option>
+              </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kyokai'">
-              <mat-label>協会けんぽ 都道府県名</mat-label>
-              <input matInput formControlName="kyokaiPrefName" />
+              <mat-label>協会けんぽ 都道府県コード</mat-label>
+              <input matInput formControlName="kyokaiPrefCode" readonly />
+              <mat-hint>都道府県を選択すると自動入力されます</mat-hint>
             </mat-form-field>
 
             <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kumiai'">
@@ -137,7 +145,7 @@ import { HealthPlanType, Office } from '../../types';
             <mat-form-field appearance="outline" *ngIf="healthPlanType() === 'kumiai'">
               <mat-label>組合コード</mat-label>
               <input matInput formControlName="unionCode" />
-            </mat-form-field>
+              </mat-form-field>
             </div>
           </div>
 
@@ -310,6 +318,11 @@ export class OfficesPage implements OnDestroy {
   readonly loading = signal(false);
   private readonly profile = toSignal(this.currentUser.profile$, { initialValue: null });
   private currentOfficeValue: Office | null = null;
+  readonly prefCodes = Object.keys(PREFECTURE_CODES).sort((a, b) => {
+    // 都道府県コード順にソート
+    return Number(a) - Number(b);
+  });
+  readonly PREFECTURE_CODES = PREFECTURE_CODES;
   form = this.fb.group({
     id: [''],
     name: ['', Validators.required],
@@ -334,8 +347,49 @@ export class OfficesPage implements OnDestroy {
         return;
       }
       this.currentOfficeValue = office;
-      this.form.patchValue(office);
+      // 都道府県コードから都道府県名を設定（既存データの読み込み時）
+      const formValue = { ...office };
+      if (office.kyokaiPrefCode) {
+        const expectedName = PREFECTURE_CODES[office.kyokaiPrefCode];
+        if (expectedName) {
+          // 都道府県コードに対応する都道府県名が存在する場合、それを設定
+          formValue.kyokaiPrefName = expectedName;
+        } else {
+          // 都道府県コードが無効な場合、都道府県名をクリア（セレクトボックスを未選択状態にする）
+          formValue.kyokaiPrefName = '';
+          console.warn(`無効な都道府県コード: ${office.kyokaiPrefCode}`);
+        }
+      }
+      this.form.patchValue(formValue);
     });
+  }
+
+  onPrefNameChange(prefName: string): void {
+    if (!prefName || prefName === '') {
+      // 未選択の場合は都道府県コードもクリア
+      this.form.patchValue({
+        kyokaiPrefCode: '',
+        kyokaiPrefName: ''
+      });
+      return;
+    }
+    // 都道府県名から都道府県コードを逆引き
+    const prefCode = Object.keys(PREFECTURE_CODES).find(
+      code => PREFECTURE_CODES[code] === prefName
+    );
+    if (prefCode) {
+      this.form.patchValue({
+        kyokaiPrefCode: prefCode,
+        kyokaiPrefName: prefName
+      });
+    } else {
+      // 都道府県名が無効な場合（通常は発生しないが、念のため）
+      console.warn(`無効な都道府県名: ${prefName}`);
+      this.form.patchValue({
+        kyokaiPrefCode: '',
+        kyokaiPrefName: ''
+      });
+    }
   }
 
   healthPlanType(): HealthPlanType | null {

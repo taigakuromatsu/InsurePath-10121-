@@ -886,10 +886,11 @@ export class EmployeesPage {
     const dialogRef = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
       ConfirmDialogComponent,
       {
-        width: '400px',
+        width: '500px',
         data: {
           title: '従業員を削除しますか？',
-          message: `従業員「${employee.name}」を削除します。よろしいですか？`,
+          message: `従業員「${employee.name}」を削除します。\n\n注意：削除すると、賞与保険料や月次保険料の一覧から消えてしまいますが、よろしいですか？`,
+          warningMessage: '登録ミスのみ削除を推奨します。\n退職者は退職日の入力だけをして削除はしないでください。',
           confirmLabel: '削除',
           cancelLabel: 'キャンセル'
         }

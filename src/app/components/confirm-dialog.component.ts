@@ -1,10 +1,12 @@
 import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
+import { CommonModule } from '@angular/common';
 
 export interface ConfirmDialogData {
   title: string;
   message: string;
+  warningMessage?: string; // 警告メッセージ（強調表示用）
   confirmLabel?: string;
   cancelLabel?: string;
 }
@@ -12,11 +14,14 @@ export interface ConfirmDialogData {
 @Component({
   selector: 'ip-confirm-dialog',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule],
+  imports: [MatDialogModule, MatButtonModule, CommonModule],
   template: `
     <h1 mat-dialog-title>{{ data.title }}</h1>
     <div mat-dialog-content>
       <p>{{ data.message }}</p>
+      <div class="warning-message" *ngIf="data.warningMessage">
+        <p>{{ data.warningMessage }}</p>
+      </div>
     </div>
     <div mat-dialog-actions align="end">
       <button mat-stroked-button (click)="onCancel()">
@@ -50,6 +55,22 @@ export interface ConfirmDialogData {
         line-height: 1.6;
         color: rgba(0, 0, 0, 0.87);
         font-size: 1rem;
+      }
+
+      .warning-message {
+        margin-top: 16px;
+        padding: 12px 16px;
+        background-color: #fff3cd;
+        border-left: 4px solid #ff9800;
+        border-radius: 4px;
+      }
+
+      .warning-message p {
+        margin: 0;
+        line-height: 1.6;
+        color: #856404;
+        font-size: 0.95rem;
+        font-weight: 500;
       }
 
       div[mat-dialog-actions] {

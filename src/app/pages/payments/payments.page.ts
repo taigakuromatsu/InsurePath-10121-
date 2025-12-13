@@ -30,9 +30,9 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
     <div class="page-container">
       <header class="page-header">
         <div>
-            <h1>社会保険料納付状況</h1>
+            <h1>社会保険料納付状況管理</h1>
           <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
-            事業所ごと・対象年月ごとの社会保険料の納付状況を管理できます。
+            事業所ごと・対象年月ごとの社会保険料の納付状況を登録して管理できます。
           </p>
         </div>
       </header>
