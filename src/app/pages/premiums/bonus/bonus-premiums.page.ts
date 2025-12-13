@@ -280,7 +280,7 @@ interface BonusPremiumViewRow extends BonusPremium {
               <mat-icon>download</mat-icon>
               CSVエクスポート
             </button>
-            <!-- ★ 追加: 月次PDF出力ボタン -->
+            <!-- ★ 追加: 賞与支払届用補助PDF出力ボタン -->
             <button
               mat-stroked-button
               color="primary"
@@ -289,7 +289,7 @@ interface BonusPremiumViewRow extends BonusPremium {
               *ngIf="canExport$ | async"
             >
               <mat-icon>picture_as_pdf</mat-icon>
-              月次PDF出力
+              賞与支払届用補助PDF
             </button>
             <!-- ★ 追加: 事業所全体 × 年度再集計ボタン -->
             <button
@@ -457,16 +457,6 @@ interface BonusPremiumViewRow extends BonusPremium {
                 <th mat-header-cell *matHeaderCellDef class="col-actions">操作</th>
                 <td mat-cell *matCellDef="let row" class="col-actions cell-padding">
                   <div class="actions-cell">
-                  <button
-                    mat-icon-button
-                    color="primary"
-                      class="small-icon-btn"
-                    aria-label="賞与支払届を生成"
-                    (click)="openDocumentDialog(row)"
-                      matTooltip="帳票出力"
-                  >
-                    <mat-icon>picture_as_pdf</mat-icon>
-                  </button>
                     <button mat-icon-button color="primary" class="small-icon-btn" (click)="openDialog(row)" matTooltip="編集">
                     <mat-icon>edit</mat-icon>
                   </button>
@@ -1209,86 +1199,86 @@ export class BonusPremiumsPage implements OnDestroy {
     this.dataSubscription = combineLatest([bonuses$, employees$, office$]).subscribe(
       async ([bonuses, employees, office]) => {
         try {
-          if (!office) {
+        if (!office) {
             // await前でもチェック（早期リターン）
             if (seq !== this.refreshSeq) return;
-            this.rows.set([]);
-            return;
-          }
+          this.rows.set([]);
+          return;
+        }
 
-          const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
+        const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
           // await後に世代番号をチェック（古い処理の結果を無視）
           if (seq !== this.refreshSeq) return;
 
-          this.rateSummary.set({
-            healthRate: rates.healthRate ?? undefined,
-            careRate: rates.careRate ?? undefined,
-            pensionRate: rates.pensionRate ?? undefined
+        this.rateSummary.set({
+          healthRate: rates.healthRate ?? undefined,
+          careRate: rates.careRate ?? undefined,
+          pensionRate: rates.pensionRate ?? undefined
+        });
+
+        const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+        const rows: BonusPremiumViewRow[] = bonuses
+          .filter((b) => {
+            const employee = employeeMap.get(b.employeeId);
+            if (!employee) return false;
+            const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
+            const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
+            return (hasHealth && b.healthEffectiveAmount > 0) || (hasPension && b.pensionEffectiveAmount > 0);
+          })
+          .map((b) => {
+            const employee = employeeMap.get(b.employeeId)!;
+            const employeeName = employee.name;
+
+            // 健康保険＋介護保険の計算（毎回計算）
+            let healthCareFull = 0;
+            let healthCareEmployee = 0;
+            let healthCareEmployer = 0;
+
+            const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
+            if (hasHealth && b.healthEffectiveAmount > 0) {
+              const isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
+              const careRate = isCareTarget && rates.careRate ? rates.careRate : 0;
+              const combinedRate = (rates.healthRate ?? 0) + careRate;
+              healthCareFull = b.healthEffectiveAmount * combinedRate;
+              healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
+              healthCareEmployer = healthCareFull - healthCareEmployee;
+            }
+
+            // 厚生年金の計算（毎回計算）
+            let pensionFull = 0;
+            let pensionEmployee = 0;
+            let pensionEmployer = 0;
+
+            const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
+            if (hasPension && b.pensionEffectiveAmount > 0) {
+              pensionFull = b.pensionEffectiveAmount * (rates.pensionRate ?? 0);
+              pensionEmployee = roundForEmployeeDeduction(pensionFull / 2);
+              pensionEmployer = pensionFull - pensionEmployee;
+            }
+
+            const totalFull = healthCareFull + pensionFull;
+            const totalEmployee = healthCareEmployee + pensionEmployee;
+            const totalEmployer = healthCareEmployer + pensionEmployer;
+
+            return {
+        ...b,
+              employeeName,
+              healthCareFull,
+              healthCareEmployee,
+              healthCareEmployer,
+              pensionFull,
+              pensionEmployee,
+              pensionEmployer,
+              totalFull,
+              totalEmployee,
+              totalEmployer
+            };
           });
-
-          const employeeMap = new Map(employees.map((e) => [e.id, e]));
-
-          const rows: BonusPremiumViewRow[] = bonuses
-            .filter((b) => {
-              const employee = employeeMap.get(b.employeeId);
-              if (!employee) return false;
-              const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
-              const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
-              return (hasHealth && b.healthEffectiveAmount > 0) || (hasPension && b.pensionEffectiveAmount > 0);
-            })
-            .map((b) => {
-              const employee = employeeMap.get(b.employeeId)!;
-              const employeeName = employee.name;
-
-              // 健康保険＋介護保険の計算（毎回計算）
-              let healthCareFull = 0;
-              let healthCareEmployee = 0;
-              let healthCareEmployer = 0;
-
-              const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
-              if (hasHealth && b.healthEffectiveAmount > 0) {
-                const isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
-                const careRate = isCareTarget && rates.careRate ? rates.careRate : 0;
-                const combinedRate = (rates.healthRate ?? 0) + careRate;
-                healthCareFull = b.healthEffectiveAmount * combinedRate;
-                healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
-                healthCareEmployer = healthCareFull - healthCareEmployee;
-              }
-
-              // 厚生年金の計算（毎回計算）
-              let pensionFull = 0;
-              let pensionEmployee = 0;
-              let pensionEmployer = 0;
-
-              const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
-              if (hasPension && b.pensionEffectiveAmount > 0) {
-                pensionFull = b.pensionEffectiveAmount * (rates.pensionRate ?? 0);
-                pensionEmployee = roundForEmployeeDeduction(pensionFull / 2);
-                pensionEmployer = pensionFull - pensionEmployee;
-              }
-
-              const totalFull = healthCareFull + pensionFull;
-              const totalEmployee = healthCareEmployee + pensionEmployee;
-              const totalEmployer = healthCareEmployer + pensionEmployer;
-
-              return {
-          ...b,
-                employeeName,
-                healthCareFull,
-                healthCareEmployee,
-                healthCareEmployer,
-                pensionFull,
-                pensionEmployee,
-                pensionEmployer,
-                totalFull,
-                totalEmployee,
-                totalEmployer
-              };
-            });
 
           // 最終的なset前にも念のためチェック
           if (seq !== this.refreshSeq) return;
-          this.rows.set(rows);
+        this.rows.set(rows);
         } catch (e) {
           console.error('賞与保険料の読込に失敗', e);
           // エラー時も世代番号をチェック
@@ -1484,35 +1474,10 @@ export class BonusPremiumsPage implements OnDestroy {
     }
   }
 
-  async openDocumentDialog(row: BonusPremiumViewRow): Promise<void> {
-    const office = await firstValueFrom(this.office$);
-    if (!office) {
-      this.snackBar.open('事業所が設定されていません', '閉じる', { duration: 3000 });
-      return;
-    }
-
-    const employee = await firstValueFrom(this.employeesService.get(office.id, row.employeeId));
-    if (!employee) {
-      this.snackBar.open('従業員情報が取得できませんでした', '閉じる', { duration: 3000 });
-      return;
-    }
-
-    this.dialog.open(DocumentGenerationDialogComponent, {
-      width: '720px',
-      data: {
-        office,
-        employee,
-        bonuses: [row],
-        defaultType: 'bonus_payment'
-      }
-    });
-  }
-
   /**
-   * 月次PDF出力ダイアログを開く
+   * 賞与支払届用補助PDF出力ダイアログを開く
    * 
-   * 注意: filteredRows()を使用して画面表示と同じ範囲の賞与データを取得する。
-   * BonusPremiumViewRowはBonusPremiumをextendsしているため、row.idはBonusPremium.idと一致している前提。
+   * 帳票生成ダイアログを開き、月次PDFを生成できるようにする。
    */
   async openMonthlyPdfDialog(): Promise<void> {
     const office = await firstValueFrom(this.office$);
@@ -1551,37 +1516,28 @@ export class BonusPremiumsPage implements OnDestroy {
       return;
     }
 
-    try {
-      const payload: MonthlyBonusPaymentPayload = {
-        office,
-        employees: employees as Employee[],
-        bonuses,
-        yearMonth
-      };
-
-      // 集計処理を事前に実行して、結果が空でないことを確認（空PDFを防ぐ）
-      const rows = aggregateBonusesByEmployee(
-        bonuses,
-        employees as Employee[],
-        yearMonth
-      );
-      
-      if (!rows || rows.length === 0) {
-        this.snackBar.open('PDFに出力する賞与データがありません', '閉じる', { duration: 3000 });
-        return;
-      }
-
-      // PDF生成（直接ダウンロード）
-      this.documentGenerator.generate(
-        { type: 'monthly_bonus_payment', payload },
-        'download',
-        `bonus-payment-monthly-${yearMonth}.pdf`
-      );
-
-      this.snackBar.open('月次PDFを生成しました', '閉じる', { duration: 3000 });
-    } catch (error) {
-      console.error('月次PDF生成に失敗しました', error);
-      this.snackBar.open('月次PDF生成に失敗しました', '閉じる', { duration: 3000 });
+    // 月次PDFの場合は、最初の従業員を代表として使用（ダイアログの仕様上）
+    // 実際のPDF生成は月次PDFタイプで行われるため、従業員は参照用のみ
+    const firstBonus = bonuses[0];
+    const firstEmployee = (employees as Employee[]).find(e => e.id === firstBonus.employeeId);
+    
+    if (!firstEmployee) {
+      this.snackBar.open('従業員データが取得できませんでした', '閉じる', { duration: 3000 });
+      return;
     }
+
+    // 帳票生成ダイアログを開く
+    // 月次PDFの場合は、bonusesに全データを渡し、defaultTypeを'monthly_bonus_payment'に設定
+    this.dialog.open(DocumentGenerationDialogComponent, {
+      width: '720px',
+      data: {
+        office,
+        employee: firstEmployee,  // ダイアログの仕様上必要（表示用）
+        bonuses: bonuses,
+        defaultType: 'monthly_bonus_payment',
+        yearMonth: yearMonth,
+        employees: employees as Employee[]
+      }
+    });
   }
 }

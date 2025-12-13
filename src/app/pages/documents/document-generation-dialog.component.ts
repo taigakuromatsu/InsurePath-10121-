@@ -24,6 +24,8 @@ export interface DocumentGenerationDialogData {
   employee: Employee;
   bonuses?: BonusPremium[];
   defaultType?: DocumentType;
+  yearMonth?: string;  // 月次PDF用の対象年月
+  employees?: Employee[];  // 月次PDF用の全従業員リスト
 }
 
 interface DocumentValidationResult {
@@ -61,40 +63,34 @@ interface DocumentViewModel {
   template: `
     <h2 mat-dialog-title>
       <mat-icon>picture_as_pdf</mat-icon>
-      帳票生成
+      入力補助PDF生成
     </h2>
 
     <div mat-dialog-content class="content">
       <p class="disclaimer">
-        本システムで生成される帳票は参考様式です。提出前に内容を確認し、必要に応じて手書き修正してください。
+        本システムで生成されるPDFは入力補助用の参考様式です。届け出作成時の補助資料としてご利用ください。
       </p>
 
       <mat-form-field appearance="outline" class="full-width">
-        <mat-label>帳票種類</mat-label>
+        <mat-label>PDF種類</mat-label>
         <mat-select [formControl]="typeControl">
           <mat-option *ngFor="let type of documentTypes" [value]="type.value">{{ type.label }}</mat-option>
         </mat-select>
       </mat-form-field>
 
-      <div class="readonly-field">
+      <div class="readonly-field" *ngIf="(viewModel$ | async)?.type !== 'monthly_bonus_payment'">
         <div class="label">対象従業員</div>
         <div class="value">{{ data.employee.name }}</div>
       </div>
 
+      <div class="readonly-field" *ngIf="(viewModel$ | async)?.type === 'monthly_bonus_payment'">
+        <div class="label">対象年月</div>
+        <div class="value">{{ data.yearMonth || '未設定' }}</div>
+      </div>
+
       <ng-container *ngIf="(viewModel$ | async) as vm">
         <ng-container *ngIf="(validation$ | async) as validation">
-          <ng-container *ngIf="vm.type === 'bonus_payment'">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>対象賞与</mat-label>
-              <mat-select [formControl]="bonusControl">
-                <mat-option *ngFor="let bonus of bonuses" [value]="bonus.id">
-                  {{ bonus.payDate }} / {{ bonus.grossAmount | number }} 円
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </ng-container>
-
-          <ng-container *ngIf="vm.type !== 'bonus_payment'">
+          <ng-container *ngIf="vm.type !== 'monthly_bonus_payment'">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>対象基準日</mat-label>
               <input matInput type="date" [formControl]="referenceDateControl" />
@@ -128,7 +124,7 @@ interface DocumentViewModel {
           </div>
 
           <div class="summary">
-            <div>
+            <div *ngIf="vm.type !== 'monthly_bonus_payment'">
               <strong>標準報酬月額（推定）:</strong>
               {{
                 vm.standardMonthlyReward !== null && vm.standardMonthlyReward !== undefined
@@ -136,11 +132,13 @@ interface DocumentViewModel {
                   : '未取得'
               }}
             </div>
-            <div *ngIf="vm.type !== 'bonus_payment'">
+            <div *ngIf="vm.type !== 'monthly_bonus_payment'">
               <strong>基準日:</strong> {{ vm.referenceDate || '未入力' }}
             </div>
-            <div *ngIf="vm.type === 'bonus_payment'">
-              <strong>対象賞与:</strong> {{ vm.bonus?.payDate || '未選択' }}
+            <div *ngIf="vm.type === 'monthly_bonus_payment'">
+              <strong>対象年月:</strong> {{ data.yearMonth || '未設定' }}
+              <br />
+              <strong>対象賞与件数:</strong> {{ bonuses.length }} 件
             </div>
           </div>
 
@@ -290,7 +288,7 @@ export class DocumentGenerationDialogComponent {
   readonly documentTypes: Array<{ value: DocumentType; label: string }> = [
     { value: 'qualification_acquisition', label: '資格取得届' },
     { value: 'qualification_loss', label: '資格喪失届' },
-    { value: 'bonus_payment', label: '賞与支払届' }
+    { value: 'monthly_bonus_payment', label: '賞与支払届用補助PDF（月次まとめ）' }
   ];
 
   readonly bonuses = this.data.bonuses ?? [];
@@ -299,7 +297,6 @@ export class DocumentGenerationDialogComponent {
     this.data.defaultType ?? 'qualification_acquisition'
   );
   readonly referenceDateControl = this.fb.control<string | null>(this.initialReferenceDate());
-  readonly bonusControl = this.fb.control<string | null>(this.bonuses[0]?.id ?? null);
   readonly ackWarningsControl = this.fb.control<boolean>(false);
 
   private readonly histories$ = this.standardRewardHistoryService
@@ -312,30 +309,18 @@ export class DocumentGenerationDialogComponent {
     )
   );
 
-  readonly selectedBonus$ = this.typeControl.valueChanges.pipe(
-    startWith(this.typeControl.value),
-    switchMap((type) => {
-      if (type !== 'bonus_payment') return of<BonusPremium | null>(null);
-      return this.bonusControl.valueChanges.pipe(
-        startWith(this.bonusControl.value),
-        map((bonusId) => this.bonuses.find((b) => b.id === bonusId) ?? null)
-      );
-    })
-  );
-
   readonly viewModel$ = combineLatest([
     this.typeControl.valueChanges.pipe(startWith(this.typeControl.value)),
     this.standardMonthlyReward$,
     this.referenceDateControl.valueChanges.pipe(startWith(this.referenceDateControl.value)),
-    this.selectedBonus$,
     this.ackWarningsControl.valueChanges.pipe(startWith(this.ackWarningsControl.value))
   ]).pipe(
     map(
-      ([type, standardMonthlyReward, referenceDate, bonus, ackWarnings]) => ({
+      ([type, standardMonthlyReward, referenceDate, ackWarnings]) => ({
         type,
         standardMonthlyReward,
         referenceDate,
-        bonus,
+        bonus: null,  // bonus_paymentは削除したため常にnull
         ackWarnings
       }) as DocumentViewModel
     )
@@ -348,7 +333,12 @@ export class DocumentGenerationDialogComponent {
   canGenerate(vm: DocumentViewModel, validation: DocumentValidationResult): boolean {
     if (validation.criticalMissing.length > 0) return false;
     if (validation.requiredMissing.length > 0 && !vm.ackWarnings) return false;
-    if (vm.type === 'bonus_payment' && !vm.bonus) return false;
+    if (vm.type === 'monthly_bonus_payment') {
+      // 月次PDFの場合は、bonusesとyearMonthがあれば生成可能
+      if (!this.data.bonuses || this.data.bonuses.length === 0) return false;
+      if (!this.data.yearMonth) return false;
+      if (!this.data.employees || this.data.employees.length === 0) return false;
+    }
     return true;
   }
 
@@ -390,26 +380,34 @@ export class DocumentGenerationDialogComponent {
             action
           );
           break;
-        case 'bonus_payment':
-          if (!vm.bonus) {
-            throw new Error('対象賞与が選択されていません');
+        case 'monthly_bonus_payment':
+          if (!this.data.bonuses || this.data.bonuses.length === 0) {
+            throw new Error('対象年月に賞与データがありません');
+          }
+          if (!this.data.yearMonth) {
+            throw new Error('対象年月が設定されていません');
+          }
+          if (!this.data.employees || this.data.employees.length === 0) {
+            throw new Error('従業員データが取得できませんでした');
           }
           this.generator.generate(
             {
-              type: 'bonus_payment',
+              type: 'monthly_bonus_payment',
               payload: {
                 office: this.data.office,
-                employee: this.data.employee,
-                bonus: vm.bonus
+                employees: this.data.employees,
+                bonuses: this.data.bonuses,
+                yearMonth: this.data.yearMonth
               }
             },
-            action
+            action,
+            `bonus-payment-monthly-${this.data.yearMonth}.pdf`
           );
           break;
       }
     } catch (error) {
       console.error(error);
-      this.snackBar.open('帳票生成に失敗しました。時間をおいて再度お試しください。', undefined, {
+      this.snackBar.open('入力補助PDF生成に失敗しました。時間をおいて再度お試しください。', undefined, {
         duration: 3000
       });
     }
@@ -448,28 +446,6 @@ export class DocumentGenerationDialogComponent {
       }
       if (!this.data.employee.retireDate) {
         optionalMissing.push('退職日');
-      }
-    }
-
-    if (vm.type === 'bonus_payment') {
-      if (!vm.bonus) {
-        criticalMissing.push('対象賞与');
-      } else {
-        if (!vm.bonus.payDate) {
-          criticalMissing.push('賞与支給日');
-        }
-        if (vm.bonus.grossAmount === undefined || vm.bonus.grossAmount === null) {
-          criticalMissing.push('賞与支給額');
-        }
-        if (vm.bonus.standardBonusAmount === undefined || vm.bonus.standardBonusAmount === null) {
-          requiredMissing.push('標準賞与額');
-        }
-        if (vm.bonus.healthTotal === undefined || vm.bonus.healthTotal === null) {
-          requiredMissing.push('健康保険料');
-        }
-        if (vm.bonus.pensionTotal === undefined || vm.bonus.pensionTotal === null) {
-          requiredMissing.push('厚生年金保険料');
-        }
       }
     }
 
