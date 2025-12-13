@@ -12,6 +12,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { combineLatest, of, switchMap, firstValueFrom, Subscription, map } from 'rxjs';
 
 import { CurrentOfficeService } from '../../../services/current-office.service';
@@ -58,6 +59,7 @@ interface BonusPremiumViewRow extends BonusPremium {
     MatSelectModule,
     MatTooltipModule,
     MatExpansionModule,
+    MatSlideToggleModule,
     ReactiveFormsModule,
     AsyncPipe,
     NgIf,
@@ -92,20 +94,40 @@ interface BonusPremiumViewRow extends BonusPremium {
             <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
               <mat-icon color="primary">calendar_month</mat-icon> 対象年月を選択
             </h2>
-            <p class="mat-body-2" style="color: #666">直近12ヶ月から閲覧する年月を選択できます。</p>
+            <p class="mat-body-2" style="color: #666">デフォルトでは直近12ヶ月を選択できます。過去の年月も10年分まで選択できます。</p>
           </div>
         </div>
 
         <div class="year-month-selector dense-form">
-          <mat-form-field appearance="outline" class="dense-form-field">
-            <mat-label>対象年月</mat-label>
-            <mat-select
-              [value]="selectedYearMonth()"
-              (selectionChange)="onYearMonthSelectionChange($event.value)"
+          <div class="flex-row gap-2 align-center flex-wrap">
+            <mat-form-field appearance="outline" class="dense-form-field">
+              <mat-label>対象年月</mat-label>
+              <mat-select
+                [value]="selectedYearMonth()"
+                (selectionChange)="onYearMonthSelectionChange($event.value)"
+              >
+                <mat-option *ngFor="let ym of yearMonthOptions()" [value]="ym">{{ ym }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            
+            <mat-slide-toggle
+              [checked]="showPastMonths()"
+              (change)="showPastMonths.set($event.checked)"
+              color="primary"
             >
-              <mat-option *ngFor="let ym of yearMonthOptions()" [value]="ym">{{ ym }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+              過去を表示
+            </mat-slide-toggle>
+            
+            <button
+              mat-stroked-button
+              color="primary"
+              (click)="resetToCurrentMonth()"
+              type="button"
+            >
+              <mat-icon>today</mat-icon>
+              今月に戻す
+            </button>
+          </div>
         </div>
       </mat-card>
 
@@ -650,7 +672,11 @@ interface BonusPremiumViewRow extends BonusPremium {
       }
 
       .year-month-selector {
-        max-width: 240px;
+        /* max-width を削除（複数要素を横並びにするため） */
+      }
+      
+      .year-month-selector .dense-form-field {
+        width: 240px;  /* セレクトボックスのみ幅を固定 */
       }
 
       .help-button {
@@ -1127,15 +1153,32 @@ export class BonusPremiumsPage implements OnDestroy {
   }
 
   readonly selectedYearMonth = signal<YearMonthString>(this.buildYearMonth());
+  
+  // 「過去を表示」トグル（デフォルトはOFF）
+  readonly showPastMonths = signal<boolean>(false);
 
   readonly yearMonthOptions = computed(() => {
     const options: YearMonthString[] = [];
     const now = new Date();
-    for (let i = 0; i < 12; i++) {
+    const selected = this.selectedYearMonth();
+    
+    // 表示する月数（過去を表示する場合は120か月=10年、デフォルトは12か月）
+    const monthCount = this.showPastMonths() ? 120 : 12;
+    
+    // 直近Nか月を生成（降順：新しい→古い）
+    for (let i = 0; i < monthCount; i++) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` as YearMonthString;
       options.push(yearMonth);
     }
+    
+    // 選択中の年月がリストに含まれていない場合（過去を表示OFFで過去月を選択している場合）、追加
+    if (!options.includes(selected)) {
+      options.push(selected);
+      // 年月順にソート（降順：新しい→古い）
+      options.sort((a, b) => b.localeCompare(a));
+    }
+    
     return options;
   });
 
@@ -1332,6 +1375,15 @@ export class BonusPremiumsPage implements OnDestroy {
   onYearMonthSelectionChange(yearMonth: YearMonthString): void {
     this.selectedYearMonth.set(yearMonth);
     // effectで自動的に再計算される
+  }
+
+  /**
+   * 選択年月を今月にリセット
+   */
+  resetToCurrentMonth(): void {
+    this.selectedYearMonth.set(this.buildYearMonth());
+    // 過去表示もOFFに戻す（ユーザーの体感が分かりやすい）
+    this.showPastMonths.set(false);
   }
 
     openHelp(): void {

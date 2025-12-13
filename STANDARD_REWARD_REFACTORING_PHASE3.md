@@ -2,6 +2,7 @@
 
 ## 改訂履歴
 - 2025年1月: 初版作成
+- 2025年1月: 現状システムとの整合性確認・修正（月次保険料計算ロジック変更後の状況を反映）
 
 ---
 
@@ -28,6 +29,15 @@ Phase1・Phase2 の実装により、以下の状態になっています：
 - **保険料計算**: `premium-calculator.ts` は既に新ロジックに置き換え済み（Phase1）
   - 健康保険: `Employee.healthStandardMonthly` を使用
   - 厚生年金: `Employee.pensionStandardMonthly` を使用
+  - **重要**: `hasInsuranceInMonth()` で保険種別ごとに資格期間を判定する実装になっている
+  - 介護保険は健康保険と合算して計算される（`healthCareFull`, `healthCareEmployee` など）
+
+**現状の実装状況（Phase3実装前）:**
+- `StandardRewardHistoryService.save()` では `insuranceKind` のデフォルト値が `'health'` に固定されている
+- `employee-form-dialog.component.ts` の `addAutoStandardRewardHistory()` は健保のみに履歴を追加（厚年は未対応）
+- `standard-reward-history-form-dialog.component.ts` には保険種別選択フィールドがない
+- `employee-detail-dialog.component.ts` の履歴UIはタブ分けされていない（全履歴を一覧表示）
+- `document-generator.service.ts` の `resolveStandardMonthlyReward()` は保険種別を考慮していない
 
 ### 1-3. Phase3 で実現する状態
 
@@ -236,7 +246,9 @@ async save(
   history: Partial<StandardRewardHistory> & { id?: string }
 ): Promise<void> {
   // insuranceKind が必須であることを確認
-  if (!history.insuranceKind || (history.insuranceKind !== 'health' && history.insuranceKind !== 'pension')) {
+  // 既存コードではデフォルト値 'health' が設定されているが、Phase3では必須にする
+  const insuranceKind = history.insuranceKind ?? 'health'; // 後方互換性のため一時的にデフォルト値を維持
+  if (insuranceKind !== 'health' && insuranceKind !== 'pension') {
     throw new Error('insuranceKind must be "health" or "pension"');
   }
 
@@ -245,7 +257,7 @@ async save(
   const payload: Partial<StandardRewardHistory> = {
     id: ref.id,
     employeeId,
-    insuranceKind: history.insuranceKind, // デフォルト値なし
+    insuranceKind: insuranceKind, // デフォルト値から明示的な値に変更
     decisionYearMonth: history.decisionYearMonth ?? '',
     appliedFromYearMonth: history.appliedFromYearMonth ?? '',
     standardMonthlyReward: history.standardMonthlyReward ?? 0,
@@ -261,9 +273,11 @@ async save(
   await setDoc(ref, payload, { merge: true });
   
   // 保存後に Employee を同期
-  await this.syncEmployeeFromHistory(officeId, employeeId, history.insuranceKind);
+  await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
 }
 ```
+
+**注意**: 既存コードとの互換性を保つため、段階的にデフォルト値を削除する方針も検討する。Phase3ではまず明示的な指定を推奨し、Phase4以降でデフォルト値を完全に削除する。
 
 ### 4-2. Employee との同期メソッドの実装
 
@@ -341,10 +355,12 @@ async submit(): Promise<void> {
   const employeeId = await this.employeesService.save(this.data.officeId, employeePayload);
   
   // 標準報酬が変更された場合、履歴を自動追加
+  // 現状の addAutoStandardRewardHistory() は健保のみ対応しているため、厚年も追加する必要がある
+  const decisionYearMonth = formValue.decisionYearMonth as YearMonthString;
+  
   if (this.data.employee) {
     // 既存従業員の場合、変更を検知
     const existingEmployee = this.data.employee;
-    const decisionYearMonth = formValue.decisionYearMonth as YearMonthString;
     
     // 健康保険の変更を検知
     const healthChanged = 
@@ -358,7 +374,8 @@ async submit(): Promise<void> {
         'health',
         decisionYearMonth,
         formValue.healthStandardMonthly,
-        formValue.healthGrade ?? undefined
+        formValue.healthGrade ?? undefined,
+        formValue.healthGradeSource
       );
     }
     
@@ -374,13 +391,12 @@ async submit(): Promise<void> {
         'pension',
         decisionYearMonth,
         formValue.pensionStandardMonthly,
-        formValue.pensionGrade ?? undefined
+        formValue.pensionGrade ?? undefined,
+        formValue.pensionGradeSource
       );
     }
   } else {
     // 新規作成の場合、両方の保険種別に履歴を追加
-    const decisionYearMonth = formValue.decisionYearMonth as YearMonthString;
-    
     if (formValue.healthStandardMonthly != null && formValue.healthStandardMonthly > 0) {
       await this.addStandardRewardHistory(
         this.data.officeId,
@@ -388,7 +404,8 @@ async submit(): Promise<void> {
         'health',
         decisionYearMonth,
         formValue.healthStandardMonthly,
-        formValue.healthGrade ?? undefined
+        formValue.healthGrade ?? undefined,
+        formValue.healthGradeSource
       );
     }
     
@@ -399,10 +416,14 @@ async submit(): Promise<void> {
         'pension',
         decisionYearMonth,
         formValue.pensionStandardMonthly,
-        formValue.pensionGrade ?? undefined
+        formValue.pensionGrade ?? undefined,
+        formValue.pensionGradeSource
       );
     }
   }
+  
+  // 既存の addAutoStandardRewardHistory() は削除または置き換え
+  // 現状は健保のみに履歴を追加しているが、上記のロジックで両方に対応する
 }
 
 private async addStandardRewardHistory(
@@ -434,35 +455,38 @@ private async addStandardRewardHistory(
 
 **実装例:**
 ```typescript
-// 健康保険の変更を検知
-const healthChanged = 
-  existingEmployee.healthStandardMonthly !== formValue.healthStandardMonthly ||
-  existingEmployee.healthGrade !== formValue.healthGrade;
-
-const shouldAddHealthHistory = 
-  healthChanged && 
-  formValue.healthStandardMonthly != null && 
-  formValue.healthStandardMonthly > 0;
-
-if (shouldAddHealthHistory) {
+private async addStandardRewardHistory(
+  officeId: string,
+  employeeId: string,
+  insuranceKind: InsuranceKind,
+  decisionYearMonth: YearMonthString,
+  standardMonthlyReward: number,
+  grade?: number,
+  gradeSource?: GradeDecisionSource
+): Promise<void> {
   // GradeDecisionSource に応じて decisionKind を設定
-  const decisionKind = formValue.healthGradeSource === 'auto_from_salary' 
-    ? 'monthly_change' // 自動決定の場合は月変
-    : formValue.healthGradeSource === 'imported'
-    ? 'other' // CSVインポートの場合はその他
-    : 'monthly_change'; // 手動修正の場合も月変として記録
+  let decisionKind: StandardRewardDecisionKind = 'monthly_change';
+  if (gradeSource === 'imported') {
+    decisionKind = 'other'; // CSVインポートの場合はその他
+  } else if (gradeSource === 'auto_from_salary') {
+    decisionKind = 'monthly_change'; // 自動決定の場合は月変
+  } else if (gradeSource === 'manual_override') {
+    decisionKind = 'monthly_change'; // 手動修正の場合も月変として記録
+  }
   
-  await this.addStandardRewardHistory(
-    this.data.officeId,
-    employeeId,
-    'health',
+  await this.standardRewardHistoryService.save(officeId, employeeId, {
+    insuranceKind,
     decisionYearMonth,
-    formValue.healthStandardMonthly,
-    formValue.healthGrade ?? undefined,
-    decisionKind
-  );
+    appliedFromYearMonth: decisionYearMonth, // または「今日の年月」
+    standardMonthlyReward,
+    grade,
+    decisionKind,
+    note: `従業員フォームから${insuranceKind === 'health' ? '健康保険' : '厚生年金'}の標準報酬が${this.data.employee ? '変更' : '登録'}されたため自動登録`
+  });
 }
 ```
+
+**注意**: 現状の `addAutoStandardRewardHistory()` は健保のみに履歴を追加しているが、Phase3では健保と厚年を区別して履歴を追加する必要がある。
 
 ---
 
@@ -583,7 +607,7 @@ export interface StandardRewardHistoryFormDialogData {
 
 // コンポーネント内
 readonly form = this.fb.group({
-  insuranceKind: [this.data.insuranceKind ?? 'health', Validators.required], // ★ 追加
+  insuranceKind: [this.data.insuranceKind ?? this.data.history?.insuranceKind ?? 'health', Validators.required], // ★ 追加
   decisionYearMonth: ['', [Validators.required, Validators.pattern(/^\d{4}-\d{2}$/)]],
   appliedFromYearMonth: ['', [Validators.required, Validators.pattern(/^\d{4}-\d{2}$/)]],
   standardMonthlyReward: [0, [Validators.required, Validators.min(1)]],
@@ -599,7 +623,26 @@ get isEditMode(): boolean {
 get canEditInsuranceKind(): boolean {
   return !this.isEditMode; // 編集時は変更不可
 }
+
+constructor(
+  public readonly dialogRef: MatDialogRef<StandardRewardHistoryFormDialogComponent>,
+  @Inject(MAT_DIALOG_DATA) public readonly data: StandardRewardHistoryFormDialogData
+) {
+  if (data.history) {
+    this.form.patchValue({
+      insuranceKind: data.history.insuranceKind, // 編集時は既存の値を設定
+      decisionYearMonth: data.history.decisionYearMonth,
+      appliedFromYearMonth: data.history.appliedFromYearMonth,
+      standardMonthlyReward: data.history.standardMonthlyReward,
+      grade: data.history.grade ?? null,
+      decisionKind: data.history.decisionKind,
+      note: data.history.note ?? ''
+    });
+  }
+}
 ```
+
+**注意**: 現状の実装では `insuranceKind` フィールドがフォームに含まれておらず、`submit()` でデフォルト値 `'health'` が設定されている（202行目）。Phase3ではフォームに `insuranceKind` フィールドを追加し、新規作成時のみ選択可能にする必要がある。
 
 **テンプレート例:**
 ```html
@@ -639,31 +682,43 @@ get canEditInsuranceKind(): boolean {
 /**
  * 標準報酬月額を解決する（保険種別対応）
  * 
+ * 現状の実装では保険種別を考慮していないため、Phase3で拡張が必要。
+ * 
  * 解決順位:
- * 1. 指定保険種別の StandardRewardHistory（最新）
+ * 1. 指定保険種別の StandardRewardHistory（最新、対象年月以前）
  * 2. Employee の healthStandardMonthly / pensionStandardMonthly
  * 3. （最終フォールバックとして）payrollSettings.insurableMonthlyWage（報酬月額）
  */
 async resolveStandardMonthlyReward(
   employee: Employee,
-  histories: StandardRewardHistory[],
+  histories: StandardRewardHistory[] | null | undefined,
   kind: InsuranceKind,
-  targetYearMonth: YearMonthString
+  targetYearMonth?: YearMonthString
 ): Promise<number | null> {
   // 1. 指定保険種別の履歴から解決
-  const filteredHistories = histories.filter(h => h.insuranceKind === kind);
-  if (filteredHistories.length > 0) {
-    // 対象年月以前の最新履歴を探す
-    const targetYearMonthNum = this.yearMonthToNumber(targetYearMonth);
-    const applicableHistory = filteredHistories
-      .filter(h => this.yearMonthToNumber(h.appliedFromYearMonth) <= targetYearMonthNum)
-      .sort((a, b) => 
-        this.yearMonthToNumber(b.appliedFromYearMonth) - 
-        this.yearMonthToNumber(a.appliedFromYearMonth)
-      )[0];
-    
-    if (applicableHistory) {
-      return applicableHistory.standardMonthlyReward;
+  if (histories && histories.length > 0) {
+    const filteredHistories = histories.filter(h => h.insuranceKind === kind);
+    if (filteredHistories.length > 0) {
+      if (targetYearMonth) {
+        // 対象年月以前の最新履歴を探す
+        const targetYearMonthNum = this.yearMonthToNumber(targetYearMonth);
+        const applicableHistory = filteredHistories
+          .filter(h => this.yearMonthToNumber(h.appliedFromYearMonth) <= targetYearMonthNum)
+          .sort((a, b) => 
+            this.yearMonthToNumber(b.appliedFromYearMonth) - 
+            this.yearMonthToNumber(a.appliedFromYearMonth)
+          )[0];
+        
+        if (applicableHistory) {
+          return applicableHistory.standardMonthlyReward;
+        }
+      } else {
+        // 対象年月が指定されていない場合は最新履歴を使用
+        const sorted = [...filteredHistories].sort(
+          (a, b) => b.decisionYearMonth.localeCompare(a.decisionYearMonth)
+        );
+        return sorted[0]?.standardMonthlyReward ?? null;
+      }
     }
   }
 
@@ -688,6 +743,8 @@ private yearMonthToNumber(yearMonth: YearMonthString): number {
   return year * 100 + month;
 }
 ```
+
+**注意**: 現状の `resolveStandardMonthlyReward()` は `insuranceKind` パラメータがないため、Phase3でシグネチャを変更する必要がある。後方互換性を保つため、オーバーロードまたはオプショナルパラメータを検討する。
 
 ### 7-2. 書類生成ダイアログの更新
 
@@ -941,11 +998,17 @@ private getInsuranceKindForDocument(documentType: DocumentType): InsuranceKind {
 
 **懸念点**: 従業員フォームで標準報酬を変更した際、毎回履歴を追加するか、確認ダイアログを表示するか
 
+**現状**: `addAutoStandardRewardHistory()` が実装されているが、健保のみに履歴を追加している
+
 **提案**:
-- **案A（推奨）**: 自動的に履歴を追加する（`GradeDecisionSource` が `'auto_from_salary'` の場合のみ）
+- **案A（推奨）**: 自動的に履歴を追加する（健保・厚年それぞれに変更があった場合のみ）
+  - `GradeDecisionSource` に関係なく、標準報酬が変更されたら履歴を追加
+  - ただし、`GradeDecisionSource` に応じて `decisionKind` を適切に設定
 - **案B**: 確認ダイアログを表示してから履歴を追加する
 
 **要確認**: ユーザーの要望に合わせて決定する
+
+**実装上の注意**: 現状の `addAutoStandardRewardHistory()` は健保のみ対応しているため、Phase3では健保と厚年を区別して履歴を追加するロジックに置き換える必要がある。
 
 ---
 
@@ -973,12 +1036,65 @@ private getInsuranceKindForDocument(documentType: DocumentType): InsuranceKind {
 
 ---
 
-## 11. 参考資料
+## 11. 現状システムとの整合性確認（2025年1月時点）
+
+### 11-1. 月次保険料計算ロジックの変更点
+
+**現状の実装状況:**
+- `premium-calculator.ts` は既に保険種別ごとの計算に対応済み
+- `hasInsuranceInMonth()` で保険種別ごとに資格期間を判定
+- 健康保険と厚生年金で別々の標準報酬を使用（`Employee.healthStandardMonthly`, `Employee.pensionStandardMonthly`）
+- 介護保険は健康保険と合算して計算（`healthCareFull`, `healthCareEmployee` など）
+
+**Phase3への影響:**
+- 保険料計算ロジックは変更不要（既に対応済み）
+- Phase3では履歴管理とUIの刷新に集中できる
+
+### 11-2. 現状の実装状況とPhase3で必要な変更
+
+| ファイル | 現状 | Phase3で必要な変更 |
+|---------|------|-------------------|
+| `standard-reward-history.service.ts` | `insuranceKind` のデフォルト値が `'health'` に固定 | `listByInsuranceKind()`, `getLatestByInsuranceKind()`, `syncEmployeeFromHistory()` を追加。デフォルト値の扱いを検討 |
+| `employee-form-dialog.component.ts` | `addAutoStandardRewardHistory()` が健保のみ対応 | 健保・厚年を区別して履歴を追加するロジックに置き換え |
+| `standard-reward-history-form-dialog.component.ts` | `insuranceKind` フィールドなし（デフォルト値 `'health'`） | フォームに `insuranceKind` フィールドを追加（新規作成時のみ選択可能） |
+| `employee-detail-dialog.component.ts` | 履歴UIがタブ分けされていない | 健保／厚年でタブ分けして表示 |
+| `document-generator.service.ts` | `resolveStandardMonthlyReward()` が保険種別を考慮していない | `insuranceKind` パラメータを追加し、保険種別ごとに解決 |
+
+### 11-3. 後方互換性の考慮
+
+**デフォルト値の扱い:**
+- 現状、多くの箇所で `insuranceKind` のデフォルト値が `'health'` に設定されている
+- Phase3では段階的にデフォルト値を削除する方針を推奨
+  - Phase3: 明示的な指定を推奨しつつ、デフォルト値を一時的に維持
+  - Phase4以降: デフォルト値を完全に削除し、必須パラメータにする
+
+**既存データの扱い:**
+- 既存の `StandardRewardHistory` レコードに `insuranceKind` が設定されていない場合の対応が必要
+- Phase3では新規作成時に必ず `insuranceKind` を指定するようにし、既存データは手動で修正するか、移行スクリプトを作成する
+
+### 11-4. 実装時の注意点
+
+1. **循環依存の回避**
+   - `StandardRewardHistoryService` と `EmployeesService` の間で循環依存が発生しないように注意
+   - 推奨: `StandardRewardHistoryService` に `syncEmployeeFromHistory()` を追加し、`EmployeesService` を注入して使用
+
+2. **変更検知の精度**
+   - `employee-form-dialog.component.ts` で標準報酬の変更を検知する際、健保と厚年を区別して判定する必要がある
+   - 現状の `addAutoStandardRewardHistory()` は `originalStandardMonthly` と比較しているが、これは健保・厚年の最大値を使用しているため、個別の変更検知には不十分
+
+3. **UIの段階的移行**
+   - 履歴UIのタブ分けは、既存の一覧表示を維持しつつ、タブを追加する形で実装する
+   - 既存の履歴が表示されなくなることがないように注意
+
+---
+
+## 12. 参考資料
 
 - `STANDARD_REWARD_REFACTORING_PLAN.md`: 大規模改良方針書
 - `STANDARD_REWARD_REFACTORING_PHASE1.md`: Phase1 実装指示書
 - `STANDARD_REWARD_REFACTORING_PHASE2.md`: Phase2 実装指示書
 - `src/app/types.ts`: 型定義
+- `src/app/utils/premium-calculator.ts`: 月次保険料計算ロジック（Phase1で更新済み）
 - `src/app/services/standard-reward-history.service.ts`: 標準報酬履歴サービス（現行実装）
 - `src/app/pages/employees/employee-form-dialog.component.ts`: 従業員フォーム（Phase2 で更新済み）
 - `src/app/services/document-generator.service.ts`: 書類生成サービス（現行実装）
