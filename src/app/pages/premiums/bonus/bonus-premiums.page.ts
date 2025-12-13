@@ -31,6 +31,33 @@ import { getFiscalYear } from '../../../utils/bonus-calculator';
 import { DocumentGeneratorService, MonthlyBonusPaymentPayload } from '../../../services/document-generator.service';
 import { aggregateBonusesByEmployee } from '../../../utils/document-templates/monthly-bonus-payment';
 
+/**
+ * 生年月日と対象年月から年齢を計算する
+ * @param birthDate 生年月日（YYYY-MM-DD形式）
+ * @param yearMonth 対象年月（YYYY-MM形式）
+ * @returns 年齢（対象年月の月末時点）
+ */
+function calculateAge(birthDate: string | null | undefined, yearMonth: YearMonthString): number | undefined {
+  if (!birthDate) return undefined;
+  
+  const birth = new Date(birthDate);
+  if (isNaN(birth.getTime())) return undefined;
+  
+  // 対象年月の月末日を取得
+  const [year, month] = yearMonth.split('-').map(Number);
+  const targetDate = new Date(year, month, 0); // 月末日
+  
+  let age = targetDate.getFullYear() - birth.getFullYear();
+  const monthDiff = targetDate.getMonth() - birth.getMonth();
+  
+  // まだ誕生日が来ていない場合は1歳減らす
+  if (monthDiff < 0 || (monthDiff === 0 && targetDate.getDate() < birth.getDate())) {
+    age--;
+  }
+  
+  return age;
+}
+
 interface BonusPremiumViewRow extends BonusPremium {
   employeeName: string;
   healthCareFull: number;
@@ -42,6 +69,11 @@ interface BonusPremiumViewRow extends BonusPremium {
   totalFull: number;
   totalEmployee: number;
   totalEmployer: number;
+  careFull: number;
+  careEmployee: number;
+  careEmployer: number;
+  isCareTarget: boolean;
+  age?: number; // 対象年月時点での年齢
 }
 
 @Component({
@@ -373,6 +405,7 @@ interface BonusPremiumViewRow extends BonusPremium {
                   <div class="info-cell">
                     <span class="pay-date">{{ row.payDate | date: 'yyyy/MM/dd' }}</span>
                     <span class="employee-name">{{ row.employeeName }}</span>
+                    <span class="employee-age" *ngIf="row.age != null">{{ row.age }}歳</span>
                   </div>
                 </td>
               </ng-container>
@@ -407,11 +440,19 @@ interface BonusPremiumViewRow extends BonusPremium {
                       <div class="split-item">
                         <span class="split-label">従業員</span>
                         <span class="split-value emp-value">{{ row.healthCareEmployee | number }}</span>
+                        <span class="split-sub-value" *ngIf="row.isCareTarget && row.careEmployee > 0">
+                          <span class="sub-label">介護分</span>
+                          <span class="sub-value">{{ row.careEmployee | number }}</span>
+                        </span>
                       </div>
                       <div class="split-divider"></div>
                       <div class="split-item">
                         <span class="split-label">（会社）</span>
                         <span class="split-value comp-value">({{ row.healthCareEmployer | number }})</span>
+                        <span class="split-sub-value" *ngIf="row.isCareTarget && row.careEmployer > 0">
+                          <span class="sub-label">（介護分）</span>
+                          <span class="sub-value">({{ row.careEmployer | number }})</span>
+                        </span>
                       </div>
                     </div>
                     <div class="full-section">
@@ -770,6 +811,11 @@ interface BonusPremiumViewRow extends BonusPremium {
       }
       .pay-date { font-size: 0.85rem; color: #666; }
       .employee-name { font-weight: 700; font-size: 1rem; color: #333; }
+      .employee-age {
+        font-size: 0.75rem;
+        color: #999;
+        font-weight: 400;
+      }
 
       /* 金額セル */
       .amount-cell {
@@ -875,6 +921,29 @@ interface BonusPremiumViewRow extends BonusPremium {
       
       .emp-value { color: #333; }
       .comp-value { color: #666; }
+
+      .split-sub-value {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        margin-top: 3px;
+        padding-top: 3px;
+        border-top: 1px dotted rgba(0,0,0,0.1);
+      }
+
+      .split-sub-value .sub-label {
+        font-size: 0.6rem;
+        color: #aaa;
+        line-height: 1.2;
+      }
+
+      .split-sub-value .sub-value {
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: #888;
+        line-height: 1.2;
+      }
 
       .p-row.full {
         grid-column: 1 / -1; /* 全額は横幅いっぱい */
@@ -1272,20 +1341,30 @@ export class BonusPremiumsPage implements OnDestroy {
           .map((b) => {
             const employee = employeeMap.get(b.employeeId)!;
             const employeeName = employee.name;
+            const age = calculateAge(employee.birthDate, yearMonth);
 
             // 健康保険＋介護保険の計算（毎回計算）
             let healthCareFull = 0;
             let healthCareEmployee = 0;
             let healthCareEmployer = 0;
+            let careFull = 0;
+            let careEmployee = 0;
+            let careEmployer = 0;
+            let isCareTarget = false;
 
             const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
             if (hasHealth && b.healthEffectiveAmount > 0) {
-              const isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
+              isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
               const careRate = isCareTarget && rates.careRate ? rates.careRate : 0;
               const combinedRate = (rates.healthRate ?? 0) + careRate;
               healthCareFull = b.healthEffectiveAmount * combinedRate;
               healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
               healthCareEmployer = healthCareFull - healthCareEmployee;
+              
+              // 介護保険料の個別計算（データベースから取得した値を使用、なければ計算）
+              careFull = b.careFull ?? (isCareTarget && careRate > 0 ? b.healthEffectiveAmount * careRate : 0);
+              careEmployee = b.careEmployee ?? roundForEmployeeDeduction(careFull / 2);
+              careEmployer = b.careEmployer ?? (careFull - careEmployee);
             }
 
             // 厚生年金の計算（毎回計算）
@@ -1307,6 +1386,7 @@ export class BonusPremiumsPage implements OnDestroy {
             return {
         ...b,
               employeeName,
+              age,
               healthCareFull,
               healthCareEmployee,
               healthCareEmployer,
@@ -1315,7 +1395,11 @@ export class BonusPremiumsPage implements OnDestroy {
               pensionEmployer,
               totalFull,
               totalEmployee,
-              totalEmployer
+              totalEmployer,
+              careFull,
+              careEmployee,
+              careEmployer,
+              isCareTarget
             };
           });
 
