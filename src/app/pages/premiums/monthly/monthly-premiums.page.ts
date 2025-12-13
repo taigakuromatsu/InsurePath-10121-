@@ -583,6 +583,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
             </p>
           </div>
         </div>
+        </ng-container>
 
         <ng-template #noOffice>
           <div class="empty-office-state">
@@ -591,7 +592,6 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
             <p>まずは所属事業所を設定してください。</p>
           </div>
         </ng-template>
-        </ng-container>
       </mat-card>
     </div>
   `,

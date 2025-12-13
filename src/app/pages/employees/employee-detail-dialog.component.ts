@@ -21,7 +21,7 @@ import { DecimalPipe } from '@angular/common'; // ★ number パイプ用
 import { firstValueFrom, map, Observable, of, switchMap } from 'rxjs';
 import { MatTableModule } from '@angular/material/table';
 
-import { Dependent, Employee, StandardRewardHistory, Sex } from '../../types';
+import { Dependent, Employee, InsuranceKind, StandardRewardHistory, Sex } from '../../types';
 import {
   getDependentRelationshipLabel,
   getInsuranceLossReasonKindLabel,
@@ -396,10 +396,110 @@ export interface EmployeeDetailDialogData {
           </div>
 
           <div class="standard-reward-table" *ngIf="histories.length > 0">
+            <!-- 健康保険の履歴 -->
+            <h4 class="history-section-title" *ngIf="getHistoriesByKind(histories, 'health').length > 0">健康保険</h4>
             <ng-container
               *ngIf="canManageStandardRewardHistory$ | async as canManageStandardRewardHistory"
             >
-              <table mat-table [dataSource]="histories" class="admin-table">
+              <table mat-table [dataSource]="getHistoriesByKind(histories, 'health')" class="admin-table" *ngIf="getHistoriesByKind(histories, 'health').length > 0">
+                <ng-container matColumnDef="insuranceKind">
+                  <th mat-header-cell *matHeaderCellDef>保険種別</th>
+                  <td mat-cell *matCellDef="let history">
+                    {{ history.insuranceKind === 'health' ? '健康保険' : '厚生年金' }}
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="decisionYearMonth">
+                  <th mat-header-cell *matHeaderCellDef>決定年月</th>
+                  <td mat-cell *matCellDef="let history">
+                    {{ history.decisionYearMonth }}
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="appliedFromYearMonth">
+                  <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
+                  <td mat-cell *matCellDef="let history">
+                    {{ history.appliedFromYearMonth }}
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="standardMonthlyReward">
+                  <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
+                  <td mat-cell *matCellDef="let history">
+                    {{ history.standardMonthlyReward | number }}
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="decisionKind">
+                  <th mat-header-cell *matHeaderCellDef>決定区分</th>
+                  <td mat-cell *matCellDef="let history">
+                    {{ getStandardRewardDecisionKindLabel(history.decisionKind) }}
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="note">
+                  <th mat-header-cell *matHeaderCellDef>メモ</th>
+                  <td mat-cell *matCellDef="let history" class="standard-reward-note">
+                    {{ history.note || '-' }}
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
+                  <td mat-cell *matCellDef="let history" class="actions-cell">
+                    <button
+                      mat-icon-button
+                      color="primary"
+                      aria-label="標準報酬履歴を編集"
+                      (click)="openEditStandardRewardHistory(history)"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button
+                      mat-icon-button
+                      color="warn"
+                      aria-label="標準報酬履歴を削除"
+                      (click)="deleteStandardRewardHistory(history)"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </td>
+                </ng-container>
+
+                <tr
+                  mat-header-row
+                  *matHeaderRowDef="
+                    canManageStandardRewardHistory
+                      ? displayedStandardRewardColumns
+                      : standardRewardColumnsWithoutActions
+                  "
+                ></tr>
+                <tr
+                  mat-row
+                  *matRowDef="
+                    let row;
+                    columns:
+                      canManageStandardRewardHistory
+                        ? displayedStandardRewardColumns
+                        : standardRewardColumnsWithoutActions
+                  "
+                ></tr>
+              </table>
+            </ng-container>
+
+            <!-- 厚生年金の履歴 -->
+            <h4 class="history-section-title" *ngIf="getHistoriesByKind(histories, 'pension').length > 0">厚生年金</h4>
+            <ng-container
+              *ngIf="canManageStandardRewardHistory$ | async as canManageStandardRewardHistory"
+            >
+              <table mat-table [dataSource]="getHistoriesByKind(histories, 'pension')" class="admin-table" *ngIf="getHistoriesByKind(histories, 'pension').length > 0">
+                <ng-container matColumnDef="insuranceKind">
+                  <th mat-header-cell *matHeaderCellDef>保険種別</th>
+                  <td mat-cell *matCellDef="let history">
+                    {{ history.insuranceKind === 'health' ? '健康保険' : '厚生年金' }}
+                  </td>
+                </ng-container>
+
                 <ng-container matColumnDef="decisionYearMonth">
                   <th mat-header-cell *matHeaderCellDef>決定年月</th>
                   <td mat-cell *matCellDef="let history">
@@ -590,6 +690,26 @@ export interface EmployeeDetailDialogData {
     `
 
        /* 標準報酬履歴テーブル：セクションナビより前面に出ないようにする */
+      .history-section-title {
+        margin-top: 24px;
+        margin-bottom: 12px;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #666;
+      }
+      .history-section-title:first-child {
+        margin-top: 0;
+      }
+      .history-section-title {
+        margin-top: 24px;
+        margin-bottom: 12px;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #666;
+      }
+      .history-section-title:first-child {
+        margin-top: 0;
+      }
       .standard-reward-table {
         position: relative;
         z-index: 0;
@@ -825,9 +945,10 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   readonly displayedStandardRewardColumns: Array<
     keyof Pick<
       StandardRewardHistory,
-      'decisionYearMonth' | 'appliedFromYearMonth' | 'standardMonthlyReward' | 'decisionKind' | 'note'
+      'insuranceKind' | 'decisionYearMonth' | 'appliedFromYearMonth' | 'standardMonthlyReward' | 'decisionKind' | 'note'
     > | 'actions'
   > = [
+    'insuranceKind',
     'decisionYearMonth',
     'appliedFromYearMonth',
     'standardMonthlyReward',
@@ -1024,6 +1145,13 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
           duration: 3000
         })
       );
+  }
+
+  /**
+   * 保険種別で履歴をフィルタリング
+   */
+  getHistoriesByKind(histories: StandardRewardHistory[], kind: InsuranceKind): StandardRewardHistory[] {
+    return histories.filter((h) => h.insuranceKind === kind);
   }
 
   openAddDependent(): void {

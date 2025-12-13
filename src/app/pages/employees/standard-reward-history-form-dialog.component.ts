@@ -8,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { NgFor, NgIf } from '@angular/common';
 
-import { StandardRewardDecisionKind, StandardRewardHistory } from '../../types';
+import { InsuranceKind, StandardRewardDecisionKind, StandardRewardHistory } from '../../types';
 import { getStandardRewardDecisionKindLabel } from '../../utils/label-utils';
 
 export interface StandardRewardHistoryFormDialogData {
@@ -38,6 +38,17 @@ export interface StandardRewardHistoryFormDialogData {
     </h1>
 
     <form class="dense-form" [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>保険種別 *</mat-label>
+        <mat-select formControlName="insuranceKind" required>
+          <mat-option value="health">健康保険</mat-option>
+          <mat-option value="pension">厚生年金</mat-option>
+        </mat-select>
+        <mat-error *ngIf="form.controls.insuranceKind.hasError('required')">
+          保険種別を選択してください
+        </mat-error>
+      </mat-form-field>
+
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>決定年月 *</mat-label>
         <input
@@ -164,6 +175,7 @@ export class StandardRewardHistoryFormDialogComponent {
   ];
 
   readonly form = this.fb.nonNullable.group({
+    insuranceKind: ['health' as InsuranceKind, Validators.required],
     decisionYearMonth: ['', [Validators.required, Validators.pattern(/^\d{4}-\d{2}$/)]],
     appliedFromYearMonth: ['', [Validators.required, Validators.pattern(/^\d{4}-\d{2}$/)]],
     standardMonthlyReward: [0, [Validators.required, Validators.min(0)]],
@@ -177,6 +189,7 @@ export class StandardRewardHistoryFormDialogComponent {
   ) {
     if (data.history) {
       this.form.patchValue({
+        insuranceKind: data.history.insuranceKind,
         decisionYearMonth: data.history.decisionYearMonth,
         appliedFromYearMonth: data.history.appliedFromYearMonth,
         standardMonthlyReward: data.history.standardMonthlyReward,
@@ -199,7 +212,7 @@ export class StandardRewardHistoryFormDialogComponent {
 
     const payload: Partial<StandardRewardHistory> & { id?: string } = {
       id: this.data.history?.id,
-      insuranceKind: this.data.history?.insuranceKind ?? 'health',
+      insuranceKind: value.insuranceKind,
       decisionYearMonth: value.decisionYearMonth,
       appliedFromYearMonth: value.appliedFromYearMonth,
       standardMonthlyReward: Number(value.standardMonthlyReward),

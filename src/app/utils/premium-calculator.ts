@@ -1,4 +1,4 @@
-import { Employee, IsoDateString, YearMonthString } from '../types';
+import { Employee, IsoDateString, StandardRewardHistory, YearMonthString } from '../types';
 
 /**
  * 保険料計算に必要な料率コンテキスト
@@ -90,6 +90,44 @@ export function roundForEmployeeDeduction(amount: number): number {
   const fractional = amount - integer;
   const cent = Math.round(fractional * 100); // 浮動小数の誤差を避ける
   return cent <= 50 ? integer : integer + 1;
+}
+
+/**
+ * 標準報酬履歴から、指定年月に適用される標準報酬月額を取得する。
+ *
+ * ルール:
+ * - appliedFromYearMonth <= yearMonth を満たす履歴のうち、最新のものを取得
+ * - 該当する履歴がない場合は null を返す
+ *
+ * @param histories - 標準報酬履歴の配列（保険種別でフィルタ済み）
+ * @param yearMonth - 対象年月（'YYYY-MM'形式）
+ * @returns 適用される標準報酬月額、または null
+ */
+export function getStandardRewardFromHistory(
+  histories: StandardRewardHistory[],
+  yearMonth: YearMonthString
+): number | null {
+  if (!histories || histories.length === 0) {
+    return null;
+  }
+
+  // appliedFromYearMonth <= yearMonth を満たす履歴をフィルタ
+  const applicableHistories = histories.filter(
+    (h) => h.appliedFromYearMonth <= yearMonth
+  );
+
+  if (applicableHistories.length === 0) {
+    return null;
+  }
+
+  // appliedFromYearMonth が最新のものを取得（降順ソートして最初の要素）
+  const sortedHistories = [...applicableHistories].sort((a, b) => {
+    if (a.appliedFromYearMonth > b.appliedFromYearMonth) return -1;
+    if (a.appliedFromYearMonth < b.appliedFromYearMonth) return 1;
+    return 0;
+  });
+
+  return sortedHistories[0].standardMonthlyReward;
 }
 
 /**
@@ -193,10 +231,17 @@ export function isCareInsuranceTarget(
  *
  * 健保・厚年それぞれの標準報酬（月額）と等級を前提に計算する。
  * 片方のみ揃っている場合は揃っている保険種別のみ計算し、もう片方は 0 として扱う。
+ *
+ * 標準報酬は、履歴から取得を試み、履歴がない場合は従業員データの標準報酬を使用する。
+ *
+ * @param employee - 従業員情報
+ * @param rateContext - 料率コンテキスト
+ * @param standardRewardHistories - 標準報酬履歴の配列（オプション）。指定された場合、履歴から標準報酬を取得する
  */
 export function calculateMonthlyPremiumForEmployee(
   employee: Employee,
-  rateContext: PremiumRateContext
+  rateContext: PremiumRateContext,
+  standardRewardHistories?: StandardRewardHistory[]
 ): MonthlyPremiumCalculationResult | null {
   // 1. 加入していないなら対象外
   if (employee.isInsured !== true) {
@@ -212,19 +257,37 @@ export function calculateMonthlyPremiumForEmployee(
   const hasHealthInsurance = hasInsuranceInMonth(employee, rateContext.yearMonth, 'health');
   const hasPensionInsurance = hasInsuranceInMonth(employee, rateContext.yearMonth, 'pension');
 
-  // 2. 健康保険の計算可否を判定
+  // 標準報酬を履歴から取得（履歴がない場合は従業員データから取得）
+  let healthStandardMonthly = employee.healthStandardMonthly ?? 0;
+  let pensionStandardMonthly = employee.pensionStandardMonthly ?? 0;
+  
+  if (standardRewardHistories && standardRewardHistories.length > 0) {
+    // 健康保険の履歴から標準報酬を取得
+    const healthHistories = standardRewardHistories.filter((h) => h.insuranceKind === 'health');
+    const healthFromHistory = getStandardRewardFromHistory(healthHistories, rateContext.yearMonth);
+    if (healthFromHistory != null) {
+      healthStandardMonthly = healthFromHistory;
+    }
+    
+    // 厚生年金の履歴から標準報酬を取得
+    const pensionHistories = standardRewardHistories.filter((h) => h.insuranceKind === 'pension');
+    const pensionFromHistory = getStandardRewardFromHistory(pensionHistories, rateContext.yearMonth);
+    if (pensionFromHistory != null) {
+      pensionStandardMonthly = pensionFromHistory;
+    }
+  }
+
+  // 2. 健康保険の計算可否を判定（履歴から取得した標準報酬も考慮）
   const canCalcHealth =
     hasHealthInsurance &&
-    employee.healthStandardMonthly != null &&
-    employee.healthStandardMonthly > 0 &&
+    healthStandardMonthly > 0 &&
     employee.healthGrade != null &&
     rateContext.healthRate != null;
 
-  // 3. 厚生年金の計算可否を判定
+  // 3. 厚生年金の計算可否を判定（履歴から取得した標準報酬も考慮）
   const canCalcPension =
     hasPensionInsurance &&
-    employee.pensionStandardMonthly != null &&
-    employee.pensionStandardMonthly > 0 &&
+    pensionStandardMonthly > 0 &&
     employee.pensionGrade != null &&
     rateContext.pensionRate != null;
 
@@ -234,8 +297,6 @@ export function calculateMonthlyPremiumForEmployee(
   }
 
   const isExempt = employee.premiumTreatment === 'exempt';
-  const healthStandardMonthly = employee.healthStandardMonthly ?? 0;
-  const pensionStandardMonthly = employee.pensionStandardMonthly ?? 0;
 
     // 健康保険 + 介護保険（合算率）
     const isCareTarget = isCareInsuranceTarget(employee.birthDate, rateContext.yearMonth);

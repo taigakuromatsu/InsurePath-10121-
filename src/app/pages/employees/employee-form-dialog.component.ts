@@ -1278,11 +1278,24 @@ export class EmployeeFormDialogComponent {
     try {
       const savedId = await this.employeesService.save(this.data.officeId, payload);
       const mode: 'created' | 'updated' = this.data.employee ? 'updated' : 'created';
-      const standardMonthlyForHistory = Math.max(
-        healthStandardMonthly ?? 0,
-        pensionStandardMonthly ?? 0
+      const decisionYearMonth = formValue.decisionYearMonth as YearMonthString | null;
+      
+      // 健康保険と厚生年金の履歴をそれぞれ登録
+      await this.addAutoStandardRewardHistory(
+        savedId,
+        mode,
+        'health',
+        healthStandardMonthly,
+        decisionYearMonth
       );
-      await this.addAutoStandardRewardHistory(savedId, mode, standardMonthlyForHistory);
+      await this.addAutoStandardRewardHistory(
+        savedId,
+        mode,
+        'pension',
+        pensionStandardMonthly,
+        decisionYearMonth
+      );
+      
       this.dialogRef.close({ saved: true, mode, employeeId: savedId });
     } catch (error) {
       console.error('従業員情報の保存に失敗しました', error);
@@ -1292,38 +1305,46 @@ export class EmployeeFormDialogComponent {
   private async addAutoStandardRewardHistory(
     employeeId: string,
     mode: 'created' | 'updated',
-    newStandardMonthly: number
+    insuranceKind: 'health' | 'pension',
+    newStandardMonthly: number | null,
+    decisionYearMonth: YearMonthString | null
   ): Promise<void> {
+    // 標準報酬が設定されていない場合はスキップ
     if (!newStandardMonthly || newStandardMonthly <= 0) {
       return;
     }
 
+    // 決定年月が設定されていない場合はスキップ
+    if (!decisionYearMonth) {
+      return;
+    }
+
+    // 更新モードの場合、変更がない場合はスキップ
     if (mode === 'updated') {
-      if (
-        !this.data.employee ||
-        this.originalStandardMonthly === undefined ||
-        newStandardMonthly === this.originalStandardMonthly
-      ) {
+      const originalStandardMonthly =
+        insuranceKind === 'health'
+          ? this.data.employee?.healthStandardMonthly
+          : this.data.employee?.pensionStandardMonthly;
+      
+      if (originalStandardMonthly === newStandardMonthly) {
         return;
       }
     }
 
-    const currentYearMonth = this.getCurrentYearMonth();
-
     try {
       await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
-        insuranceKind: 'health',
-        decisionYearMonth: currentYearMonth,
-        appliedFromYearMonth: currentYearMonth,
+        insuranceKind,
+        decisionYearMonth,
+        appliedFromYearMonth: decisionYearMonth, // 決定年月を適用開始年月として使用
         standardMonthlyReward: newStandardMonthly,
         decisionKind: 'other',
         note:
           mode === 'created'
-            ? '従業員フォームで初回の標準報酬月額が登録されたため自動登録'
-            : '従業員フォームで標準報酬月額が変更されたため自動登録'
+            ? `従業員フォームで初回の${insuranceKind === 'health' ? '健康保険' : '厚生年金'}標準報酬月額が登録されたため自動登録`
+            : `従業員フォームで${insuranceKind === 'health' ? '健康保険' : '厚生年金'}標準報酬月額が変更されたため自動登録`
       });
     } catch (error) {
-      console.error('標準報酬履歴の自動追加に失敗しました:', error);
+      console.error(`標準報酬履歴（${insuranceKind}）の自動追加に失敗しました:`, error);
     }
   }
 

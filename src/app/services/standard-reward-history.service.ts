@@ -57,12 +57,20 @@ export class StandardRewardHistoryService {
       decisionYearMonth: history.decisionYearMonth ?? '',
       appliedFromYearMonth: history.appliedFromYearMonth ?? '',
       standardMonthlyReward: history.standardMonthlyReward ?? 0,
-      grade: history.grade ?? undefined,
       decisionKind: history.decisionKind ?? 'other',
-      note: history.note ?? undefined,
       updatedAt: now,
       updatedByUserId: currentUser?.id
     };
+
+    // gradeが設定されている場合のみ追加（undefinedはFirestoreに保存できない）
+    if (history.grade != null) {
+      payload.grade = history.grade;
+    }
+
+    // noteが設定されている場合のみ追加（undefinedはFirestoreに保存できない）
+    if (history.note != null && history.note.trim() !== '') {
+      payload.note = history.note.trim();
+    }
 
     if (!history.id) {
       payload.createdAt = now;

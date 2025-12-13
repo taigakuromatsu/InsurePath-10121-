@@ -12,7 +12,7 @@ import {
 } from '@angular/fire/firestore';
 import { firstValueFrom, from, map, Observable } from 'rxjs';
 
-import { Employee, IsoDateString, MonthlyPremium, YearMonthString } from '../types';
+import { Employee, IsoDateString, MonthlyPremium, StandardRewardHistory, YearMonthString } from '../types';
 import {
   calculateMonthlyPremiumForEmployee,
   MonthlyPremiumCalculationResult,
@@ -20,6 +20,7 @@ import {
 } from '../utils/premium-calculator';
 import { OfficesService } from './offices.service';
 import { MastersService } from './masters.service';
+import { StandardRewardHistoryService } from './standard-reward-history.service';
 
 export interface SaveForMonthOptions {
   officeId: string;
@@ -34,7 +35,8 @@ export class MonthlyPremiumsService {
   constructor(
     private readonly firestore: Firestore,
     private readonly officesService: OfficesService,
-    private readonly mastersService: MastersService
+    private readonly mastersService: MastersService,
+    private readonly standardRewardHistoryService: StandardRewardHistoryService
   ) {}
 
   private getCollectionRef(officeId: string) {
@@ -154,8 +156,13 @@ export class MonthlyPremiumsService {
 
     // 各従業員について計算
     for (const employee of employees) {
-      // 計算実行
-      const result = calculateMonthlyPremiumForEmployee(employee, rateContext);
+      // 標準報酬履歴を取得
+      const histories = await firstValueFrom(
+        this.standardRewardHistoryService.list(officeId, employee.id)
+      );
+
+      // 計算実行（履歴を渡す）
+      const result = calculateMonthlyPremiumForEmployee(employee, rateContext, histories);
 
       // null の場合はスキップ（未加入・標準報酬未設定など）
       if (!result) {
