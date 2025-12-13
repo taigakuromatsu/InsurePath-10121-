@@ -1,12 +1,11 @@
 import { AsyncPipe, DecimalPipe, NgIf, NgFor, PercentPipe } from '@angular/common';
 import { Component, OnInit, OnDestroy, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
@@ -14,7 +13,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Auth } from '@angular/fire/auth';
-import { combineLatest, firstValueFrom, map, of, switchMap, Subscription } from 'rxjs';
+import { combineLatest, firstValueFrom, map, of, switchMap, Subscription, debounceTime } from 'rxjs';
 
 import { CurrentOfficeService } from '../../../services/current-office.service';
 import { CurrentUserService } from '../../../services/current-user.service';
@@ -24,6 +23,34 @@ import { MonthlyPremiumsService } from '../../../services/monthly-premiums.servi
 import { Employee, MonthlyPremium, Office, YearMonthString } from '../../../types';
 import { CsvExportService } from '../../../utils/csv-export.service';
 import { HelpDialogComponent, HelpDialogData } from '../../../components/help-dialog.component';
+import { isCareInsuranceTarget } from '../../../utils/premium-calculator';
+
+/**
+ * 生年月日と対象年月から年齢を計算する
+ * @param birthDate 生年月日（YYYY-MM-DD形式）
+ * @param yearMonth 対象年月（YYYY-MM形式）
+ * @returns 年齢（対象年月の月末時点）
+ */
+function calculateAge(birthDate: string | null | undefined, yearMonth: YearMonthString): number | undefined {
+  if (!birthDate) return undefined;
+  
+  const birth = new Date(birthDate);
+  if (isNaN(birth.getTime())) return undefined;
+  
+  // 対象年月の月末日を取得
+  const [year, month] = yearMonth.split('-').map(Number);
+  const targetDate = new Date(year, month, 0); // 月末日
+  
+  let age = targetDate.getFullYear() - birth.getFullYear();
+  const monthDiff = targetDate.getMonth() - birth.getMonth();
+  
+  // まだ誕生日が来ていない場合は1歳減らす
+  if (monthDiff < 0 || (monthDiff === 0 && targetDate.getDate() < birth.getDate())) {
+    age--;
+  }
+  
+  return age;
+}
 
 type MonthlyPremiumViewRow = MonthlyPremium & {
   employeeName: string;
@@ -36,6 +63,10 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
   totalFull: number;
   totalEmployee: number;
   totalEmployer: number;
+  careEmployee: number;
+  careEmployer: number;
+  isCareTarget: boolean;
+  age?: number; // 対象年月時点での年齢
 };
 
 @Component({
@@ -52,7 +83,6 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
     MatTableModule,
     MatDialogModule,
     MatSnackBarModule,
-    MatProgressSpinnerModule,
     MatExpansionModule,
     MatSlideToggleModule,
     AsyncPipe,
@@ -79,7 +109,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
           </h1>
         </div>
         <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
-          対象年月を指定し、マスタで定義された保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を一括計算・保存します。
+          対象年月を指定すると、マスタで定義された保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を自動計算・保存します。
         </p>
       </header>
 
@@ -143,7 +173,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
             <div class="info-body">
               <p class="info-intro">
                 このページでは、選択した「対象年月」に基づいて、<br />
-                健康保険・介護保険・厚生年金の保険料と「納入告知額」を計算・保存します。
+                健康保険・介護保険・厚生年金の保険料と「納入告知額」を自動計算・保存します。
               </p>
 
               <ol class="info-list">
@@ -268,74 +298,40 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
       </mat-card>
 
       <mat-card class="content-card">
-        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
-          <div>
-            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
-              <mat-icon color="primary">calculate</mat-icon> 保険料計算
-            </h2>
-            <p class="mat-body-2" style="color: #666">対象年月とマスタ設定に基づいて月次保険料を計算します。</p>
-          </div>
-        </div>
-
-        <form [formGroup]="form" (ngSubmit)="onCalculateAndSave()" class="premium-form dense-form">
-          <div class="form-section">
-          <div class="form-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>対象年月</mat-label>
-              <input matInput type="month" formControlName="yearMonth" required />
-            </mat-form-field>
-          </div>
-
+        <ng-container *ngIf="office$ | async as office; else noOffice">
           <div class="rate-summary" *ngIf="rateSummary() as r">
-              <h3 class="rate-summary-title">
-                <mat-icon>info</mat-icon>
-                適用される保険料率（{{ form.get('yearMonth')?.value }}）
-              </h3>
-              <div class="rate-list">
-                <div class="rate-item">
-                  <span class="rate-label">健康保険</span>
-                  <span class="rate-value" [class.not-set]="r.healthRate == null">
-                    {{ r.healthRate != null ? (r.healthRate | percent: '1.2-2') : '未設定' }}
-                  </span>
-                </div>
-                <div class="rate-item">
-                  <span class="rate-label">介護保険</span>
-                  <span class="rate-value" [class.not-set]="r.careRate == null">
-                    {{ r.careRate != null ? (r.careRate | percent: '1.2-2') : '-' }}
-                  </span>
-                </div>
-                <div class="rate-item">
-                  <span class="rate-label">厚生年金</span>
-                  <span class="rate-value" [class.not-set]="r.pensionRate == null">
-                    {{ r.pensionRate != null ? (r.pensionRate | percent: '1.2-2') : '未設定' }}
-                  </span>
-                </div>
+            <h3 class="rate-summary-title">
+              <mat-icon>info</mat-icon>
+              適用される保険料率（{{ selectedYearMonth() }}）
+            </h3>
+            <div class="rate-list">
+              <div class="rate-item">
+                <span class="rate-label">健康保険</span>
+                <span class="rate-value" [class.not-set]="r.healthRate == null">
+                  {{ r.healthRate != null ? (r.healthRate | percent: '1.2-2') : '未設定' }}
+                </span>
+              </div>
+              <div class="rate-item">
+                <span class="rate-label">介護保険</span>
+                <span class="rate-value" [class.not-set]="r.careRate == null">
+                  {{ r.careRate != null ? (r.careRate | percent: '1.2-2') : '-' }}
+                </span>
+              </div>
+              <div class="rate-item">
+                <span class="rate-label">厚生年金</span>
+                <span class="rate-value" [class.not-set]="r.pensionRate == null">
+                  {{ r.pensionRate != null ? (r.pensionRate | percent: '1.2-2') : '未設定' }}
+                </span>
               </div>
             </div>
           </div>
 
-          <div class="actions">
-            <button
-              mat-flat-button
-              color="primary"
-              type="submit"
-              [disabled]="form.invalid || !(officeId$ | async) || loading()"
-            >
-              <mat-spinner *ngIf="loading()" diameter="20" class="inline-spinner"></mat-spinner>
-              <mat-icon *ngIf="!loading()">calculate</mat-icon>
-              計算して保存
-            </button>
-          </div>
-        </form>
-      </mat-card>
-
-      <mat-card class="content-card">
-        <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
-          <div>
-            <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
-              <mat-icon color="primary">list</mat-icon> 計算結果一覧（{{ selectedYearMonth() }}）
-          </h2>
-          </div>
+          <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
+            <div>
+              <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+                <mat-icon color="primary">list</mat-icon> 計算結果一覧（{{ selectedYearMonth() }}）
+            </h2>
+            </div>
           <button
             mat-stroked-button
             color="primary"
@@ -385,7 +381,12 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
           <ng-container matColumnDef="employeeName">
               <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2" class="col-name group-header name-header" style="vertical-align: middle; border-bottom: 1px solid #e0e0e0;">氏名</th>
-              <td mat-cell *matCellDef="let row" class="col-name font-bold">{{ row.employeeName }}</td>
+              <td mat-cell *matCellDef="let row" class="col-name font-bold">
+                <div class="employee-name-cell">
+                  <span>{{ row.employeeName }}</span>
+                  <span class="employee-age" *ngIf="row.age != null">{{ row.age }}歳</span>
+                </div>
+              </td>
           </ng-container>
 
           <ng-container matColumnDef="healthStandardMonthly">
@@ -400,13 +401,27 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
           <ng-container matColumnDef="healthCareEmployee">
               <th mat-header-cell *matHeaderCellDef class="number-cell">従業員負担</th>
-              <td mat-cell *matCellDef="let row" class="number-cell font-medium">{{ row.healthCareEmployee | number }}</td>
+              <td mat-cell *matCellDef="let row" class="number-cell font-medium">
+                <div class="premium-value-cell">
+                  <span>{{ row.healthCareEmployee | number }}</span>
+                  <span class="split-sub-value" *ngIf="row.isCareTarget && row.careEmployee > 0">
+                    <span class="sub-label">介護分</span>
+                    <span class="sub-value">{{ row.careEmployee | number }}</span>
+                  </span>
+                </div>
+              </td>
           </ng-container>
 
             <ng-container matColumnDef="healthCareEmployer">
               <th mat-header-cell *matHeaderCellDef class="number-cell group-end">会社負担</th>
               <td mat-cell *matCellDef="let row" class="number-cell group-end text-secondary">
-                ({{ row.healthCareEmployer | number }})
+                <div class="premium-value-cell">
+                  <span>({{ row.healthCareEmployer | number }})</span>
+                  <span class="split-sub-value" *ngIf="row.isCareTarget && row.careEmployer > 0">
+                    <span class="sub-label">（介護分）</span>
+                    <span class="sub-value">({{ row.careEmployer | number }})</span>
+                  </span>
+                </div>
               </td>
             </ng-container>
 
@@ -455,7 +470,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
         </table>
         </div>
 
-        <div class="summary-section">
+          <div class="summary-section" *ngIf="filteredRows() && filteredRows()!.length > 0">
           <div class="summary-grid">
             <!-- 健康保険・介護保険 -->
             <div class="summary-card health-card">
@@ -568,6 +583,15 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
             </p>
           </div>
         </div>
+
+        <ng-template #noOffice>
+          <div class="empty-office-state">
+            <mat-icon>business</mat-icon>
+            <h3>事業所が未設定です</h3>
+            <p>まずは所属事業所を設定してください。</p>
+          </div>
+        </ng-template>
+        </ng-container>
       </mat-card>
     </div>
   `,
@@ -620,26 +644,12 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
         width: 240px;  /* セレクトボックスのみ幅を固定 */
       }
 
-      .premium-form {
-        margin-top: 1rem;
-      }
-
-      .form-section {
-        margin-bottom: 16px;
-      }
-
-      .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 16px;
-        margin-bottom: 16px;
-      }
-
       .rate-summary {
         background: #f5f7fa;
         padding: 16px;
         border-radius: 8px;
         border: 1px solid #e0e0e0;
+        margin-bottom: 24px;
       }
 
       .rate-summary-title {
@@ -683,17 +693,6 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
       .rate-value.not-set {
         color: #999;
         font-weight: 500;
-      }
-
-      .actions {
-        display: flex;
-        justify-content: flex-end;
-        padding-top: 16px;
-        border-top: 1px solid #e0e0e0;
-      }
-
-      .inline-spinner {
-        margin-right: 8px;
       }
 
       .table-container {
@@ -760,6 +759,48 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
         left: 0;
         background: #fff;
         z-index: 1;
+      }
+
+      .employee-name-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .employee-age {
+        font-size: 0.75rem;
+        color: #999;
+        font-weight: 400;
+      }
+
+      .premium-value-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+      }
+
+      .split-sub-value {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        margin-top: 3px;
+        padding-top: 3px;
+        border-top: 1px dotted rgba(0,0,0,0.1);
+      }
+
+      .split-sub-value .sub-label {
+        font-size: 0.6rem;
+        color: #aaa;
+        line-height: 1.2;
+      }
+
+      .split-sub-value .sub-value {
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: #888;
+        line-height: 1.2;
       }
 
       .number-cell {
@@ -939,6 +980,32 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
         line-height: 1.5;
       }
 
+      .empty-office-state {
+        text-align: center;
+        padding: 48px 24px;
+        color: #666;
+      }
+
+      .empty-office-state mat-icon {
+        font-size: 48px;
+        height: 48px;
+        width: 48px;
+        color: #9ca3af;
+        opacity: 0.5;
+        margin-bottom: 8px;
+      }
+
+      .empty-office-state h3 {
+        margin: 16px 0 8px 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+      }
+
+      .empty-office-state p {
+        margin: 0;
+        font-size: 0.9rem;
+      }
+
       @media (max-width: 960px) {
         .summary-grid {
           grid-template-columns: 1fr;
@@ -992,7 +1059,6 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
   ]
 })
   export class MonthlyPremiumsPage implements OnInit, OnDestroy {
-    private readonly fb = inject(FormBuilder);
     private readonly currentOffice = inject(CurrentOfficeService);
     private readonly currentUser = inject(CurrentUserService);
     private readonly employeesService = inject(EmployeesService);
@@ -1005,10 +1071,11 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
   readonly officeId$ = this.currentOffice.officeId$;
   readonly office$ = this.currentOffice.office$;
-  readonly loading = signal(false);
   readonly rows = signal<MonthlyPremiumViewRow[]>([]);
   private dataSubscription?: Subscription;
   private refreshSeq = 0;  // レースコンディション対策: 世代番号
+  private autoCalcInProgressByYearMonth = new Map<YearMonthString, boolean>();  // 年月ごとの自動計算中のフラグ（無限ループ防止）
+  private lastAutoCalcHashByYearMonth = new Map<YearMonthString, string>();  // 年月ごとの最後に自動計算したときのハッシュ（従業員データと料率の変更検知用）
 
   /**
    * ローカル時刻で年月文字列を生成（UTC問題を回避）
@@ -1058,9 +1125,6 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
     switchMap((officeId) => (officeId ? this.employeesService.list(officeId) : of([])))
   );
 
-  readonly form = this.fb.group({
-    yearMonth: [new Date().toISOString().substring(0, 7), Validators.required]
-  });
 
   readonly displayedColumns = [
     'employeeName',
@@ -1144,11 +1208,6 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
       });
     });
 
-    // フォームの年月変更時にも料率サマリーを更新（計算ボタン用）
-    this.form.get('yearMonth')?.valueChanges.subscribe(() => {
-      this.refreshRateSummary();
-    });
-    this.refreshRateSummary();
   }
 
   ngOnDestroy(): void {
@@ -1158,7 +1217,6 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
   ngOnInit(): void {
     // effect()で自動的に読み込まれるため、ここでは不要
-    // ただし、既存の計算ボタン機能は維持する
   }
 
   /**
@@ -1178,6 +1236,13 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
     this.dataSubscription = combineLatest([premiums$, employees$, office$]).subscribe(
       async ([premiums, employees, office]) => {
         try {
+          // 最新の年月を取得（購読中に年月が変更された場合を検知）
+          const currentYearMonth = this.selectedYearMonth();
+          // この購読が対象とする年月と異なる場合は処理をスキップ
+          if (currentYearMonth !== yearMonth) {
+            return;
+          }
+
           if (!office) {
             // await前でもチェック（早期リターン）
             if (seq !== this.refreshSeq) return;
@@ -1186,8 +1251,21 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
           }
 
           const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
-          // await後に世代番号をチェック（古い処理の結果を無視）
+          // await後に世代番号と年月をチェック（古い処理の結果を無視）
           if (seq !== this.refreshSeq) return;
+          // 年月が変更されていないか再チェック
+          if (this.selectedYearMonth() !== yearMonth) return;
+
+          // 料率が未設定の場合はスキップ
+          if (rates.healthRate == null || rates.pensionRate == null) {
+            this.rateSummary.set({
+              healthRate: rates.healthRate ?? undefined,
+              careRate: rates.careRate ?? undefined,
+              pensionRate: rates.pensionRate ?? undefined
+            });
+            this.rows.set([]);
+            return;
+          }
 
           this.rateSummary.set({
             healthRate: rates.healthRate ?? undefined,
@@ -1207,13 +1285,104 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
             return employeeMap.has(premium.employeeId);
           });
 
+          // 自動計算・保存の判定
+          // 従業員データと料率のハッシュを作成（変更検知用）
+          const employeesHash = JSON.stringify(
+            employees
+              .filter((e) => e.isInsured)
+              .map((e) => ({
+                id: e.id,
+                healthStandardMonthly: e.healthStandardMonthly,
+                healthGrade: e.healthGrade,
+                pensionStandardMonthly: e.pensionStandardMonthly,
+                pensionGrade: e.pensionGrade,
+                birthDate: e.birthDate
+              }))
+              .sort((a, b) => a.id.localeCompare(b.id))
+          );
+          const ratesHash = JSON.stringify({
+            healthRate: rates.healthRate,
+            careRate: rates.careRate,
+            pensionRate: rates.pensionRate
+          });
+          const currentHash = `${employeesHash}|${ratesHash}`;
+
+          // 自動計算が必要かチェック（年月ごとにハッシュを管理）
+          const lastHash = this.lastAutoCalcHashByYearMonth.get(yearMonth);
+          const isAutoCalcInProgress = this.autoCalcInProgressByYearMonth.get(yearMonth) ?? false;
+          const needsAutoCalc =
+            !isAutoCalcInProgress &&
+            (validPremiums.length === 0 || lastHash !== currentHash);
+
+          if (needsAutoCalc && employees.length > 0) {
+            // 自動計算・保存を実行
+            this.autoCalcInProgressByYearMonth.set(yearMonth, true);
+            try {
+              const currentUser = this.auth.currentUser;
+              if (currentUser) {
+                const calcDate = new Date().toISOString();
+                const savedPremiums = await this.monthlyPremiumsService.saveForMonth({
+                  officeId,
+                  yearMonth,
+                  calcDate,
+                  employees: employees as Employee[],
+                  calculatedByUserId: currentUser.uid
+                });
+
+                // 保存後にハッシュを更新
+                this.lastAutoCalcHashByYearMonth.set(yearMonth, currentHash);
+                
+                // 保存されたデータを使って表示処理を続行
+                // 年月が変更されていないか再チェック
+                if (this.selectedYearMonth() !== yearMonth) {
+                  this.autoCalcInProgressByYearMonth.set(yearMonth, false);
+                  return;
+                }
+                
+                // 保存されたデータを使って表示
+                const savedValidPremiums = savedPremiums.filter((premium) => {
+                  return employeeMap.has(premium.employeeId);
+                });
+                
+                const rowsWithName = savedValidPremiums.map((premium) =>
+                  this.buildViewRow(premium, employeeNameMap, employeeMap, yearMonth)
+                );
+
+                // 最終的なset前にも念のためチェック
+                if (seq !== this.refreshSeq) {
+                  this.autoCalcInProgressByYearMonth.set(yearMonth, false);
+                  return;
+                }
+                // 年月が変更されていないか再チェック
+                if (this.selectedYearMonth() !== yearMonth) {
+                  this.autoCalcInProgressByYearMonth.set(yearMonth, false);
+                  return;
+                }
+                this.rows.set(rowsWithName);
+                this.autoCalcInProgressByYearMonth.set(yearMonth, false);
+                return;
+              }
+            } catch (error) {
+              console.error('月次保険料の自動計算・保存に失敗', error);
+              // エラー時は静かに失敗（ユーザーには通知しない）
+            } finally {
+              this.autoCalcInProgressByYearMonth.set(yearMonth, false);
+            }
+            // エラー時やユーザー未認証時はreturn
+            return;
+          }
+
           const rowsWithName = validPremiums.map((premium) =>
-            this.buildViewRow(premium, employeeNameMap)
+            this.buildViewRow(premium, employeeNameMap, employeeMap, yearMonth)
           );
 
           // 最終的なset前にも念のためチェック
           if (seq !== this.refreshSeq) return;
+          // 年月が変更されていないか再チェック
+          if (this.selectedYearMonth() !== yearMonth) return;
           this.rows.set(rowsWithName);
+          // データが存在する場合もハッシュを更新（データが正しく読み込まれたことを記録）
+          this.lastAutoCalcHashByYearMonth.set(yearMonth, currentHash);
         } catch (e) {
           console.error('月次保険料の読込に失敗', e);
           // エラー時も世代番号をチェック
@@ -1264,7 +1433,9 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
   private buildViewRow(
     premium: MonthlyPremium,
-    employeeNameMap: Map<string, string>
+    employeeNameMap: Map<string, string>,
+    employeeMap: Map<string, Employee>,
+    yearMonth: YearMonthString
   ): MonthlyPremiumViewRow {
     const healthCareFull =
       premium.healthCareFull ?? (premium.healthTotal ?? 0) + (premium.careTotal ?? 0);
@@ -1285,9 +1456,17 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
     const totalEmployee = premium.totalEmployee ?? healthCareEmployee + pensionEmployee;
     const totalEmployer = premium.totalEmployer ?? totalFull - totalEmployee;
 
+    // 従業員データから年齢と介護保険対象を判定
+    const employee = employeeMap.get(premium.employeeId);
+    const age = employee ? calculateAge(employee.birthDate, yearMonth) : undefined;
+    const isCareTarget = employee ? isCareInsuranceTarget(employee.birthDate, yearMonth) : false;
+    const careEmployee = premium.careEmployee ?? 0;
+    const careEmployer = premium.careEmployer ?? 0;
+
     return {
       ...premium,
       employeeName: employeeNameMap.get(premium.employeeId) ?? '(不明)',
+      age,
       healthCareFull,
       healthCareEmployee,
       healthCareEmployer,
@@ -1296,139 +1475,11 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
       pensionEmployer,
       totalFull,
       totalEmployee,
-      totalEmployer
+      totalEmployer,
+      careEmployee,
+      careEmployer,
+      isCareTarget
     };
   }
 
-  /**
-   * 手動計算ボタン用のメソッド（既存機能を維持）
-   * 自動計算機能が実装されたため、このメソッドは計算ボタン専用として使用
-   */
-  private async loadPremiumsForYearMonth(yearMonth: string): Promise<void> {
-    const officeId = await firstValueFrom(this.officeId$);
-    if (!officeId) {
-      this.rows.set([]);
-      return;
-    }
-
-    try {
-      const premiums = await firstValueFrom(
-        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
-      );
-
-      const employees = await firstValueFrom(this.employees$);
-      const employeeMap = new Map(employees.map((e) => [e.id, e]));
-      const employeeNameMap = new Map<string, string>();
-      employees.forEach((emp) => {
-        employeeNameMap.set(emp.id, emp.name);
-      });
-
-      // 削除された従業員のフィルタリング：従業員が存在しないpremiumは除外
-      const validPremiums = premiums.filter((premium) => {
-        return employeeMap.has(premium.employeeId);
-      });
-
-      const rowsWithName = validPremiums.map((premium) =>
-        this.buildViewRow(premium, employeeNameMap)
-      );
-
-      this.rows.set(rowsWithName);
-    } catch (error) {
-      console.error('月次保険料の取得に失敗しました', error);
-      this.snackBar.open('月次保険料の取得に失敗しました', '閉じる', { duration: 3000 });
-      this.rows.set([]);
-    }
-  }
-
-  private async refreshRateSummary(office?: Office | null, yearMonth?: string | null): Promise<void> {
-    const targetOffice = office ?? (await firstValueFrom(this.currentOffice.office$));
-    const targetYearMonth = yearMonth ?? this.form.get('yearMonth')?.value;
-    if (!targetOffice || !targetYearMonth) {
-      this.rateSummary.set(null);
-      return;
-    }
-    try {
-      const rates = await this.mastersService.getRatesForYearMonth(
-        targetOffice,
-        targetYearMonth as string
-      );
-      this.rateSummary.set(rates);
-    } catch (error) {
-      console.error(error);
-      this.rateSummary.set(null);
-    }
-  }
-
-  async onCalculateAndSave(): Promise<void> {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
-
-    try {
-      this.loading.set(true);
-
-      const officeId = await firstValueFrom(this.officeId$);
-      if (!officeId) {
-        this.snackBar.open('事業所が設定されていません', '閉じる', { duration: 3000 });
-        return;
-      }
-
-      const office = await firstValueFrom(this.currentOffice.office$);
-      if (!office) {
-        this.snackBar.open('事業所情報を取得できませんでした', '閉じる', { duration: 3000 });
-        return;
-      }
-
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) {
-        this.snackBar.open('ログイン情報を取得できませんでした', '閉じる', { duration: 3000 });
-        return;
-      }
-      const calculatedByUserId = currentUser.uid;
-
-      const formValue = this.form.value;
-      const yearMonth = formValue.yearMonth as string;
-      const calcDate = new Date().toISOString();
-
-      await this.refreshRateSummary(office, yearMonth);
-
-      const employees = await firstValueFrom(this.employeesService.list(officeId));
-
-      const savedPremiums = await this.monthlyPremiumsService.saveForMonth({
-        officeId,
-        yearMonth,
-        calcDate,
-        employees: employees as Employee[],
-        calculatedByUserId
-      });
-
-      const employeeNameMap = new Map<string, string>();
-      employees.forEach((emp) => {
-        employeeNameMap.set(emp.id, emp.name);
-      });
-
-      const resultsWithName = savedPremiums.map((premium) =>
-        this.buildViewRow(premium, employeeNameMap)
-      );
-
-      // 計算・保存後は自動計算機能（effect）により自動的に再読み込みされる
-      // ただし、selectedYearMonthを更新して確実に再読み込みをトリガーする
-      this.selectedYearMonth.set(yearMonth);
-
-      const skippedCount = employees.length - savedPremiums.length;
-      let message = `${yearMonth} 分の月次保険料を ${savedPremiums.length} 件計算・保存しました`;
-      if (skippedCount > 0) {
-        message += `（${skippedCount} 件スキップ：未加入または標準報酬未設定）`;
-      }
-      this.snackBar.open(message, '閉じる', { duration: 5000 });
-    } catch (error) {
-      console.error('月次保険料の計算・保存に失敗しました', error);
-      this.snackBar.open('月次保険料の計算・保存に失敗しました。マスタ設定を確認してください。', '閉じる', {
-        duration: 5000
-      });
-    } finally {
-      this.loading.set(false);
-    }
-  }
 }
