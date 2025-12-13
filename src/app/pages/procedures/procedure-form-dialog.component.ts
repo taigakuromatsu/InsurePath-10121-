@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { firstValueFrom, map, of, startWith, switchMap } from 'rxjs';
 
 import { DependentsService } from '../../services/dependents.service';
@@ -32,6 +33,7 @@ export interface ProcedureFormDialogData {
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
+    MatTooltipModule,
     NgIf,
     NgFor,
     AsyncPipe
@@ -78,7 +80,10 @@ export interface ProcedureFormDialogData {
         </mat-form-field>
 
         <mat-form-field appearance="outline">
-          <mat-label>事由発生日</mat-label>
+          <mat-label>
+            事由発生日
+            <mat-icon [matTooltip]="getDeadlineTooltip()" class="info-icon-small">info</mat-icon>
+          </mat-label>
           <input matInput type="date" formControlName="incidentDate" (change)="onIncidentDateChange()" />
         </mat-form-field>
 
@@ -132,6 +137,21 @@ export interface ProcedureFormDialogData {
 
       .full-width {
         grid-column: 1 / -1;
+      }
+
+      mat-label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .info-icon-small {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #666;
+        cursor: help;
+        vertical-align: middle;
       }
     `
   ]
@@ -204,6 +224,27 @@ export class ProcedureFormDialogComponent {
     }
 
     this.updateDependentValidators(procedureType);
+  }
+
+  getDeadlineTooltip(): string {
+    const procedureType = this.form.get('procedureType')?.value as ProcedureType | null;
+    
+    switch (procedureType) {
+      case 'qualification_acquisition':
+        return '期日は事由発生日から5日後です';
+      case 'qualification_loss':
+        return '期日は事由発生日から5日後です';
+      case 'dependent_change':
+        return '期日は事由発生日から5日後です';
+      case 'bonus_payment':
+        return '期日は事由発生日から5日後です';
+      case 'standard_reward':
+        return '期日は事由発生日の対象年の7月10日です';
+      case 'monthly_change':
+        return '期日は事由発生日の翌月10日です';
+      default:
+        return '手続き種別を選択すると期日が自動計算されます';
+    }
   }
 
   onStatusChange(): void {
