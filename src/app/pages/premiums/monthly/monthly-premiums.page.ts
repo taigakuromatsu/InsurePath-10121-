@@ -112,7 +112,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
           </h1>
         </div>
         <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
-          対象年月を指定すると、マスタで定義された保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を自動計算・保存します。
+          対象年月を指定すると、マスタで定義された保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を自動計算します。
         </p>
       </header>
 
@@ -254,46 +254,70 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
             <div class="info-body">
               <p class="info-intro">
-                月次保険料ページでは、従業員台帳の次の情報を使用して<br />
-                「資格の有無」「介護保険の対象かどうか」「標準報酬月額」を判定しています。
+                月次保険料ページでは、従業員台帳の情報と「標準報酬の履歴」を使って、対象年月の <strong>計算対象かどうか</strong> と <strong>保険料</strong> を判定します。
               </p>
+
+              <p class="info-note" style="margin-top: 12px; margin-bottom: 16px;">
+                （保険料率は、保険料率マスタの設定を使用します）
+              </p>
+
+              <h4 style="margin-top: 20px; margin-bottom: 12px; font-weight: 600;">1) 計算対象の判定に使う情報（従業員台帳）</h4>
 
               <ul class="info-list">
                 <li>
-                  <strong>健康保険の資格期間</strong><br />
-                  ・健康保険の資格取得日（healthQualificationDate）<br />
-                  ・健康保険の資格喪失日（healthLossDate）<br />
-                  ⇒ 対象年月に健康保険の資格があるかどうかを判定します。
+                  <strong>社会保険対象フラグ（isInsured）</strong><br />
+                  OFF の場合、この従業員は計算対象外になります。
                 </li>
                 <li>
-                  <strong>厚生年金の資格期間</strong><br />
-                  ・厚生年金の資格取得日（pensionQualificationDate）<br />
-                  ・厚生年金の資格喪失日（pensionLossDate）<br />
-                  ⇒ 対象年月に厚生年金の資格があるかどうかを判定します。
+                  <strong>健康保険の資格期間（healthQualificationDate / healthLossDate）</strong><br />
+                  資格取得日の「属する月」から対象になります。<br />
+                  資格喪失日がある場合、喪失日の「属する月」は対象外（前月分まで）になります。<br />
+                  取得日が未入力の場合は、健康保険は計算できません。
                 </li>
                 <li>
-                  <strong>標準報酬月額</strong><br />
-                  ・健康保険の標準報酬月額（healthStandardMonthly）<br />
-                  ・厚生年金の標準報酬月額（pensionStandardMonthly）<br />
-                  ⇒ 保険料計算の基準となる標準報酬月額です。
-                </li>
-                <li>
-                  <strong>生年月日（birthDate）</strong><br />
-                  ⇒ 40〜65歳未満の期間かどうかを判定し、<br />
-                  介護保険料を加算するかどうかを決めます。
-                </li>
-                <li>
-                  <strong>社会保険加入フラグ（isInsured）</strong><br />
-                  ⇒ false の場合は月次保険料の計算対象外となります。
+                  <strong>厚生年金の資格期間（pensionQualificationDate / pensionLossDate）</strong><br />
+                  ルールは健康保険と同様です。<br />
+                  取得日が未入力の場合は、厚生年金は計算できません。
                 </li>
               </ul>
 
-              <p class="info-note">
-                これらの項目が未入力または誤っている場合、<br />
-                ・月次保険料が計算されない<br />
-                ・介護保険料が 0 円のままになる<br />
-                などの挙動になることがあります。<br />
-                月次保険料ページを利用する前に、従業員台帳の情報をご確認ください。
+              <h4 style="margin-top: 24px; margin-bottom: 12px; font-weight: 600;">2) 金額計算に直接使う情報</h4>
+
+              <ul class="info-list">
+                <li>
+                  <strong>標準報酬月額（標準報酬履歴 StandardRewardHistory）</strong><br />
+                  対象年月に適用される履歴（appliedFromYearMonth <= 対象年月 の最新）を使用します。<br />
+                  健康保険／厚生年金それぞれ、加入している場合は該当する履歴が必要です。<br />
+                  履歴がない場合、その保険の保険料は計算できません。
+                </li>
+                <li>
+                  <strong>生年月日（birthDate）</strong><br />
+                  介護保険の対象かどうかを判定し、対象の場合は介護保険料を加算します。<br />
+                  <span style="margin-left: 8px; color: #666; font-size: 0.9em;">
+                    ・満40歳に達した日の前日が属する月から対象になります<br />
+                    ・満65歳に達した日の前日が属する月の前月まで対象です（65歳到達月は対象外）<br />
+                    ・協会けんぽのルールに準拠した判定を行います
+                  </span>
+                </li>
+                <li>
+                  <strong>保険料の扱い（premiumTreatment）</strong><br />
+                  「免除」の場合、このページでは保険料を 0 円として扱います。
+                </li>
+              </ul>
+
+              <h4 style="margin-top: 24px; margin-bottom: 12px; font-weight: 600;">3) 入力が不足・誤りの場合に起きること</h4>
+
+              <ul class="info-list">
+                <li>月次保険料が計算されない（対象外扱いになる）</li>
+                <li>健康保険／厚生年金の片方だけ 0 円になる</li>
+                <li>介護保険料が 0 円のままになる</li>
+                <li>などのことがあります。</li>
+              </ul>
+
+              <p class="info-note" style="margin-top: 20px;">
+                対象年月の保険料が想定どおりにならない場合は、<br />
+                (1) 社会保険対象ON → (2) 資格取得日/喪失日 → (3) 標準報酬履歴が入っているか → (4) 生年月日 → (5) 免除設定<br />
+                の順に従業員台帳を確認してください。
               </p>
             </div>
           </mat-expansion-panel>

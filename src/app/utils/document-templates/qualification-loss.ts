@@ -3,6 +3,7 @@ import { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { Employee, Office } from '../../types';
 import {
   DOCUMENT_DISCLAIMER,
+  formatCurrency,
   formatDateWithFallback,
   formatLossReason,
   formatSexLabel
@@ -12,6 +13,7 @@ export interface QualificationLossTemplateInput {
   office: Office;
   employee: Employee;
   lossDate?: string | null;
+  standardMonthlyReward?: number | null;
 }
 
 export function createQualificationLossDocument(
@@ -64,6 +66,7 @@ export function createQualificationLossDocument(
             ['資格喪失日', formatDateWithFallback(lossDate, '')],
             ['資格喪失理由（健保）', formatLossReason(input.employee.healthLossReasonKind)],
             ['資格喪失理由（厚年）', formatLossReason(input.employee.pensionLossReasonKind)],
+            ['標準報酬月額', formatCurrency(input.standardMonthlyReward) || ''],
             ['退職日', formatDateWithFallback(input.employee.retireDate, '')]
           ]
         },

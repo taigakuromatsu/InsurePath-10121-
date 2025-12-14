@@ -303,10 +303,33 @@ export class DocumentGenerationDialogComponent {
     .list(this.data.office.id, this.data.employee.id)
     .pipe(startWith([]));
 
-  readonly standardMonthlyReward$ = this.histories$.pipe(
-    map((histories) =>
-      this.generator.resolveStandardMonthlyReward(histories, this.data.employee.monthlyWage)
-    )
+  readonly standardMonthlyReward$ = combineLatest([
+    this.typeControl.valueChanges.pipe(startWith(this.typeControl.value)),
+    this.histories$,
+    this.referenceDateControl.valueChanges.pipe(startWith(this.referenceDateControl.value))
+  ]).pipe(
+    map(([type, histories, referenceDate]) => {
+      // 資格取得届・資格喪失届の場合は健康保険の標準報酬を使用
+      // （将来的に健保/厚年を分ける場合は、ここで保険種別を選択できるようにする）
+      const insuranceKind: 'health' | 'pension' | undefined = 
+        type === 'qualification_acquisition' || type === 'qualification_loss' 
+          ? 'health' 
+          : undefined;
+      
+      // 対象年月を決定（資格取得日/喪失日から年月を抽出）
+      let targetYearMonth: string | undefined;
+      if (referenceDate && (type === 'qualification_acquisition' || type === 'qualification_loss')) {
+        targetYearMonth = referenceDate.substring(0, 7); // YYYY-MM形式
+      }
+      
+      return this.generator.resolveStandardMonthlyReward(
+        histories,
+        this.data.employee.monthlyWage,
+        insuranceKind,
+        targetYearMonth as any,
+        this.data.employee
+      );
+    })
   );
 
   readonly viewModel$ = combineLatest([
@@ -374,7 +397,8 @@ export class DocumentGenerationDialogComponent {
               payload: {
                 office: this.data.office,
                 employee: this.data.employee,
-                lossDate: vm.referenceDate
+                lossDate: vm.referenceDate,
+                standardMonthlyReward: vm.standardMonthlyReward
               }
             },
             action

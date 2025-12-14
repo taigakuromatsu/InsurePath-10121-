@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
 
-import { BonusPremium, Employee, Office, StandardRewardHistory, YearMonthString } from '../types';
+import { BonusPremium, Employee, InsuranceKind, Office, StandardRewardHistory, YearMonthString } from '../types';
 import { pdfVfsJp } from '../utils/pdf-vfs-fonts-jp';
 import { createBonusPaymentDocument } from '../utils/document-templates/bonus-payment';
 import { createQualificationAcquisitionDocument } from '../utils/document-templates/qualification-acquisition';
@@ -33,6 +33,7 @@ export interface QualificationLossPayload {
   office: Office;
   employee: Employee;
   lossDate?: string | null;
+  standardMonthlyReward?: number | null;
 }
 
 export interface BonusPaymentPayload {
@@ -100,20 +101,96 @@ export class DocumentGeneratorService {
     }
   }
 
+  /**
+   * 標準報酬月額を解決する（保険種別対応）
+   * 
+   * 解決順位:
+   * 1. 指定保険種別の StandardRewardHistory（対象年月以前の最新）
+   * 2. Employee の healthStandardMonthly / pensionStandardMonthly
+   * 3. employeeFallback（後方互換性のため）
+   * 
+   * @param histories 標準報酬履歴のリスト
+   * @param employeeFallback 従業員の標準報酬（後方互換性のため）
+   * @param insuranceKind 保険種別（オプショナル、指定されない場合は全履歴から最新を取得）
+   * @param targetYearMonth 対象年月（オプショナル、指定されない場合は最新履歴を使用）
+   * @param employee 従業員オブジェクト（保険種別に応じた標準報酬を取得するため）
+   */
   resolveStandardMonthlyReward(
     histories: StandardRewardHistory[] | null | undefined,
-    employeeFallback?: number | null
+    employeeFallback?: number | null,
+    insuranceKind?: InsuranceKind,
+    targetYearMonth?: YearMonthString,
+    employee?: Employee
   ): number | null {
+    // 1. 指定保険種別の履歴から解決
     if (histories && histories.length > 0) {
-      const sorted = [...histories].sort(
-        (a, b) => b.decisionYearMonth.localeCompare(a.decisionYearMonth)
-      );
-      return sorted[0]?.standardMonthlyReward ?? null;
+      let filteredHistories = histories;
+      
+      // 保険種別でフィルタ
+      if (insuranceKind) {
+        filteredHistories = histories.filter((h) => h.insuranceKind === insuranceKind);
+      }
+      
+      if (filteredHistories.length > 0) {
+        if (targetYearMonth) {
+          // 対象年月以前の最新履歴を探す
+          const targetYearMonthNum = this.yearMonthToNumber(targetYearMonth);
+          if (targetYearMonthNum == null) {
+            // 無効な年月形式の場合はスキップ
+          } else {
+            const applicableHistory = filteredHistories
+              .filter((h) => {
+                const appliedNum = this.yearMonthToNumber(h.appliedFromYearMonth);
+                return appliedNum != null && appliedNum <= targetYearMonthNum;
+              })
+              .sort((a, b) => {
+                const aNum = this.yearMonthToNumber(a.appliedFromYearMonth) ?? 0;
+                const bNum = this.yearMonthToNumber(b.appliedFromYearMonth) ?? 0;
+                return bNum - aNum;
+              })[0];
+            
+            if (applicableHistory) {
+              return applicableHistory.standardMonthlyReward;
+            }
+          }
+        } else {
+          // 対象年月が指定されていない場合は最新履歴を使用
+          const sorted = [...filteredHistories].sort(
+            (a, b) => b.decisionYearMonth.localeCompare(a.decisionYearMonth)
+          );
+          return sorted[0]?.standardMonthlyReward ?? null;
+        }
+      }
     }
+
+    // 2. Employee の標準報酬から解決
+    if (employee && insuranceKind) {
+      if (insuranceKind === 'health' && employee.healthStandardMonthly != null) {
+        return employee.healthStandardMonthly;
+      }
+      if (insuranceKind === 'pension' && employee.pensionStandardMonthly != null) {
+        return employee.pensionStandardMonthly;
+      }
+    }
+
+    // 3. employeeFallback（後方互換性）
     if (employeeFallback !== undefined && employeeFallback !== null) {
       return employeeFallback;
     }
+
     return null;
+  }
+
+  /**
+   * 年月文字列（YYYY-MM）を数値に変換（比較用）
+   * 無効な形式の場合はnullを返す
+   */
+  private yearMonthToNumber(yearMonth: string): number | null {
+    if (!/^\d{4}-\d{2}$/.test(yearMonth)) {
+      return null;
+    }
+    const [year, month] = yearMonth.split('-').map(Number);
+    return year * 100 + month;
   }
 
   private createDefinition(document: DocumentPayload): TDocumentDefinitions {

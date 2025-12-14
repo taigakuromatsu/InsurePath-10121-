@@ -7,12 +7,17 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { NgIf } from '@angular/common';
 import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialog.component';
 import {
   StandardRewardAutoInputConfirmDialogComponent,
   StandardRewardAutoInputConfirmDialogData
 } from './standard-reward-auto-input-confirm-dialog.component';
+import {
+  StandardRewardHistoryAddConfirmDialogComponent,
+  StandardRewardHistoryAddConfirmDialogData
+} from './standard-reward-history-add-confirm-dialog.component';
 
 import { EmployeesService } from '../../services/employees.service';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
@@ -50,6 +55,7 @@ export interface EmployeeDialogData {
     MatSlideToggleModule,
     MatButtonModule,
     MatIconModule,
+    MatSnackBarModule,
     NgIf
   ],
   template: `
@@ -96,7 +102,7 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>住所</mat-label>
-        <textarea matInput formControlName="address" rows="2"></textarea>
+        <textarea matInput formControlName="address" rows="1"></textarea>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -112,7 +118,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>社員番号</mat-label>
         <input matInput formControlName="employeeCodeInOffice" />
-        <mat-hint>社内管理用（整理番号など）を入力してください</mat-hint>
+        <mat-hint>整理番号などを入力してください</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -144,10 +150,10 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>住所カナ</mat-label>
-        <textarea matInput formControlName="addressKana" rows="2"></textarea>
+        <textarea matInput formControlName="addressKana" rows="1"></textarea>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="full-row">
+      <mat-form-field appearance="outline">
         <mat-label>マイナンバー</mat-label>
         <input
           matInput
@@ -206,7 +212,7 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>雇用契約期間の見込み</mat-label>
-        <textarea matInput formControlName="contractPeriodNote" rows="2"></textarea>
+        <textarea matInput formControlName="contractPeriodNote" rows="1"></textarea>
       </mat-form-field>
 
           <div class="toggle-field">
@@ -253,7 +259,7 @@ export interface EmployeeDialogData {
           <mat-form-field appearance="outline">
             <mat-label>報酬月額（円）</mat-label>
             <input matInput formControlName="payrollInsurableMonthlyWage" />
-            <mat-hint>標準報酬月額を概算するための月額給与です（標準報酬は算定基礎で決められた額になるので未入力でも構いません）</mat-hint>
+            <mat-hint>標準報酬月額を概算するための月額給与</mat-hint>
             <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('min')">
           1以上の数値を入力してください
             </mat-error>
@@ -262,55 +268,103 @@ export interface EmployeeDialogData {
             </mat-error>
           </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>標準報酬決定年月</mat-label>
-        <input matInput type="month" formControlName="decisionYearMonth" />
-        <mat-error *ngIf="form.get('decisionYearMonth')?.hasError('required')">
-          標準報酬決定年月を入力してください
-        </mat-error>
-      </mat-form-field>
+      <!-- 標準報酬セクション -->
+      <div class="standard-reward-section">
+        <!-- ヘッダー行：決定年月と自動計算ボタン -->
+        <div class="standard-reward-header">
+          <mat-form-field appearance="outline" class="decision-year-month-field">
+            <mat-label>標準報酬決定年月</mat-label>
+            <input matInput type="month" formControlName="decisionYearMonth" />
+            <mat-error *ngIf="form.get('decisionYearMonth')?.hasError('required')">
+              標準報酬決定年月を入力してください
+            </mat-error>
+          </mat-form-field>
+          <button
+            mat-stroked-button
+            type="button"
+            color="primary"
+            [disabled]="!canExecuteAutoInput"
+            (click)="onAutoInputButtonClick()"
+            class="auto-calc-button"
+          >
+            <mat-icon>auto_fix_high</mat-icon>
+            <span>自動計算</span>
+          </button>
+        </div>
 
-      <div class="auto-input-button-container">
-        <button
-          mat-stroked-button
-          type="button"
-          color="primary"
-          [disabled]="!canExecuteAutoInput"
-          (click)="onAutoInputButtonClick()"
-          class="auto-input-button"
-        >
-          <mat-icon>auto_fix_high</mat-icon>
-          <span>標準報酬を自動入力</span>
-        </button>
-        <span class="auto-input-hint">標準報酬月額と等級は手動で変更・上書き・入力が可能です。</span>
+        <!-- 説明文（コンパクト） -->
+        <div class="standard-reward-hint">
+          <mat-icon class="hint-icon">info</mat-icon>
+          <span>報酬月額と標準報酬は別管理です。標準報酬は"履歴"に追加した内容が保険料計算で使用されます。</span>
+        </div>
+
+        <!-- 健康保険と厚生年金を2カラムで表示 -->
+        <div class="standard-reward-grid">
+          <!-- 健康保険カラム -->
+          <div class="insurance-column">
+            <div class="insurance-header">
+              <mat-icon class="insurance-icon">local_hospital</mat-icon>
+              <span class="insurance-title">健康保険</span>
+            </div>
+            <div class="grade-reward-row">
+              <mat-form-field appearance="outline" class="grade-field">
+                <mat-label>等級</mat-label>
+                <input matInput type="number" formControlName="healthGrade" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="reward-field">
+                <mat-label>標準報酬</mat-label>
+                <input matInput type="number" formControlName="healthStandardMonthly" />
+                <mat-hint *ngIf="healthCalculationError" style="color:#d32f2f">
+                  {{ healthCalculationError }}
+                </mat-hint>
+              </mat-form-field>
+            </div>
+            <button
+              mat-stroked-button
+              type="button"
+              color="primary"
+              [disabled]="!canAddHealthHistory"
+              (click)="onAddHistoryClick('health')"
+              class="add-history-button-compact"
+            >
+              <mat-icon>add</mat-icon>
+              <span>履歴に追加</span>
+            </button>
+          </div>
+
+          <!-- 厚生年金カラム -->
+          <div class="insurance-column">
+            <div class="insurance-header">
+              <mat-icon class="insurance-icon">account_balance</mat-icon>
+              <span class="insurance-title">厚生年金</span>
+            </div>
+            <div class="grade-reward-row">
+              <mat-form-field appearance="outline" class="grade-field">
+                <mat-label>等級</mat-label>
+                <input matInput type="number" formControlName="pensionGrade" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="reward-field">
+                <mat-label>標準報酬</mat-label>
+                <input matInput type="number" formControlName="pensionStandardMonthly" />
+                <mat-hint *ngIf="pensionCalculationError" style="color:#d32f2f">
+                  {{ pensionCalculationError }}
+                </mat-hint>
+              </mat-form-field>
+            </div>
+            <button
+              mat-stroked-button
+              type="button"
+              color="primary"
+              [disabled]="!canAddPensionHistory"
+              (click)="onAddHistoryClick('pension')"
+              class="add-history-button-compact"
+            >
+              <mat-icon>add</mat-icon>
+              <span>履歴に追加</span>
+            </button>
+          </div>
+        </div>
       </div>
-
-          <!-- 標準報酬・等級（自動入力結果） -->
-      <mat-form-field appearance="outline">
-        <mat-label>健康保険 等級</mat-label>
-        <input matInput type="number" formControlName="healthGrade" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>健康保険 標準報酬月額</mat-label>
-        <input matInput type="number" formControlName="healthStandardMonthly" />
-        <mat-hint *ngIf="healthCalculationError" style="color:#d32f2f">
-          {{ healthCalculationError }}
-        </mat-hint>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>厚生年金 等級</mat-label>
-        <input matInput type="number" formControlName="pensionGrade" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>厚生年金 標準報酬月額</mat-label>
-        <input matInput type="number" formControlName="pensionStandardMonthly" />
-        <mat-hint *ngIf="pensionCalculationError" style="color:#d32f2f">
-          {{ pensionCalculationError }}
-        </mat-hint>
-      </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>被保険者記号</mat-label>
@@ -521,11 +575,6 @@ export interface EmployeeDialogData {
           <mat-option [value]="'exempt'">保険料免除</mat-option>
         </mat-select>
       </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-row">
-        <mat-label>備考（就業状態）</mat-label>
-        <textarea matInput rows="2" formControlName="workingStatusNote"></textarea>
-      </mat-form-field>
         </div>
       </div>
     </form>
@@ -565,12 +614,47 @@ export interface EmployeeDialogData {
         flex-direction: column;
         gap: 16px;
         margin: 0;
+        padding: 20px 0;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .form-section:last-child {
+        border-bottom: none;
+      }
+
+      .form-section:first-child {
+        padding-top: 0;
       }
 
       .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         gap: 16px;
+      }
+
+      /* textareaの高さを通常のinputフィールドと同じにする */
+      .form-grid mat-form-field textarea,
+      form[mat-dialog-content] mat-form-field textarea {
+        min-height: 1.5em;
+        line-height: 1.5;
+        resize: vertical;
+        overflow-y: auto;
+      }
+
+      /* すべての入力フィールドの高さを統一 */
+      form[mat-dialog-content] mat-form-field {
+        height: auto;
+      }
+
+      form[mat-dialog-content] mat-form-field .mat-mdc-text-field-wrapper {
+        height: auto;
+        min-height: 56px;
+      }
+
+      form[mat-dialog-content] mat-form-field input,
+      form[mat-dialog-content] mat-form-field textarea {
+        min-height: 20px;
+        line-height: 1.5;
       }
 
       .field-help-button {
@@ -605,36 +689,114 @@ export interface EmployeeDialogData {
         gap: 8px;
       }
 
-      .auto-input-button-container {
+      .standard-reward-section {
         grid-column: 1 / -1;
         display: flex;
-        align-items: center;
+        flex-direction: column;
         gap: 12px;
-        justify-content: flex-start;
-        margin-top: -8px;
-        margin-bottom: 8px;
+        padding: 16px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
       }
 
-      .auto-input-button {
-        font-size: 0.875rem;
-        padding: 4px 12px;
-        min-width: auto;
-        height: 32px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
+      .standard-reward-header {
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
       }
 
-      .auto-input-button mat-icon {
+      .decision-year-month-field {
+        flex: 1;
+        max-width: 240px;
+      }
+
+      .auto-calc-button {
+        height: 40px;
+        white-space: nowrap;
+      }
+
+      .standard-reward-hint {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px 12px;
+        background-color: #e3f2fd;
+        border-radius: 4px;
+        font-size: 0.8125rem;
+        color: #1976d2;
+        line-height: 1.5;
+      }
+
+      .standard-reward-hint .hint-icon {
         font-size: 18px;
         width: 18px;
         height: 18px;
+        margin-top: 2px;
+        flex-shrink: 0;
       }
 
-      .auto-input-hint {
-        font-size: 0.75rem;
-        color: #666;
-        line-height: 1.4;
+      .standard-reward-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .insurance-column {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+        background-color: #fff;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+      }
+
+      .insurance-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .insurance-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #1976d2;
+      }
+
+      .insurance-title {
+        font-weight: 600;
+        font-size: 0.9375rem;
+        color: #333;
+      }
+
+      .grade-reward-row {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 12px;
+      }
+
+      .grade-field {
+        min-width: 0;
+      }
+
+      .reward-field {
+        min-width: 0;
+      }
+
+      .add-history-button-compact {
+        width: 100%;
+        height: 36px;
+        font-size: 0.875rem;
+      }
+
+      @media (max-width: 768px) {
+        .standard-reward-grid {
+          grid-template-columns: 1fr;
+        }
       }
     `
   ]
@@ -648,6 +810,7 @@ export class EmployeeFormDialogComponent {
   private readonly myNumberService = inject(MyNumberService);
   private readonly officesService = inject(OfficesService);
   private readonly mastersService = inject(MastersService);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
 
   protected maskedMyNumber: string | null = null;
@@ -988,6 +1151,108 @@ export class EmployeeFormDialogComponent {
     return !!(salary && salary > 0 && decisionYearMonth);
   }
 
+  get canAddHealthHistory(): boolean {
+    const standardMonthly = this.form.get('healthStandardMonthly')?.value;
+    const decisionYearMonth = this.form.get('decisionYearMonth')?.value;
+    return !!(standardMonthly && standardMonthly > 0 && decisionYearMonth);
+  }
+
+  get canAddPensionHistory(): boolean {
+    const standardMonthly = this.form.get('pensionStandardMonthly')?.value;
+    const decisionYearMonth = this.form.get('decisionYearMonth')?.value;
+    return !!(standardMonthly && standardMonthly > 0 && decisionYearMonth);
+  }
+
+  async onAddHistoryClick(insuranceKind: 'health' | 'pension'): Promise<void> {
+    const standardMonthly = this.form.get(
+      insuranceKind === 'health' ? 'healthStandardMonthly' : 'pensionStandardMonthly'
+    )?.value;
+    const grade = this.form.get(insuranceKind === 'health' ? 'healthGrade' : 'pensionGrade')?.value;
+    const decisionYearMonth = this.form.get('decisionYearMonth')?.value as YearMonthString | null;
+
+    if (!standardMonthly || standardMonthly <= 0 || !decisionYearMonth) {
+      return;
+    }
+
+    // 確認ダイアログを表示
+    const dialogRef = this.dialog.open<
+      StandardRewardHistoryAddConfirmDialogComponent,
+      StandardRewardHistoryAddConfirmDialogData,
+      boolean
+    >(StandardRewardHistoryAddConfirmDialogComponent, {
+      width: '500px',
+      data: {
+        insuranceKind,
+        decisionYearMonth,
+        appliedFromYearMonth: decisionYearMonth,
+        grade: grade ?? null,
+        standardMonthlyReward: standardMonthly
+      }
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
+    if (!confirmed) {
+      return;
+    }
+
+    // 従業員IDを取得（新規作成の場合は先に保存）
+    let employeeId: string;
+    if (this.data.employee?.id) {
+      employeeId = this.data.employee.id;
+    } else {
+      // 新規作成の場合は先に従業員を保存
+      if (!this.canSave) {
+        this.snackBar.open('先に従業員情報を保存してください。', undefined, {
+          duration: 3000
+        });
+        return;
+      }
+      
+      const savedId = await this.saveEmployeeWithoutClosing();
+      if (!savedId) {
+        return;
+      }
+      employeeId = savedId;
+    }
+
+    try {
+      // 履歴を追加
+      await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
+        insuranceKind,
+        decisionYearMonth,
+        appliedFromYearMonth: decisionYearMonth,
+        standardMonthlyReward: standardMonthly,
+        grade: grade ?? undefined,
+        decisionKind: 'other',
+        note: '従業員フォームから追加'
+      });
+
+      // 従業員データを再読み込みしてUIを更新
+      const updatedEmployee = await firstValueFrom(
+        this.employeesService.get(this.data.officeId, employeeId)
+      );
+      if (updatedEmployee) {
+        // フォームの標準報酬表示を更新
+        this.form.patchValue({
+          healthStandardMonthly: updatedEmployee.healthStandardMonthly ?? null,
+          pensionStandardMonthly: updatedEmployee.pensionStandardMonthly ?? null,
+          healthGrade: updatedEmployee.healthGrade ?? null,
+          pensionGrade: updatedEmployee.pensionGrade ?? null
+        } as any);
+        this.data.employee = updatedEmployee;
+      }
+
+      this.snackBar.open('標準報酬履歴を追加しました', undefined, {
+        duration: 2500
+      });
+    } catch (error) {
+      console.error(`標準報酬履歴（${insuranceKind}）の追加に失敗しました:`, error);
+      this.snackBar.open('標準報酬履歴の追加に失敗しました。時間をおいて再度お試しください。', undefined, {
+        duration: 3000
+      });
+    }
+  }
+
   async onAutoInputButtonClick(): Promise<void> {
     const salary = this.form.get('payrollInsurableMonthlyWage')?.value;
     const decisionYearMonth = this.form.get('decisionYearMonth')?.value as YearMonthString | null;
@@ -1008,36 +1273,8 @@ export class EmployeeFormDialogComponent {
   }
 
   get canSave(): boolean {
-    if (this.form.invalid) {
-      return false;
-    }
-
-    const isInsured = this.form.get('isInsured')?.value === true;
-
-    const healthStandard = this.form.get('healthStandardMonthly')?.value;
-    const healthGrade = this.form.get('healthGrade')?.value;
-    const pensionStandard = this.form.get('pensionStandardMonthly')?.value;
-    const pensionGrade = this.form.get('pensionGrade')?.value;
-
-    if (!isInsured) {
-      return true;
-    }
-
-    const hasHealth = healthStandard != null && Number(healthStandard) > 0;
-    const hasPension = pensionStandard != null && Number(pensionStandard) > 0;
-
-    if (!hasHealth && !hasPension) {
-      return false;
-    }
-
-    if (hasHealth && (!healthGrade || Number(healthGrade) <= 0)) {
-      return false;
-    }
-    if (hasPension && (!pensionGrade || Number(pensionGrade) <= 0)) {
-      return false;
-    }
-
-    return true;
+    // 標準報酬は履歴で管理するため、フォーム保存時には標準報酬の入力は必須ではない
+    return !this.form.invalid;
   }
 
   openHelp(event: Event): void {
@@ -1065,11 +1302,41 @@ export class EmployeeFormDialogComponent {
     }
   }
 
-  async submit(): Promise<void> {
+  /**
+   * 従業員情報を保存する（ダイアログを閉じない）
+   * 新規作成時の履歴追加前に使用
+   */
+  private async saveEmployeeWithoutClosing(): Promise<string | null> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      return;
+      return null;
     }
+
+    try {
+      const savedId = await this.saveEmployeePayload();
+      if (savedId) {
+        // 従業員データを再読み込み
+        const updatedEmployee = await firstValueFrom(
+          this.employeesService.get(this.data.officeId, savedId)
+        );
+        if (updatedEmployee) {
+          this.data.employee = updatedEmployee;
+        }
+      }
+      return savedId;
+    } catch (error) {
+      console.error('従業員情報の保存に失敗しました', error);
+      this.snackBar.open('従業員情報の保存に失敗しました。時間をおいて再度お試しください。', undefined, {
+        duration: 3000
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 従業員情報の保存処理（payload作成と保存）
+   */
+  private async saveEmployeePayload(): Promise<string | null> {
 
     const formValue = this.form.getRawValue();
     const currentUserId = await firstValueFrom(
@@ -1119,22 +1386,8 @@ export class EmployeeFormDialogComponent {
         ? Number(formValue.payrollInsurableMonthlyWage)
         : null;
     const payrollNote = normalizeString(formValue.payrollNote);
-    const healthStandardMonthly =
-      formValue.healthStandardMonthly !== null &&
-      formValue.healthStandardMonthly !== undefined &&
-      formValue.healthStandardMonthly !== ''
-        ? Number(formValue.healthStandardMonthly)
-        : null;
-    const pensionStandardMonthly =
-      formValue.pensionStandardMonthly !== null &&
-      formValue.pensionStandardMonthly !== undefined &&
-      formValue.pensionStandardMonthly !== ''
-        ? Number(formValue.pensionStandardMonthly)
-        : null;
-    const healthGradeSource =
-      (formValue.healthGradeSource as GradeDecisionSource | null | undefined) ?? null;
-    const pensionGradeSource =
-      (formValue.pensionGradeSource as GradeDecisionSource | null | undefined) ?? null;
+    // 標準報酬関連のフィールドは履歴で管理するため、フォーム保存時には使用しない
+    // healthStandardMonthly, pensionStandardMonthly, healthGradeSource, pensionGradeSource は除外
 
     // マイナンバー: 空文字の場合はnull（削除扱い）
     const encryptedMyNumber =
@@ -1164,12 +1417,9 @@ export class EmployeeFormDialogComponent {
       contractPeriodNote: normalizeString(formValue.contractPeriodNote) as any,
       isStudent: formValue.isStudent ?? false,
       isInsured: formValue.isInsured ?? true,
-      healthGrade: formValue.healthGrade ?? undefined,
-      healthStandardMonthly: healthStandardMonthly ?? undefined,
-      healthGradeSource: healthGradeSource ?? undefined,
-      pensionGrade: formValue.pensionGrade ?? undefined,
-      pensionStandardMonthly: pensionStandardMonthly ?? undefined,
-      pensionGradeSource: pensionGradeSource ?? undefined,
+      // 標準報酬関連のフィールドは履歴で管理するため、フォーム保存時には含めない
+      // healthGrade, healthStandardMonthly, healthGradeSource,
+      // pensionGrade, pensionStandardMonthly, pensionGradeSource は除外
       healthInsuredSymbol: normalizeString(formValue.healthInsuredSymbol) as any,
       healthInsuredNumber: normalizeString(formValue.healthInsuredNumber) as any,
       pensionNumber: normalizeString(formValue.pensionNumber) as any,
@@ -1222,7 +1472,7 @@ export class EmployeeFormDialogComponent {
 
       if (missingRequired) {
         this.form.markAllAsTouched();
-        return;
+        return null;
       }
 
       const bankAccountPayload: any = {
@@ -1262,7 +1512,7 @@ export class EmployeeFormDialogComponent {
 
       if (!payrollPayType || !payrollPayCycle) {
         this.form.markAllAsTouched();
-        return;
+        return null;
       }
 
       payload.payrollSettings = {
@@ -1275,31 +1525,22 @@ export class EmployeeFormDialogComponent {
       payload.payrollSettings = null;
     }
 
-    try {
-      const savedId = await this.employeesService.save(this.data.officeId, payload);
-      const mode: 'created' | 'updated' = this.data.employee ? 'updated' : 'created';
-      const decisionYearMonth = formValue.decisionYearMonth as YearMonthString | null;
-      
-      // 健康保険と厚生年金の履歴をそれぞれ登録
-      await this.addAutoStandardRewardHistory(
-        savedId,
-        mode,
-        'health',
-        healthStandardMonthly,
-        decisionYearMonth
-      );
-      await this.addAutoStandardRewardHistory(
-        savedId,
-        mode,
-        'pension',
-        pensionStandardMonthly,
-        decisionYearMonth
-      );
-      
-      this.dialogRef.close({ saved: true, mode, employeeId: savedId });
-    } catch (error) {
-      console.error('従業員情報の保存に失敗しました', error);
+    const savedId = await this.employeesService.save(this.data.officeId, payload);
+    return savedId;
+  }
+
+  async submit(): Promise<void> {
+    const savedId = await this.saveEmployeeWithoutClosing();
+    if (!savedId) {
+      return;
     }
+
+    const mode: 'created' | 'updated' = this.data.employee ? 'updated' : 'created';
+    
+    // 標準報酬履歴の自動追加は廃止
+    // 履歴を追加する場合は「履歴に追加」ボタンを使用すること
+    
+    this.dialogRef.close({ saved: true, mode, employeeId: savedId });
   }
 
   private async addAutoStandardRewardHistory(
