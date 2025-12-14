@@ -4,6 +4,7 @@ import {
   collectionData,
   doc,
   Firestore,
+  limit,
   orderBy,
   query,
   setDoc,
@@ -95,11 +96,20 @@ export class ChangeRequestsService {
     await setDoc(docRef, cleaned);
   }
 
-  list(officeId: string, status?: ChangeRequestStatus): Observable<ChangeRequest[]> {
+  list(officeId: string, status?: ChangeRequestStatus, limitCount?: number): Observable<ChangeRequest[]> {
     const ref = this.collectionPath(officeId);
-    const q = status
-      ? query(ref, where('status', '==', status), orderBy('requestedAt', 'desc'))
-      : query(ref, orderBy('requestedAt', 'desc'));
+    const constraints: any[] = [];
+    
+    if (status) {
+      constraints.push(where('status', '==', status));
+    }
+    constraints.push(orderBy('requestedAt', 'desc'));
+    
+    if (limitCount != null) {
+      constraints.push(limit(limitCount));
+    }
+    
+    const q = query(ref, ...constraints);
 
     return (collectionData(q, { idField: 'id' }) as Observable<ChangeRequest[]>)
       .pipe(map((requests) => requests.map((req) => this.normalizeRequest(req))));
@@ -108,21 +118,24 @@ export class ChangeRequestsService {
   listForUser(
     officeId: string,
     userId: string,
-    status?: ChangeRequestStatus
+    status?: ChangeRequestStatus,
+    limitCount?: number
   ): Observable<ChangeRequest[]> {
     const ref = this.collectionPath(officeId);
-    const q = status
-      ? query(
-          ref,
-          where('requestedByUserId', '==', userId),
-          where('status', '==', status),
-          orderBy('requestedAt', 'desc')
-        )
-      : query(
-          ref,
-          where('requestedByUserId', '==', userId),
-          orderBy('requestedAt', 'desc')
-        );
+    const constraints: any[] = [
+      where('requestedByUserId', '==', userId)
+    ];
+    
+    if (status) {
+      constraints.push(where('status', '==', status));
+    }
+    constraints.push(orderBy('requestedAt', 'desc'));
+    
+    if (limitCount != null) {
+      constraints.push(limit(limitCount));
+    }
+    
+    const q = query(ref, ...constraints);
 
     return (collectionData(q, { idField: 'id' }) as Observable<ChangeRequest[]>)
       .pipe(map((requests) => requests.map((req) => this.normalizeRequest(req))));

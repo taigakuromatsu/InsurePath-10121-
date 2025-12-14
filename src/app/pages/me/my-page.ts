@@ -15,7 +15,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
+import { combineLatest, firstValueFrom, from, map, of, switchMap } from 'rxjs';
 
 import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
@@ -24,6 +24,9 @@ import { ChangeRequestsService } from '../../services/change-requests.service';
 import { DocumentsService } from '../../services/documents.service';
 import { EmployeesService } from '../../services/employees.service';
 import { MonthlyPremiumsService } from '../../services/monthly-premiums.service';
+import { MastersService } from '../../services/masters.service';
+import { OfficesService } from '../../services/offices.service';
+import { isCareInsuranceTarget, roundForEmployeeDeduction, hasInsuranceInMonth } from '../../utils/premium-calculator';
 import {
   BonusPremium,
   ChangeRequest,
@@ -33,7 +36,8 @@ import {
   Employee,
   Dependent,
   DocumentRequest,
-  MonthlyPremium
+  MonthlyPremium,
+  YearMonthString
 } from '../../types';
 import { DependentsService } from '../../services/dependents.service';
 import {
@@ -547,24 +551,30 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <td mat-cell *matCellDef="let row">{{ row.yearMonth }}</td>
               </ng-container>
 
-              <ng-container matColumnDef="healthEmployee">
-                <th mat-header-cell *matHeaderCellDef>健康保険 本人</th>
-                <td mat-cell *matCellDef="let row">{{ row.healthEmployee | number }}</td>
+              <ng-container matColumnDef="healthCareEmployee">
+                <th mat-header-cell *matHeaderCellDef>健康・介護保険 本人</th>
+                <td mat-cell *matCellDef="let row">
+                  <div class="premium-value-cell">
+                    <span>{{ (row.healthCareEmployee ?? row.healthEmployee ?? 0) | number }}</span>
+                    <span class="split-sub-value" *ngIf="row.careEmployee != null && row.careEmployee > 0">
+                      <span class="sub-label">介護分</span>
+                      <span class="sub-value">{{ row.careEmployee | number }}</span>
+                    </span>
+                  </div>
+                </td>
               </ng-container>
 
-              <ng-container matColumnDef="healthEmployer">
-                <th mat-header-cell *matHeaderCellDef>健康保険 会社</th>
-                <td mat-cell *matCellDef="let row">{{ row.healthEmployer | number }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="careEmployee">
-                <th mat-header-cell *matHeaderCellDef>介護保険 本人</th>
-                <td mat-cell *matCellDef="let row">{{ row.careEmployee != null ? (row.careEmployee | number) : '-' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="careEmployer">
-                <th mat-header-cell *matHeaderCellDef>介護保険 会社</th>
-                <td mat-cell *matCellDef="let row">{{ row.careEmployer != null ? (row.careEmployer | number) : '-' }}</td>
+              <ng-container matColumnDef="healthCareEmployer">
+                <th mat-header-cell *matHeaderCellDef>健康・介護保険 会社</th>
+                <td mat-cell *matCellDef="let row">
+                  <div class="premium-value-cell">
+                    <span>({{ (row.healthCareEmployer ?? row.healthEmployer ?? 0) | number }})</span>
+                    <span class="split-sub-value" *ngIf="row.careEmployer != null && row.careEmployer > 0">
+                      <span class="sub-label">（介護分）</span>
+                      <span class="sub-value">({{ row.careEmployer | number }})</span>
+                    </span>
+                  </div>
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="pensionEmployee">
@@ -628,14 +638,30 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <td mat-cell *matCellDef="let row">{{ row.standardBonusAmount | number }}</td>
               </ng-container>
 
-              <ng-container matColumnDef="healthEmployee">
-                <th mat-header-cell *matHeaderCellDef>健康保険 本人</th>
-                <td mat-cell *matCellDef="let row">{{ row.healthEmployee | number }}</td>
+              <ng-container matColumnDef="healthCareEmployee">
+                <th mat-header-cell *matHeaderCellDef>健康・介護保険 本人</th>
+                <td mat-cell *matCellDef="let row">
+                  <div class="premium-value-cell">
+                    <span>{{ row.healthCareEmployee ?? 0 | number }}</span>
+                    <span class="split-sub-value" *ngIf="row.isCareTarget && row.careEmployee != null && row.careEmployee > 0">
+                      <span class="sub-label">介護分</span>
+                      <span class="sub-value">{{ row.careEmployee | number }}</span>
+                    </span>
+                  </div>
+                </td>
               </ng-container>
 
-              <ng-container matColumnDef="healthEmployer">
-                <th mat-header-cell *matHeaderCellDef>健康保険 会社</th>
-                <td mat-cell *matCellDef="let row">{{ row.healthEmployer | number }}</td>
+              <ng-container matColumnDef="healthCareEmployer">
+                <th mat-header-cell *matHeaderCellDef>健康・介護保険 会社</th>
+                <td mat-cell *matCellDef="let row">
+                  <div class="premium-value-cell">
+                    <span>({{ row.healthCareEmployer ?? 0 | number }})</span>
+                    <span class="split-sub-value" *ngIf="row.isCareTarget && row.careEmployer != null && row.careEmployer > 0">
+                      <span class="sub-label">（介護分）</span>
+                      <span class="sub-value">({{ row.careEmployer | number }})</span>
+                    </span>
+                  </div>
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="pensionEmployee">
@@ -1238,6 +1264,36 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
         font-weight: 500;
         margin-right: 4px;
       }
+
+      .premium-value-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .split-sub-value {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        margin-top: 3px;
+        padding-top: 3px;
+        border-top: 1px dotted rgba(0,0,0,0.1);
+      }
+
+      .split-sub-value .sub-label {
+        font-size: 0.6rem;
+        color: #aaa;
+        line-height: 1.2;
+      }
+
+      .split-sub-value .sub-value {
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: #888;
+        line-height: 1.2;
+      }
     `
   ]
 })
@@ -1250,15 +1306,15 @@ export class MyPage {
   private readonly dependentsService = inject(DependentsService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly bonusPremiumsService = inject(BonusPremiumsService);
+  private readonly mastersService = inject(MastersService);
+  private readonly officesService = inject(OfficesService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly premiumDisplayedColumns = [
     'yearMonth',
-    'healthEmployee',
-    'healthEmployer',
-    'careEmployee',
-    'careEmployer',
+    'healthCareEmployee',
+    'healthCareEmployer',
     'pensionEmployee',
     'pensionEmployer',
     'totalEmployee',
@@ -1269,8 +1325,8 @@ export class MyPage {
     'payDate',
     'grossAmount',
     'standardBonusAmount',
-    'healthEmployee',
-    'healthEmployer',
+    'healthCareEmployee',
+    'healthCareEmployer',
     'pensionEmployee',
     'pensionEmployer',
     'totalEmployee',
@@ -1309,13 +1365,74 @@ export class MyPage {
     })
   );
 
-  readonly bonusPremiums$ = combineLatest([this.currentUser.profile$, this.currentOffice.officeId$]).pipe(
-    switchMap(([profile, officeId]) => {
-      if (!profile?.employeeId || !officeId) {
+  readonly bonusPremiums$ = combineLatest([
+    this.currentUser.profile$,
+    this.currentOffice.officeId$,
+    this.employee$
+  ]).pipe(
+    switchMap(([profile, officeId, employee]) => {
+      if (!profile?.employeeId || !officeId || !employee) {
         return of([] as BonusPremium[]);
       }
 
-      return this.bonusPremiumsService.listByOfficeAndEmployee(officeId, profile.employeeId);
+      return this.bonusPremiumsService.listByOfficeAndEmployee(officeId, profile.employeeId).pipe(
+        switchMap((bonuses) => {
+          if (bonuses.length === 0) {
+            return of([]);
+          }
+
+          return this.officesService.watchOffice(officeId).pipe(
+            switchMap((office) => {
+              if (!office) {
+                return of(bonuses);
+              }
+
+              // 各賞与について、介護保険料を計算
+              return combineLatest(
+                bonuses.map((bonus) => {
+                  const yearMonth = bonus.payDate.substring(0, 7) as YearMonthString;
+                  return from(this.mastersService.getRatesForYearMonth(office, yearMonth)).pipe(
+                    map((rates) => {
+                      // 健康保険＋介護保険の計算
+                      let healthCareFull = 0;
+                      let healthCareEmployee = 0;
+                      let healthCareEmployer = 0;
+                      let careFull = 0;
+                      let careEmployee = 0;
+                      let careEmployer = 0;
+                      let isCareTarget = false;
+
+                      const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
+                      if (hasHealth && bonus.healthEffectiveAmount > 0) {
+                        isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
+                        const careRate = isCareTarget && rates.careRate ? rates.careRate : 0;
+                        const combinedRate = (rates.healthRate ?? 0) + careRate;
+                        healthCareFull = bonus.healthEffectiveAmount * combinedRate;
+                        healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
+                        healthCareEmployer = healthCareFull - healthCareEmployee;
+                        
+                        // 介護保険料の個別計算（データベースから取得した値を使用、なければ計算）
+                        careFull = bonus.careFull ?? (isCareTarget && careRate > 0 ? bonus.healthEffectiveAmount * careRate : 0);
+                        careEmployee = bonus.careEmployee ?? roundForEmployeeDeduction(careFull / 2);
+                        careEmployer = bonus.careEmployer ?? (careFull - careEmployee);
+                      }
+
+                      return {
+                        ...bonus,
+                        healthCareEmployee,
+                        healthCareEmployer,
+                        careEmployee,
+                        careEmployer,
+                        isCareTarget
+                      };
+                    })
+                  );
+                })
+              );
+            })
+          );
+        })
+      );
     })
   );
 
@@ -1335,7 +1452,7 @@ export class MyPage {
         return of([] as ChangeRequest[]);
       }
 
-      return this.changeRequestsService.listForUser(officeId, profile.id);
+      return this.changeRequestsService.listForUser(officeId, profile.id, undefined, 10); // マイページは10件まで表示
     })
   );
 

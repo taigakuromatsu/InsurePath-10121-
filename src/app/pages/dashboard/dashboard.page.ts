@@ -16,7 +16,9 @@ import { MonthlyPremiumsService } from '../../services/monthly-premiums.service'
 import { PaymentsService } from '../../services/payments.service';
 import { ProceduresService } from '../../services/procedures.service';
 import { DataQualityService } from '../../services/data-quality.service';
-import { BonusPremium, Employee, MonthlyPremium, PaymentStatus, SocialInsurancePayment } from '../../types';
+import { MastersService } from '../../services/masters.service';
+import { BonusPremium, Employee, MonthlyPremium, Office, PaymentStatus, SocialInsurancePayment, YearMonthString } from '../../types';
+import { hasInsuranceInMonth, isCareInsuranceTarget, roundForEmployeeDeduction } from '../../utils/premium-calculator';
 
 Chart.register(...registerables);
 
@@ -30,7 +32,7 @@ Chart.register(...registerables);
         <div>
           <h1 class="m-0">ダッシュボード</h1>
           <p class="mat-body-2 mb-0" style="color: var(--app-text-sub);">
-            事業所の社会保険料負担・納付状況・手続き期限をひと目で把握できます。
+            事業所の社会保険料負担・納付状況・手続き期限を把握できます。
           </p>
         </div>
       </header>
@@ -72,19 +74,6 @@ Chart.register(...registerables);
                 <ng-template #noData>-</ng-template>
               </p>
               <p class="stat-label">今月の会社負担額</p>
-            </div>
-          </mat-card>
-
-          <mat-card class="stat-card">
-            <div class="stat-icon stat-icon-orange">
-              <mat-icon>trending_up</mat-icon>
-            </div>
-            <div class="stat-content">
-              <h3>トレンド</h3>
-              <p class="stat-value" [style.color]="trendColor()">
-                {{ trendDisplay() }}
-              </p>
-              <p class="stat-label">前月比の変化</p>
             </div>
           </mat-card>
 
@@ -177,7 +166,7 @@ Chart.register(...registerables);
             <div class="chart-header">
               <h3>
                 <mat-icon>bar_chart</mat-icon>
-                今月の保険料負担（会社負担額）
+                先月・今月の保険料負担（会社負担額）
               </h3>
             </div>
             <div class="chart-container">
@@ -568,13 +557,13 @@ export class DashboardPage implements OnInit {
   private readonly proceduresService = inject(ProceduresService);
   private readonly router = inject(Router);
   private readonly dataQualityService = inject(DataQualityService);
+  private readonly mastersService = inject(MastersService);
 
   readonly officeId$ = this.currentOffice.officeId$;
 
   readonly employeeCount = signal<number | null>(null);
   readonly insuredEmployeeCount = signal<number | null>(null);
   readonly currentMonthTotalEmployer = signal<number | null>(null);
-  readonly previousMonthTotalEmployer = signal<number | null>(null);
 
   readonly monthlyTrendData = signal<ChartData<'line'>>({ labels: [], datasets: [] });
   readonly currentMonthComparisonData = signal<ChartData<'bar'>>({ labels: [], datasets: [] });
@@ -636,35 +625,6 @@ export class DashboardPage implements OnInit {
   readonly thisWeekDeadlinesCount = toSignal(this.thisWeekDeadlinesCount$, { initialValue: 0 });
   readonly overdueDeadlinesCount = toSignal(this.overdueDeadlinesCount$, { initialValue: 0 });
 
-  readonly trendPercentage = computed(() => {
-    const current = this.currentMonthTotalEmployer();
-    const previous = this.previousMonthTotalEmployer();
-
-    if (current === null || previous === null || previous === 0) {
-      return null;
-    }
-
-    return ((current - previous) / previous) * 100;
-  });
-
-  readonly trendDisplay = computed(() => {
-    const trend = this.trendPercentage();
-    if (trend === null) {
-      return '-';
-    }
-
-    const sign = trend >= 0 ? '+' : '';
-    return `${sign}${trend.toFixed(1)}%`;
-  });
-
-  readonly trendColor = computed(() => {
-    const trend = this.trendPercentage();
-    if (trend === null) {
-      return '#999';
-    }
-    return trend >= 0 ? '#2e7d32' : '#d32f2f';
-  });
-
   readonly lineChartOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -707,15 +667,22 @@ export class DashboardPage implements OnInit {
         callbacks: {
           label: (context) => {
             const y = context.parsed.y;
-            if (y == null) {
-              return '';
-            }
-            return `¥${y.toLocaleString()}`;
+            return y == null ? '' : `¥${y.toLocaleString()}`;
           }
         }
       }
     },
+    datasets: {
+      bar: {
+        categoryPercentage: 0.65,
+        barPercentage: 0.65,
+        maxBarThickness: 40
+      }
+    },
     scales: {
+      x: {
+        ticks: { autoSkip: false }
+      },
       y: {
         beginAtZero: true,
         ticks: {
@@ -772,7 +739,7 @@ export class DashboardPage implements OnInit {
       this.employeeCount.set(employees.length);
 
       const insuredCount = employees.filter((emp) => emp.isInsured === true).length;
-      this.insuredEmployeeCount.set(insuredCount > 0 ? insuredCount : null);
+      this.insuredEmployeeCount.set(insuredCount);
     } catch (error) {
       console.error('従業員数の取得に失敗しました', error);
       this.employeeCount.set(null);
@@ -783,27 +750,141 @@ export class DashboardPage implements OnInit {
   private async loadMonthlyPremiumsTotals(officeId: string): Promise<void> {
     try {
       const now = new Date();
-      const currentYearMonth = now.toISOString().substring(0, 7);
+      const currentYearMonth = now.toISOString().substring(0, 7) as YearMonthString;
 
-      const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const previousYearMonth = previousMonth.toISOString().substring(0, 7);
+      // 従業員リストを取得（削除された従業員のフィルタリング用）
+      const employees: Employee[] = await firstValueFrom(this.employeesService.list(officeId));
+      const employeeMap = new Map(employees.map((e) => [e.id, e]));
 
-      const currentPremiums: MonthlyPremium[] = await firstValueFrom(
+      // 月次保険料を取得
+      const premiums: MonthlyPremium[] = await firstValueFrom(
         this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, currentYearMonth)
       );
-      const currentTotal = currentPremiums.reduce((sum, p) => sum + p.totalEmployer, 0);
-      this.currentMonthTotalEmployer.set(currentTotal);
 
-      const previousPremiums: MonthlyPremium[] = await firstValueFrom(
-        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, previousYearMonth)
-      );
-      const previousTotal = previousPremiums.reduce((sum, p) => sum + p.totalEmployer, 0);
-      this.previousMonthTotalEmployer.set(previousTotal);
+      // 削除された従業員の保険料を除外
+      const validPremiums = premiums.filter((premium) => employeeMap.has(premium.employeeId));
+
+      // 月次保険料ページと同じサマリー計算ロジック
+      // 健康・介護保険の会社負担
+      const healthCareEmployee = validPremiums.reduce((sum, p) => sum + (p.healthCareEmployee ?? 0), 0);
+      const healthCareFull = validPremiums.reduce((sum, p) => sum + (p.healthCareFull ?? 0), 0);
+      const healthCareFullRounded = Math.round(healthCareFull * 100) / 100;
+      const healthCareFullRoundedDown = Math.floor(healthCareFullRounded);
+      const healthCareEmployer = healthCareFullRoundedDown - healthCareEmployee;
+
+      // 厚生年金の会社負担
+      const pensionEmployee = validPremiums.reduce((sum, p) => sum + (p.pensionEmployee ?? 0), 0);
+      const pensionFull = validPremiums.reduce((sum, p) => sum + (p.pensionFull ?? 0), 0);
+      const pensionFullRounded = Math.round(pensionFull * 100) / 100;
+      const pensionFullRoundedDown = Math.floor(pensionFullRounded);
+      const pensionEmployer = pensionFullRoundedDown - pensionEmployee;
+
+      // 総合計の会社負担額（月次保険料ページのcombinedSummaryと同じ計算）
+      const totalEmployer = healthCareEmployer + pensionEmployer;
+
+      this.currentMonthTotalEmployer.set(totalEmployer);
     } catch (error) {
       console.error('月次保険料の集計に失敗しました', error);
       this.currentMonthTotalEmployer.set(null);
-      this.previousMonthTotalEmployer.set(null);
     }
+  }
+
+  /**
+   * 月次保険料の会社負担額を計算（月次保険料ページと同じロジック）
+   */
+  private calculateMonthlyPremiumEmployerTotal(
+    premiums: MonthlyPremium[],
+    employeeMap: Map<string, Employee>
+  ): number {
+    // 削除された従業員の保険料を除外
+    const validPremiums = premiums.filter((premium) => employeeMap.has(premium.employeeId));
+
+    // 健康・介護保険の会社負担
+    const healthCareEmployee = validPremiums.reduce((sum, p) => sum + (p.healthCareEmployee ?? 0), 0);
+    const healthCareFull = validPremiums.reduce((sum, p) => sum + (p.healthCareFull ?? 0), 0);
+    const healthCareFullRounded = Math.round(healthCareFull * 100) / 100;
+    const healthCareFullRoundedDown = Math.floor(healthCareFullRounded);
+    const healthCareEmployer = healthCareFullRoundedDown - healthCareEmployee;
+
+    // 厚生年金の会社負担
+    const pensionEmployee = validPremiums.reduce((sum, p) => sum + (p.pensionEmployee ?? 0), 0);
+    const pensionFull = validPremiums.reduce((sum, p) => sum + (p.pensionFull ?? 0), 0);
+    const pensionFullRounded = Math.round(pensionFull * 100) / 100;
+    const pensionFullRoundedDown = Math.floor(pensionFullRounded);
+    const pensionEmployer = pensionFullRoundedDown - pensionEmployee;
+
+    // 総合計の会社負担額
+    return healthCareEmployer + pensionEmployer;
+  }
+
+  /**
+   * 賞与保険料の会社負担額を計算（賞与保険料ページと同じロジック）
+   * 保険資格のチェックと料率を使った再計算を行う
+   */
+  private async calculateBonusPremiumEmployerTotal(
+    bonuses: BonusPremium[],
+    employeeMap: Map<string, Employee>,
+    office: Office,
+    yearMonth: YearMonthString
+  ): Promise<number> {
+    // 料率を取得
+    const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
+    if (rates.healthRate == null || rates.pensionRate == null) {
+      return 0;
+    }
+
+    // 賞与保険料ページと同じフィルタリングと計算ロジック
+    const validBonuses = bonuses.filter((b) => {
+      const employee = employeeMap.get(b.employeeId);
+      if (!employee) return false;
+      const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
+      const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
+      return (hasHealth && b.healthEffectiveAmount > 0) || (hasPension && b.pensionEffectiveAmount > 0);
+    });
+
+    let totalHealthCareFull = 0;
+    let totalHealthCareEmployee = 0;
+    let totalPensionFull = 0;
+    let totalPensionEmployee = 0;
+
+    for (const b of validBonuses) {
+      const employee = employeeMap.get(b.employeeId);
+      if (!employee) continue;
+
+      const hasHealth = hasInsuranceInMonth(employee, yearMonth, 'health');
+      const hasPension = hasInsuranceInMonth(employee, yearMonth, 'pension');
+
+      // 健康保険＋介護保険の計算（賞与保険料ページと同じ）
+      if (hasHealth && b.healthEffectiveAmount > 0) {
+        const isCareTarget = isCareInsuranceTarget(employee.birthDate, yearMonth);
+        const careRate = isCareTarget && rates.careRate ? rates.careRate : 0;
+        const combinedRate = (rates.healthRate ?? 0) + careRate;
+        const healthCareFull = b.healthEffectiveAmount * combinedRate;
+        const healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
+        totalHealthCareFull += healthCareFull;
+        totalHealthCareEmployee += healthCareEmployee;
+      }
+
+      // 厚生年金の計算（賞与保険料ページと同じ）
+      if (hasPension && b.pensionEffectiveAmount > 0) {
+        const pensionFull = b.pensionEffectiveAmount * (rates.pensionRate ?? 0);
+        const pensionEmployee = roundForEmployeeDeduction(pensionFull / 2);
+        totalPensionFull += pensionFull;
+        totalPensionEmployee += pensionEmployee;
+      }
+    }
+
+    // 端数処理（賞与保険料ページのサマリー計算と同じ）
+    const healthCareFullRounded = Math.round(totalHealthCareFull * 100) / 100;
+    const healthCareFullRoundedDown = Math.floor(healthCareFullRounded);
+    const healthCareEmployer = healthCareFullRoundedDown - totalHealthCareEmployee;
+
+    const pensionFullRounded = Math.round(totalPensionFull * 100) / 100;
+    const pensionFullRoundedDown = Math.floor(pensionFullRounded);
+    const pensionEmployer = pensionFullRoundedDown - totalPensionEmployee;
+
+    // 総合計の会社負担額
+    return healthCareEmployer + pensionEmployer;
   }
 
   private async loadMonthlyTrendData(officeId: string): Promise<void> {
@@ -812,15 +893,19 @@ export class DashboardPage implements OnInit {
       const yearMonths: string[] = [];
       const totals: number[] = [];
 
+      // 従業員リストを取得（削除された従業員のフィルタリング用）
+      const employees: Employee[] = await firstValueFrom(this.employeesService.list(officeId));
+      const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
       for (let i = 11; i >= 0; i--) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const yearMonth = date.toISOString().substring(0, 7);
+        const yearMonth = date.toISOString().substring(0, 7) as YearMonthString;
         yearMonths.push(yearMonth);
 
         const premiums = await firstValueFrom(
           this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
         );
-        const total = premiums.reduce((sum, p) => sum + p.totalEmployer, 0);
+        const total = this.calculateMonthlyPremiumEmployerTotal(premiums, employeeMap);
         totals.push(total);
       }
 
@@ -845,41 +930,80 @@ export class DashboardPage implements OnInit {
   private async loadCurrentMonthComparisonData(officeId: string): Promise<void> {
     try {
       const now = new Date();
-      const currentYearMonth = now.toISOString().substring(0, 7);
+      const currentYearMonth = now.toISOString().substring(0, 7) as YearMonthString;
+      
+      // 先月の年月を計算
+      const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousYearMonth = previousMonth.toISOString().substring(0, 7) as YearMonthString;
 
-      const monthlyPremiums = await firstValueFrom(
-        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, currentYearMonth)
-      );
-      const monthlyTotal = monthlyPremiums.reduce((sum, p) => sum + p.totalEmployer, 0);
+      // 事業所情報を取得
+      const office = await firstValueFrom(this.currentOffice.office$);
+      if (!office) {
+        this.currentMonthComparisonData.set({ labels: [], datasets: [] });
+        return;
+      }
 
+      // 従業員リストを取得（削除された従業員のフィルタリング用）
+      const employees: Employee[] = await firstValueFrom(this.employeesService.list(officeId));
+      const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+      // 賞与保険料を取得（先月と今月の両方で使用）
       const bonusPremiums: BonusPremium[] = await firstValueFrom(
         this.bonusPremiumsService.listByOfficeAndEmployee(officeId)
       );
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      const currentMonthBonuses = bonusPremiums.filter((b) => {
-        const payDate = new Date(b.payDate);
-        return payDate >= currentMonthStart && payDate < nextMonthStart;
-      });
-      const bonusTotal = currentMonthBonuses.reduce((sum, b) => sum + b.totalEmployer, 0);
+
+      const monthlyTotals: number[] = [];
+      const bonusTotals: number[] = [];
+
+      // 先月と今月の両方を計算
+      for (const yearMonth of [previousYearMonth, currentYearMonth]) {
+        // 月次保険料を取得
+        const monthlyPremiums = await firstValueFrom(
+          this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
+        );
+        const monthlyTotal = this.calculateMonthlyPremiumEmployerTotal(monthlyPremiums, employeeMap);
+        monthlyTotals.push(monthlyTotal);
+
+        // 賞与保険料を取得
+        const [year, month] = yearMonth.split('-').map(Number);
+        const monthStart = new Date(year, month - 1, 1);
+        const monthEnd = new Date(year, month, 1);
+        const monthBonuses = bonusPremiums.filter((b) => {
+          const payDate = new Date(b.payDate);
+          return payDate >= monthStart && payDate < monthEnd;
+        });
+        const bonusTotal = await this.calculateBonusPremiumEmployerTotal(
+          monthBonuses,
+          employeeMap,
+          office,
+          yearMonth
+        );
+        bonusTotals.push(bonusTotal);
+      }
 
       this.currentMonthComparisonData.set({
-        labels: ['今月の保険料負担'],
+        labels: ['先月', '今月'],
         datasets: [
           {
             label: '月次保険料',
-            data: [monthlyTotal],
-            backgroundColor: 'rgba(54, 162, 235, 0.5)'
+            data: monthlyTotals,
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            categoryPercentage: 0.65,
+            barPercentage: 0.65,
+            maxBarThickness: 40
           },
           {
             label: '賞与保険料',
-            data: [bonusTotal],
-            backgroundColor: 'rgba(255, 99, 132, 0.5)'
+            data: bonusTotals,
+            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+            categoryPercentage: 0.65,
+            barPercentage: 0.65,
+            maxBarThickness: 40
           }
         ]
       });
     } catch (error) {
-      console.error('当月の比較データの取得に失敗しました', error);
+      console.error('先月・今月の比較データの取得に失敗しました', error);
       this.currentMonthComparisonData.set({ labels: [], datasets: [] });
     }
   }
@@ -896,6 +1020,18 @@ export class DashboardPage implements OnInit {
       const monthlyTotals: number[] = [];
       const bonusTotals: number[] = [];
 
+      // 事業所情報を取得
+      const office = await firstValueFrom(this.currentOffice.office$);
+      if (!office) {
+        this.fiscalYearComparisonData.set({ labels: [], datasets: [] });
+        return;
+      }
+
+      // 従業員リストを取得（削除された従業員のフィルタリング用）
+      const employees: Employee[] = await firstValueFrom(this.employeesService.list(officeId));
+      const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+      // 賞与保険料を取得
       const allBonusPremiums: BonusPremium[] = await firstValueFrom(
         this.bonusPremiumsService.listByOfficeAndEmployee(officeId)
       );
@@ -904,11 +1040,11 @@ export class DashboardPage implements OnInit {
         let monthlyTotal = 0;
         for (let i = 0; i < 12; i++) {
           const date = new Date(fiscalYear, 3 + i, 1);
-          const yearMonth = date.toISOString().substring(0, 7);
+          const yearMonth = date.toISOString().substring(0, 7) as YearMonthString;
           const premiums = await firstValueFrom(
             this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
           );
-          monthlyTotal += premiums.reduce((sum, p) => sum + p.totalEmployer, 0);
+          monthlyTotal += this.calculateMonthlyPremiumEmployerTotal(premiums, employeeMap);
         }
         monthlyTotals.push(monthlyTotal);
 
@@ -918,7 +1054,24 @@ export class DashboardPage implements OnInit {
           const payDate = new Date(b.payDate);
           return payDate >= fiscalYearStart && payDate < fiscalYearEnd;
         });
-        const bonusTotal = fiscalYearBonuses.reduce((sum, b) => sum + b.totalEmployer, 0);
+
+        // 年度内の各月について賞与保険料を計算して合計
+        let bonusTotal = 0;
+        for (let i = 0; i < 12; i++) {
+          const date = new Date(fiscalYear, 3 + i, 1);
+          const yearMonth = date.toISOString().substring(0, 7) as YearMonthString;
+          // その月の賞与をフィルタリング
+          const monthBonuses = fiscalYearBonuses.filter((b) => {
+            const payDateYearMonth = b.payDate.substring(0, 7) as YearMonthString;
+            return payDateYearMonth === yearMonth;
+          });
+          bonusTotal += await this.calculateBonusPremiumEmployerTotal(
+            monthBonuses,
+            employeeMap,
+            office,
+            yearMonth
+          );
+        }
         bonusTotals.push(bonusTotal);
       }
 
@@ -928,12 +1081,18 @@ export class DashboardPage implements OnInit {
           {
             label: '月次保険料',
             data: monthlyTotals,
-            backgroundColor: 'rgba(54, 162, 235, 0.5)'
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            categoryPercentage: 0.65,
+            barPercentage: 0.65,
+            maxBarThickness: 40
           },
           {
             label: '賞与保険料',
             data: bonusTotals,
-            backgroundColor: 'rgba(255, 99, 132, 0.5)'
+            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+            categoryPercentage: 0.65,
+            barPercentage: 0.65,
+            maxBarThickness: 40
           }
         ]
       });

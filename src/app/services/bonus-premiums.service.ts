@@ -542,4 +542,45 @@ export class BonusPremiumsService {
       await setDoc(doc(ref, bonus.id), updated, { merge: true });
     }
   }
+
+  /**
+   * 指定事業所・指定年月の賞与保険料サマリーを計算する
+   * 賞与保険料ページのサマリー計算ロジックと同じ
+   *
+   * @param officeId - 事業所ID
+   * @param yearMonth - 対象年月（YYYY-MM形式）
+   * @returns サマリー情報（健康・介護保険と厚生年金の会社負担を含む）
+   */
+  async calculateSummary(
+    officeId: string,
+    yearMonth: YearMonthString
+  ): Promise<{
+    healthCareEmployer: number;
+    pensionEmployer: number;
+  }> {
+    const bonuses = await firstValueFrom(
+      this.listByOfficeAndYearMonth(officeId, yearMonth)
+    );
+
+    // 健康・介護保険の会社負担（賞与保険料ページのhealthSummaryと同じ計算）
+    const healthCareEmployee = bonuses.reduce((sum, b) => sum + (b.healthCareEmployee ?? 0), 0);
+    const healthCareFull = bonuses.reduce((sum, b) => sum + (b.healthCareFull ?? 0), 0);
+    // 浮動小数点誤差対策
+    const healthCareFullRounded = Math.round(healthCareFull * 100) / 100;
+    const healthCareFullRoundedDown = Math.floor(healthCareFullRounded);
+    const healthCareEmployer = healthCareFullRoundedDown - healthCareEmployee;
+
+    // 厚生年金の会社負担（賞与保険料ページのpensionSummaryと同じ計算）
+    const pensionEmployee = bonuses.reduce((sum, b) => sum + (b.pensionEmployee ?? 0), 0);
+    const pensionFull = bonuses.reduce((sum, b) => sum + (b.pensionFull ?? 0), 0);
+    // 浮動小数点誤差対策
+    const pensionFullRounded = Math.round(pensionFull * 100) / 100;
+    const pensionFullRoundedDown = Math.floor(pensionFullRounded);
+    const pensionEmployer = pensionFullRoundedDown - pensionEmployee;
+
+    return {
+      healthCareEmployer,
+      pensionEmployer
+    };
+  }
 }

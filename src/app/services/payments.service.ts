@@ -5,6 +5,7 @@ import {
   collectionData,
   doc,
   docData,
+  deleteDoc,
   limit,
   orderBy,
   query,
@@ -38,34 +39,23 @@ export class PaymentsService {
     officeId: string,
     targetYearMonth: YearMonthString
   ): Promise<{
-    plannedHealthCompany: number;
-    plannedCareCompany: number;
+    plannedHealthCareCompany: number;
     plannedPensionCompany: number;
     plannedTotalCompany: number;
   }> {
-    const monthlyPremiums = await firstValueFrom(
-      this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, targetYearMonth)
-    );
+    // 月次保険料と賞与保険料のサマリーをそれぞれ取得
+    const [monthlySummary, bonusSummary] = await Promise.all([
+      this.monthlyPremiumsService.calculateSummary(officeId, targetYearMonth),
+      this.bonusPremiumsService.calculateSummary(officeId, targetYearMonth)
+    ]);
 
-    const monthlyHealth = monthlyPremiums.reduce((sum, p) => sum + (p.healthEmployer ?? 0), 0);
-    const monthlyCare = monthlyPremiums.reduce((sum, p) => sum + (p.careEmployer ?? 0), 0);
-    const monthlyPension = monthlyPremiums.reduce((sum, p) => sum + (p.pensionEmployer ?? 0), 0);
-
-    const bonusPremiums = await firstValueFrom(
-      this.bonusPremiumsService.listByOfficeAndYearMonth(officeId, targetYearMonth)
-    );
-
-    const bonusHealth = bonusPremiums.reduce((sum, b) => sum + (b.healthEmployer ?? 0), 0);
-    const bonusPension = bonusPremiums.reduce((sum, b) => sum + (b.pensionEmployer ?? 0), 0);
-
-    const plannedHealthCompany = monthlyHealth + bonusHealth;
-    const plannedCareCompany = monthlyCare;
-    const plannedPensionCompany = monthlyPension + bonusPension;
-    const plannedTotalCompany = plannedHealthCompany + plannedCareCompany + plannedPensionCompany;
+    // 月次と賞与の会社負担を合算
+    const plannedHealthCareCompany = monthlySummary.healthCareEmployer + bonusSummary.healthCareEmployer;
+    const plannedPensionCompany = monthlySummary.pensionEmployer + bonusSummary.pensionEmployer;
+    const plannedTotalCompany = plannedHealthCareCompany + plannedPensionCompany;
 
     return {
-      plannedHealthCompany,
-      plannedCareCompany,
+      plannedHealthCareCompany,
       plannedPensionCompany,
       plannedTotalCompany
     };
@@ -75,14 +65,17 @@ export class PaymentsService {
     officeId: string,
     dto: {
       targetYearMonth: YearMonthString;
-      plannedHealthCompany?: number;
-      plannedCareCompany?: number;
+      plannedHealthCareCompany?: number;
       plannedPensionCompany?: number;
       plannedTotalCompany?: number;
-      actualHealthCompany?: number | null;
-      actualCareCompany?: number | null;
+      actualHealthCareCompany?: number | null;
       actualPensionCompany?: number | null;
       actualTotalCompany?: number | null;
+      // 後方互換用（deprecated）
+      plannedHealthCompany?: number;
+      plannedCareCompany?: number;
+      actualHealthCompany?: number | null;
+      actualCareCompany?: number | null;
       paymentStatus?: PaymentStatus;
       paymentMethod?: PaymentMethod | null;
       paymentMethodNote?: string | null;
@@ -97,21 +90,20 @@ export class PaymentsService {
     const now = new Date().toISOString().slice(0, 10);
 
     const allPlannedMissing =
-      dto.plannedHealthCompany == null &&
-      dto.plannedCareCompany == null &&
+      dto.plannedHealthCareCompany == null &&
       dto.plannedPensionCompany == null &&
       dto.plannedTotalCompany == null;
 
     const plannedAmounts = allPlannedMissing
       ? await this.calculatePlannedAmounts(officeId, dto.targetYearMonth)
       : {
-          plannedHealthCompany: dto.plannedHealthCompany ?? 0,
-          plannedCareCompany: dto.plannedCareCompany ?? 0,
+          plannedHealthCareCompany: dto.plannedHealthCareCompany ?? 
+            ((dto.plannedHealthCompany ?? 0) + (dto.plannedCareCompany ?? 0)),
           plannedPensionCompany: dto.plannedPensionCompany ?? 0,
           plannedTotalCompany:
             dto.plannedTotalCompany ??
-            ((dto.plannedHealthCompany ?? 0) +
-              (dto.plannedCareCompany ?? 0) +
+            ((dto.plannedHealthCareCompany ?? 
+              ((dto.plannedHealthCompany ?? 0) + (dto.plannedCareCompany ?? 0))) +
               (dto.plannedPensionCompany ?? 0))
         };
 
@@ -120,8 +112,10 @@ export class PaymentsService {
       officeId,
       targetYearMonth: dto.targetYearMonth,
       ...plannedAmounts,
-      actualHealthCompany: dto.actualHealthCompany ?? null,
-      actualCareCompany: dto.actualCareCompany ?? null,
+      actualHealthCareCompany: dto.actualHealthCareCompany ?? 
+        ((dto.actualHealthCompany != null && dto.actualCareCompany != null)
+          ? (dto.actualHealthCompany + dto.actualCareCompany)
+          : null),
       actualPensionCompany: dto.actualPensionCompany ?? null,
       actualTotalCompany: dto.actualTotalCompany ?? null,
       paymentStatus: dto.paymentStatus ?? 'unpaid',
@@ -171,14 +165,17 @@ export class PaymentsService {
     officeId: string,
     targetYearMonth: YearMonthString,
     dto: {
-      plannedHealthCompany?: number;
-      plannedCareCompany?: number;
+      plannedHealthCareCompany?: number;
       plannedPensionCompany?: number;
       plannedTotalCompany?: number;
-      actualHealthCompany?: number | null;
-      actualCareCompany?: number | null;
+      actualHealthCareCompany?: number | null;
       actualPensionCompany?: number | null;
       actualTotalCompany?: number | null;
+      // 後方互換用（deprecated）
+      plannedHealthCompany?: number;
+      plannedCareCompany?: number;
+      actualHealthCompany?: number | null;
+      actualCareCompany?: number | null;
       paymentStatus?: PaymentStatus;
       paymentMethod?: PaymentMethod | null;
       paymentMethodNote?: string | null;
@@ -196,12 +193,24 @@ export class PaymentsService {
       updatedByUserId
     };
 
-    if (dto.plannedHealthCompany != null) updateData.plannedHealthCompany = dto.plannedHealthCompany;
-    if (dto.plannedCareCompany != null) updateData.plannedCareCompany = dto.plannedCareCompany;
+    if (dto.plannedHealthCareCompany != null) {
+      updateData.plannedHealthCareCompany = dto.plannedHealthCareCompany;
+    } else if (dto.plannedHealthCompany != null || dto.plannedCareCompany != null) {
+      // 後方互換：旧フィールドから新フィールドに変換
+      updateData.plannedHealthCareCompany = (dto.plannedHealthCompany ?? 0) + (dto.plannedCareCompany ?? 0);
+    }
     if (dto.plannedPensionCompany != null) updateData.plannedPensionCompany = dto.plannedPensionCompany;
     if (dto.plannedTotalCompany != null) updateData.plannedTotalCompany = dto.plannedTotalCompany;
-    if (dto.actualHealthCompany !== undefined) updateData.actualHealthCompany = dto.actualHealthCompany;
-    if (dto.actualCareCompany !== undefined) updateData.actualCareCompany = dto.actualCareCompany;
+    if (dto.actualHealthCareCompany !== undefined) {
+      updateData.actualHealthCareCompany = dto.actualHealthCareCompany;
+    } else if (dto.actualHealthCompany !== undefined || dto.actualCareCompany !== undefined) {
+      // 後方互換：旧フィールドから新フィールドに変換
+      if (dto.actualHealthCompany != null && dto.actualCareCompany != null) {
+        updateData.actualHealthCareCompany = dto.actualHealthCompany + dto.actualCareCompany;
+      } else {
+        updateData.actualHealthCareCompany = null;
+      }
+    }
     if (dto.actualPensionCompany !== undefined) updateData.actualPensionCompany = dto.actualPensionCompany;
     if (dto.actualTotalCompany !== undefined) updateData.actualTotalCompany = dto.actualTotalCompany;
     if (dto.paymentStatus != null) updateData.paymentStatus = dto.paymentStatus;
@@ -211,5 +220,11 @@ export class PaymentsService {
     if (dto.memo !== undefined) updateData.memo = dto.memo;
 
     await updateDoc(docRef, updateData);
+  }
+
+  async delete(officeId: string, targetYearMonth: YearMonthString): Promise<void> {
+    const collectionRef = this.getCollectionRef(officeId);
+    const docRef = doc(collectionRef, targetYearMonth);
+    await deleteDoc(docRef);
   }
 }

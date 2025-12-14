@@ -49,17 +49,13 @@ export interface PaymentFormDialogData {
 
         <div class="section-title">予定額（会社負担）</div>
         <div class="field-help">
-          給与・賞与から計算した、会社が負担する予定の保険料を入力してください。
+          給与・賞与から計算した、会社が負担する予定の保険料を入力してください。<br />
+          月次保険料ページと賞与保険料ページのサマリーから値を参照できます。
         </div>
 
         <mat-form-field appearance="outline">
-          <mat-label>健康保険（会社負担）</mat-label>
-          <input matInput type="number" formControlName="plannedHealthCompany" min="0" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>介護保険（会社負担）</mat-label>
-          <input matInput type="number" formControlName="plannedCareCompany" min="0" />
+          <mat-label>健康・介護保険（会社負担）</mat-label>
+          <input matInput type="number" formControlName="plannedHealthCareCompany" min="0" />
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -72,30 +68,14 @@ export interface PaymentFormDialogData {
           <strong>¥{{ plannedTotalCompany | number }}</strong>
         </div>
 
-        <button
-          *ngIf="!data.payment"
-          type="button"
-          mat-stroked-button
-          color="primary"
-          (click)="autoCalculate()"
-        >
-          <mat-icon>calculate</mat-icon>
-          予定額を自動計算
-        </button>
-
         <div class="section-title">納付額（会社負担）</div>
         <div class="field-help">
           実際に支払った会社負担分の保険料を入力してください。まだ納付していない場合は空欄で構いません。
         </div>
 
         <mat-form-field appearance="outline">
-          <mat-label>健康保険（会社負担）</mat-label>
-          <input matInput type="number" formControlName="actualHealthCompany" min="0" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>介護保険（会社負担）</mat-label>
-          <input matInput type="number" formControlName="actualCareCompany" min="0" />
+          <mat-label>健康・介護保険（会社負担）</mat-label>
+          <input matInput type="number" formControlName="actualHealthCareCompany" min="0" />
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -256,14 +236,24 @@ export class PaymentFormDialogComponent {
       { value: this.data.payment?.targetYearMonth ?? '', disabled: Boolean(this.data.payment) },
       Validators.required
     ],
-    plannedHealthCompany: [this.data.payment?.plannedHealthCompany ?? 0, [Validators.required, Validators.min(0)]],
-    plannedCareCompany: [this.data.payment?.plannedCareCompany ?? 0, [Validators.required, Validators.min(0)]],
+    plannedHealthCareCompany: [
+      this.data.payment?.plannedHealthCareCompany ?? 
+      (this.data.payment?.plannedHealthCompany != null && this.data.payment?.plannedCareCompany != null
+        ? (this.data.payment.plannedHealthCompany + this.data.payment.plannedCareCompany)
+        : 0),
+      [Validators.required, Validators.min(0)]
+    ],
     plannedPensionCompany: [
       this.data.payment?.plannedPensionCompany ?? 0,
       [Validators.required, Validators.min(0)]
     ],
-    actualHealthCompany: [this.data.payment?.actualHealthCompany ?? null, [Validators.min(0)]],
-    actualCareCompany: [this.data.payment?.actualCareCompany ?? null, [Validators.min(0)]],
+    actualHealthCareCompany: [
+      this.data.payment?.actualHealthCareCompany ?? 
+      (this.data.payment?.actualHealthCompany != null && this.data.payment?.actualCareCompany != null
+        ? (this.data.payment.actualHealthCompany + this.data.payment.actualCareCompany)
+        : null),
+      [Validators.min(0)]
+    ],
     actualPensionCompany: [this.data.payment?.actualPensionCompany ?? null, [Validators.min(0)]],
     paymentStatus: [this.data.payment?.paymentStatus ?? 'unpaid', Validators.required],
     paymentMethod: [this.data.payment?.paymentMethod ?? null],
@@ -275,22 +265,20 @@ export class PaymentFormDialogComponent {
   get plannedTotalCompany(): number {
     const raw = this.form.getRawValue();
     return (
-      this.toNumber(raw.plannedHealthCompany) +
-      this.toNumber(raw.plannedCareCompany) +
+      this.toNumber(raw.plannedHealthCareCompany) +
       this.toNumber(raw.plannedPensionCompany)
     );
   }
 
   get actualTotalCompany(): number | null {
     const raw = this.form.getRawValue();
-    const actualHealth = this.toNullableNumber(raw.actualHealthCompany);
-    const actualCare = this.toNullableNumber(raw.actualCareCompany);
+    const actualHealthCare = this.toNullableNumber(raw.actualHealthCareCompany);
     const actualPension = this.toNullableNumber(raw.actualPensionCompany);
-    const hasActual = [actualHealth, actualCare, actualPension].some((v) => v != null);
+    const hasActual = [actualHealthCare, actualPension].some((v) => v != null);
 
     if (!hasActual) return null;
 
-    return (actualHealth ?? 0) + (actualCare ?? 0) + (actualPension ?? 0);
+    return (actualHealthCare ?? 0) + (actualPension ?? 0);
   }
 
   get paidRequiresActualAndDateError(): boolean {
@@ -317,20 +305,6 @@ export class PaymentFormDialogComponent {
     return Number.isFinite(num) ? num : null;
   }
 
-  async autoCalculate(): Promise<void> {
-    if (this.form.get('targetYearMonth')?.invalid) {
-      return;
-    }
-    const targetYearMonth = this.form.get('targetYearMonth')?.value as string;
-    const amounts = await this.paymentsService.calculatePlannedAmounts(this.data.officeId, targetYearMonth);
-
-    this.form.patchValue({
-      plannedHealthCompany: amounts.plannedHealthCompany,
-      plannedCareCompany: amounts.plannedCareCompany,
-      plannedPensionCompany: amounts.plannedPensionCompany
-    });
-  }
-
   async submit(): Promise<void> {
     // 通常のバリデーション + カスタム条件をまとめてチェック
     if (this.form.invalid || this.paidRequiresActualAndDateError) {
@@ -354,18 +328,15 @@ export class PaymentFormDialogComponent {
       return;
     }
 
-    const plannedHealthCompany = this.toNumber(raw.plannedHealthCompany);
-    const plannedCareCompany = this.toNumber(raw.plannedCareCompany);
+    const plannedHealthCareCompany = this.toNumber(raw.plannedHealthCareCompany);
     const plannedPensionCompany = this.toNumber(raw.plannedPensionCompany);
-    const plannedTotalCompany =
-      plannedHealthCompany + plannedCareCompany + plannedPensionCompany;
+    const plannedTotalCompany = plannedHealthCareCompany + plannedPensionCompany;
 
-    const actualHealthCompany = this.toNullableNumber(raw.actualHealthCompany);
-    const actualCareCompany = this.toNullableNumber(raw.actualCareCompany);
+    const actualHealthCareCompany = this.toNullableNumber(raw.actualHealthCareCompany);
     const actualPensionCompany = this.toNullableNumber(raw.actualPensionCompany);
-    const hasActual = [actualHealthCompany, actualCareCompany, actualPensionCompany].some((v) => v != null);
+    const hasActual = [actualHealthCareCompany, actualPensionCompany].some((v) => v != null);
     const actualTotalCompany = hasActual
-      ? (actualHealthCompany ?? 0) + (actualCareCompany ?? 0) + (actualPensionCompany ?? 0)
+      ? (actualHealthCareCompany ?? 0) + (actualPensionCompany ?? 0)
       : null;
 
     const paymentStatus = raw.paymentStatus as PaymentStatus;
@@ -384,12 +355,10 @@ export class PaymentFormDialogComponent {
         this.data.officeId,
         this.data.payment.targetYearMonth,
         {
-          plannedHealthCompany,
-          plannedCareCompany,
+          plannedHealthCareCompany,
           plannedPensionCompany,
           plannedTotalCompany,
-          actualHealthCompany,
-          actualCareCompany,
+          actualHealthCareCompany,
           actualPensionCompany,
           actualTotalCompany,
           paymentStatus,
@@ -405,12 +374,10 @@ export class PaymentFormDialogComponent {
         this.data.officeId,
         {
           targetYearMonth,
-          plannedHealthCompany,
-          plannedCareCompany,
+          plannedHealthCareCompany,
           plannedPensionCompany,
           plannedTotalCompany,
-          actualHealthCompany,
-          actualCareCompany,
+          actualHealthCareCompany,
           actualPensionCompany,
           actualTotalCompany,
           paymentStatus,

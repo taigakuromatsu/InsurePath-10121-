@@ -385,7 +385,8 @@ export class RequestsPage {
       if (!officeId) return of([] as ChangeRequest[]);
       return this.changeRequestsService.list(
         officeId,
-        status === 'all' ? undefined : status
+        status === 'all' ? undefined : status,
+        200 // 申請管理ページは200件まで表示
       );
     })
   );

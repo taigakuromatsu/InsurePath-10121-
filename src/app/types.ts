@@ -27,15 +27,23 @@ export interface SocialInsurancePayment {
   officeId: string;
   targetYearMonth: string;
 
-  plannedHealthCompany: number;
-  plannedCareCompany: number;
+  plannedHealthCareCompany: number; // 健康・介護保険（会社負担）の合算
   plannedPensionCompany: number;
   plannedTotalCompany: number;
 
-  actualHealthCompany: number | null;
-  actualCareCompany: number | null;
+  actualHealthCareCompany: number | null; // 健康・介護保険（会社負担）の合算
   actualPensionCompany: number | null;
   actualTotalCompany: number | null;
+
+  // 後方互換用（deprecated）
+  /** @deprecated plannedHealthCareCompany を使用してください */
+  plannedHealthCompany?: number;
+  /** @deprecated plannedHealthCareCompany に統合されました */
+  plannedCareCompany?: number;
+  /** @deprecated actualHealthCareCompany を使用してください */
+  actualHealthCompany?: number | null;
+  /** @deprecated actualHealthCareCompany に統合されました */
+  actualCareCompany?: number | null;
 
   paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod | null;

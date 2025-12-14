@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { firstValueFrom, of, switchMap } from 'rxjs';
 
@@ -12,6 +13,7 @@ import { CurrentUserService } from '../../services/current-user.service';
 import { PaymentsService } from '../../services/payments.service';
 import { PaymentMethod, PaymentStatus, SocialInsurancePayment } from '../../types';
 import { PaymentFormDialogComponent } from './payment-form-dialog.component';
+import { ConfirmDialogComponent } from '../../components/confirm-dialog.component';
 
 @Component({
   selector: 'ip-payments-page',
@@ -22,6 +24,7 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
     MatButtonModule,
     MatIconModule,
     MatDialogModule,
+    MatSnackBarModule,
     AsyncPipe,
     NgIf,
     DecimalPipe
@@ -108,6 +111,10 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
                     <mat-icon>edit</mat-icon>
                     編集
                   </button>
+                  <button mat-stroked-button color="warn" (click)="deletePayment(row)">
+                    <mat-icon>delete</mat-icon>
+                    削除
+                  </button>
                 </td>
               </ng-container>
 
@@ -174,6 +181,12 @@ import { PaymentFormDialogComponent } from './payment-form-dialog.component';
         text-align: center;
       }
 
+      .actions-cell {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+      }
+
       .actions-cell button {
         display: inline-flex;
         align-items: center;
@@ -226,6 +239,7 @@ export class PaymentsPage {
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly dialog = inject(MatDialog);
   private readonly currentUser = inject(CurrentUserService);
+  private readonly snackBar = inject(MatSnackBar);
 
   readonly displayedColumns = [
     'targetYearMonth',
@@ -286,9 +300,44 @@ export class PaymentsPage {
     const profile = await firstValueFrom(this.currentUser.profile$);
     if (!profile?.officeId) return;
 
-    this.dialog.open(PaymentFormDialogComponent, {
+    const dialogRef = this.dialog.open(PaymentFormDialogComponent, {
       width: '720px',
       data: { officeId: profile.officeId, payment }
     });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result) {
+        // 編集後に一覧を再読み込み（payments$は自動的に更新される）
+      }
+    });
+  }
+
+  async deletePayment(payment: SocialInsurancePayment): Promise<void> {
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
+    if (!officeId) return;
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: '納付状況を削除しますか？',
+        message: `対象年月「${payment.targetYearMonth}」の納付状況を削除します。この操作は取り消せません。`,
+        confirmLabel: '削除',
+        cancelLabel: 'キャンセル'
+      }
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
+    if (!confirmed) return;
+
+    try {
+      await this.paymentsService.delete(officeId, payment.targetYearMonth);
+      this.snackBar.open('納付状況を削除しました', undefined, { duration: 2500 });
+      // payments$は自動的に更新される（Observableのため）
+    } catch (error) {
+      console.error('納付状況の削除に失敗しました', error);
+      this.snackBar.open('削除に失敗しました。時間をおいて再度お試しください。', undefined, {
+        duration: 3000
+      });
+    }
   }
 }
