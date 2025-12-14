@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   collection,
   collectionData,
@@ -17,10 +17,19 @@ import { DependentReviewSession } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class DependentReviewSessionsService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(private readonly firestore: Firestore) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private collectionPath(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'dependentReviewSessions');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'dependentReviewSessions'));
   }
 
   async create(
@@ -33,6 +42,7 @@ export class DependentReviewSessionsService {
     },
     createdByUserId: string
   ): Promise<string> {
+    return this.inCtxAsync(async () => {
     const ref = this.collectionPath(officeId);
     const docRef = doc(ref);
     const now = new Date().toISOString();
@@ -57,20 +67,25 @@ export class DependentReviewSessionsService {
 
     await setDoc(docRef, payload);
     return docRef.id;
+    });
   }
 
   list(officeId: string): Observable<DependentReviewSession[]> {
+    return this.inCtx(() => {
     const ref = this.collectionPath(officeId);
     const q = query(ref, orderBy('checkedAt', 'desc'));
     return collectionData(q, { idField: 'id' }) as Observable<DependentReviewSession[]>;
+    });
   }
 
   async get(officeId: string, sessionId: string): Promise<DependentReviewSession | null> {
+    return this.inCtxAsync(async () => {
     const ref = this.collectionPath(officeId);
     const docRef = doc(ref, sessionId);
     const snap = await getDoc(docRef);
     if (!snap.exists()) return null;
     return snap.data() as DependentReviewSession;
+    });
   }
 
   async update(
@@ -79,6 +94,7 @@ export class DependentReviewSessionsService {
     updates: Partial<DependentReviewSession>,
     updatedByUserId: string
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = this.collectionPath(officeId);
     const docRef = doc(ref, sessionId);
     const now = new Date().toISOString();
@@ -90,11 +106,14 @@ export class DependentReviewSessionsService {
     };
 
     await updateDoc(docRef, payload);
+    });
   }
 
   async delete(officeId: string, sessionId: string): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = this.collectionPath(officeId);
     const docRef = doc(ref, sessionId);
     await deleteDoc(docRef);
+    });
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   collection,
   collectionData,
@@ -19,29 +19,40 @@ import { EmployeesService } from './employees.service';
 
 @Injectable({ providedIn: 'root' })
 export class StandardRewardHistoryService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(
     private readonly firestore: Firestore,
     private readonly currentUserService: CurrentUserService,
     private readonly employeesService: EmployeesService
   ) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private collectionPath(officeId: string, employeeId: string) {
-    return collection(
+    return this.inCtx(() => collection(
       this.firestore,
       'offices',
       officeId,
       'employees',
       employeeId,
       'standardRewardHistories'
-    );
+    ));
   }
 
   list(officeId: string, employeeId: string): Observable<StandardRewardHistory[]> {
-    const ref = query(
-      this.collectionPath(officeId, employeeId),
-      orderBy('decisionYearMonth', 'desc')
-    );
-    return collectionData(ref, { idField: 'id' }) as Observable<StandardRewardHistory[]>;
+    return this.inCtx(() => {
+      const ref = query(
+        this.collectionPath(officeId, employeeId),
+        orderBy('decisionYearMonth', 'desc')
+      );
+      return collectionData(ref, { idField: 'id' }) as Observable<StandardRewardHistory[]>;
+    });
   }
 
   /**
@@ -52,12 +63,14 @@ export class StandardRewardHistoryService {
     employeeId: string,
     insuranceKind: InsuranceKind
   ): Observable<StandardRewardHistory[]> {
-    const ref = query(
-      this.collectionPath(officeId, employeeId),
-      where('insuranceKind', '==', insuranceKind),
-      orderBy('decisionYearMonth', 'desc')
-    );
-    return collectionData(ref, { idField: 'id' }) as Observable<StandardRewardHistory[]>;
+    return this.inCtx(() => {
+      const ref = query(
+        this.collectionPath(officeId, employeeId),
+        where('insuranceKind', '==', insuranceKind),
+        orderBy('decisionYearMonth', 'desc')
+      );
+      return collectionData(ref, { idField: 'id' }) as Observable<StandardRewardHistory[]>;
+    });
   }
 
   /**
@@ -68,14 +81,16 @@ export class StandardRewardHistoryService {
     employeeId: string,
     insuranceKind: InsuranceKind
   ): Promise<StandardRewardHistory | null> {
-    const ref = query(
-      this.collectionPath(officeId, employeeId),
-      where('insuranceKind', '==', insuranceKind),
-      orderBy('appliedFromYearMonth', 'desc'),
-      limit(1)
-    );
-    const snapshot = await firstValueFrom(collectionData(ref, { idField: 'id' }));
-    return snapshot.length > 0 ? (snapshot[0] as StandardRewardHistory) : null;
+    return this.inCtxAsync(async () => {
+      const ref = query(
+        this.collectionPath(officeId, employeeId),
+        where('insuranceKind', '==', insuranceKind),
+        orderBy('appliedFromYearMonth', 'desc'),
+        limit(1)
+      );
+      const snapshot = await firstValueFrom(collectionData(ref, { idField: 'id' }));
+      return snapshot.length > 0 ? (snapshot[0] as StandardRewardHistory) : null;
+    });
   }
 
   async save(
@@ -83,8 +98,9 @@ export class StandardRewardHistoryService {
     employeeId: string,
     history: Partial<StandardRewardHistory> & { id?: string }
   ): Promise<void> {
-    const historiesRef = this.collectionPath(officeId, employeeId);
-    const ref = history.id ? doc(historiesRef, history.id) : doc(historiesRef);
+    return this.inCtxAsync(async () => {
+      const historiesRef = this.collectionPath(officeId, employeeId);
+      const ref = history.id ? doc(historiesRef, history.id) : doc(historiesRef);
     const now = new Date().toISOString();
     const currentUser = await firstValueFrom(this.currentUserService.profile$);
 
@@ -118,11 +134,12 @@ export class StandardRewardHistoryService {
       payload.createdByUserId = history.createdByUserId;
     }
 
-    await setDoc(ref, payload, { merge: true });
+      await setDoc(ref, payload, { merge: true });
 
-    // 保存後にEmployeeを同期
-    const insuranceKind = payload.insuranceKind ?? 'health';
-    await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
+      // 保存後にEmployeeを同期
+      const insuranceKind = payload.insuranceKind ?? 'health';
+      await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
+    });
   }
 
   /**
@@ -180,12 +197,14 @@ export class StandardRewardHistoryService {
     historyId: string,
     insuranceKind?: InsuranceKind
   ): Promise<void> {
-    const ref = doc(this.collectionPath(officeId, employeeId), historyId);
-    await deleteDoc(ref);
+    return this.inCtxAsync(async () => {
+      const ref = doc(this.collectionPath(officeId, employeeId), historyId);
+      await deleteDoc(ref);
 
-    // 保険種別が分かる場合は削除後に同期
-    if (insuranceKind) {
-      await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
-    }
+      // 保険種別が分かる場合は削除後に同期
+      if (insuranceKind) {
+        await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
+      }
+    });
   }
 }

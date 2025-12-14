@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -15,7 +15,16 @@ import { Employee, EmployeePortal } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class EmployeesService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(private readonly firestore: Firestore) {}
+
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
 
   /**
    * 第一階層の undefined を除去したオブジェクトを返す（null / undefined はそのまま返す）
@@ -36,10 +45,11 @@ export class EmployeesService {
   }
 
   private collectionPath(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'employees');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'employees'));
   }
 
   get(officeId: string, employeeId: string): Observable<Employee | null> {
+    return this.inCtx(() => {
     const ref = doc(this.collectionPath(officeId), employeeId);
     return from(getDoc(ref)).pipe(
       map((snapshot) => {
@@ -50,10 +60,12 @@ export class EmployeesService {
         return { id: snapshot.id, ...(snapshot.data() as any) } as Employee;
       })
     );
+    });
   }
 
   // ★ここは getDocs に戻す（元の形）
   list(officeId: string): Observable<Employee[]> {
+    return this.inCtx(() => {
     const ref = this.collectionPath(officeId);
     return from(getDocs(ref)).pipe(
       map((snapshot) =>
@@ -66,12 +78,14 @@ export class EmployeesService {
         )
       )
     );
+    });
   }
 
   async save(
     officeId: string,
     employee: Partial<Employee> & { id?: string }
   ): Promise<string> {
+    return this.inCtxAsync(async () => {
     const employeesRef = this.collectionPath(officeId);
     const ref = employee.id ? doc(employeesRef, employee.id) : doc(employeesRef);
     const now = new Date().toISOString();
@@ -247,11 +261,14 @@ export class EmployeesService {
 
     await setDoc(ref, processedPayload, { merge: true });
     return ref.id;
+    });
   }
 
   delete(officeId: string, employeeId: string): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = doc(this.collectionPath(officeId), employeeId);
     return deleteDoc(ref);
+    });
   }
 
   async updatePortal(
@@ -260,6 +277,7 @@ export class EmployeesService {
     portal: EmployeePortal,
     updatedByUserId?: string
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = doc(this.collectionPath(officeId), employeeId);
     const now = new Date().toISOString();
 
@@ -273,6 +291,7 @@ export class EmployeesService {
     }
 
     await setDoc(ref, payload, { merge: true });
+    });
   }
 }
 

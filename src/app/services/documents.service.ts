@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -24,17 +24,26 @@ import { StorageService } from './storage.service';
 
 @Injectable({ providedIn: 'root' })
 export class DocumentsService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(
     private readonly firestore: Firestore,
     private readonly storageService: StorageService
   ) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private documentsCollectionPath(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'documents');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'documents'));
   }
 
   private documentRequestsCollectionPath(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'documentRequests');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'documentRequests'));
   }
 
   /**
@@ -70,36 +79,40 @@ export class DocumentsService {
     employeeId?: string,
     category?: DocumentCategory
   ): Observable<DocumentAttachment[]> {
-    const ref = this.documentsCollectionPath(officeId);
-    const conditions: any[] = [];
+    return this.inCtx(() => {
+      const ref = this.documentsCollectionPath(officeId);
+      const conditions: any[] = [];
 
-    if (employeeId) {
-      conditions.push(where('employeeId', '==', employeeId));
-    }
-    if (category) {
-      conditions.push(where('category', '==', category));
-    }
+      if (employeeId) {
+        conditions.push(where('employeeId', '==', employeeId));
+      }
+      if (category) {
+        conditions.push(where('category', '==', category));
+      }
 
-    const q = query(ref, ...conditions, orderBy('uploadedAt', 'desc'));
+      const q = query(ref, ...conditions, orderBy('uploadedAt', 'desc'));
 
-    return collectionData(q, { idField: 'id' }).pipe(
-      map((docs) => docs as DocumentAttachment[])
-    );
+      return collectionData(q, { idField: 'id' }).pipe(
+        map((docs) => docs as DocumentAttachment[])
+      );
+    });
   }
 
   /**
    * 単一の添付書類を取得
    */
   getAttachment(officeId: string, documentId: string): Observable<DocumentAttachment | null> {
-    const ref = doc(this.documentsCollectionPath(officeId), documentId);
-    return from(getDoc(ref)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
-          return null;
-        }
-        return { id: snapshot.id, ...(snapshot.data() as any) } as DocumentAttachment;
-      })
-    );
+    return this.inCtx(() => {
+      const ref = doc(this.documentsCollectionPath(officeId), documentId);
+      return from(getDoc(ref)).pipe(
+        map((snapshot) => {
+          if (!snapshot.exists()) {
+            return null;
+          }
+          return { id: snapshot.id, ...(snapshot.data() as any) } as DocumentAttachment;
+        })
+      );
+    });
   }
 
   /**
@@ -109,8 +122,9 @@ export class DocumentsService {
     officeId: string,
     attachment: Omit<DocumentAttachment, 'id' | 'officeId' | 'createdAt' | 'updatedAt'>
   ): Promise<void> {
-    const ref = this.documentsCollectionPath(officeId);
-    const docRef = doc(ref);
+    return this.inCtxAsync(async () => {
+      const ref = this.documentsCollectionPath(officeId);
+      const docRef = doc(ref);
     const now = new Date().toISOString();
   
     const payload: DocumentAttachment = {
@@ -122,8 +136,9 @@ export class DocumentsService {
       uploadedAt: attachment.uploadedAt || now
     };
   
-    const cleaned = this.removeUndefinedDeep(payload);
-    await setDoc(docRef, cleaned);
+      const cleaned = this.removeUndefinedDeep(payload);
+      await setDoc(docRef, cleaned);
+    });
   }
   
 
@@ -135,38 +150,42 @@ export class DocumentsService {
     documentId: string,
     updates: Partial<DocumentAttachment>
   ): Promise<void> {
-    const ref = doc(this.documentsCollectionPath(officeId), documentId);
-    const now = new Date().toISOString();
+    return this.inCtxAsync(async () => {
+      const ref = doc(this.documentsCollectionPath(officeId), documentId);
+      const now = new Date().toISOString();
 
-    const updateData: any = {
-      ...updates,
-      updatedAt: now
-    };
+      const updateData: any = {
+        ...updates,
+        updatedAt: now
+      };
 
-    const cleaned = this.removeUndefinedDeep(updateData);
-    await updateDoc(ref, cleaned);
+      const cleaned = this.removeUndefinedDeep(updateData);
+      await updateDoc(ref, cleaned);
+    });
   }
 
   /**
    * 添付書類を削除（StorageとFirestoreの両方から削除）
    */
   async deleteAttachment(officeId: string, documentId: string): Promise<void> {
-    const attachment = await firstValueFrom(
-      this.getAttachment(officeId, documentId)
-    );
-  
-    if (!attachment) {
-      throw new Error('Document not found');
-    }
-  
-    try {
-      await this.storageService.deleteFile(attachment.storagePath);
-    } catch (error) {
-      console.warn('Failed to delete file from Storage:', error);
-    }
-  
-    const ref = doc(this.documentsCollectionPath(officeId), documentId);
-    await deleteDoc(ref);
+    return this.inCtxAsync(async () => {
+      const attachment = await firstValueFrom(
+        this.getAttachment(officeId, documentId)
+      );
+    
+      if (!attachment) {
+        throw new Error('Document not found');
+      }
+    
+      try {
+        await this.storageService.deleteFile(attachment.storagePath);
+      } catch (error) {
+        console.warn('Failed to delete file from Storage:', error);
+      }
+    
+      const ref = doc(this.documentsCollectionPath(officeId), documentId);
+      await deleteDoc(ref);
+    });
   }
 
   // ========== DocumentRequest 関連 ==========
@@ -179,36 +198,40 @@ export class DocumentsService {
     employeeId?: string,
     status?: DocumentRequestStatus
   ): Observable<DocumentRequest[]> {
-    const ref = this.documentRequestsCollectionPath(officeId);
-    const conditions: any[] = [];
+    return this.inCtx(() => {
+      const ref = this.documentRequestsCollectionPath(officeId);
+      const conditions: any[] = [];
 
-    if (employeeId) {
-      conditions.push(where('employeeId', '==', employeeId));
-    }
-    if (status) {
-      conditions.push(where('status', '==', status));
-    }
+      if (employeeId) {
+        conditions.push(where('employeeId', '==', employeeId));
+      }
+      if (status) {
+        conditions.push(where('status', '==', status));
+      }
 
-    const q = query(ref, ...conditions, orderBy('createdAt', 'desc'));
+      const q = query(ref, ...conditions, orderBy('createdAt', 'desc'));
 
-    return collectionData(q, { idField: 'id' }).pipe(
-      map((docs) => docs as DocumentRequest[])
-    );
+      return collectionData(q, { idField: 'id' }).pipe(
+        map((docs) => docs as DocumentRequest[])
+      );
+    });
   }
 
   /**
    * 単一の書類アップロード依頼を取得
    */
   getRequest(officeId: string, requestId: string): Observable<DocumentRequest | null> {
-    const ref = doc(this.documentRequestsCollectionPath(officeId), requestId);
-    return from(getDoc(ref)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
-          return null;
-        }
-        return { id: snapshot.id, ...(snapshot.data() as any) } as DocumentRequest;
-      })
-    );
+    return this.inCtx(() => {
+      const ref = doc(this.documentRequestsCollectionPath(officeId), requestId);
+      return from(getDoc(ref)).pipe(
+        map((snapshot) => {
+          if (!snapshot.exists()) {
+            return null;
+          }
+          return { id: snapshot.id, ...(snapshot.data() as any) } as DocumentRequest;
+        })
+      );
+    });
   }
 
   /**
@@ -218,8 +241,9 @@ export class DocumentsService {
     officeId: string,
     request: Omit<DocumentRequest, 'id' | 'officeId' | 'status' | 'createdAt' | 'updatedAt'>
   ): Promise<void> {
-    const ref = this.documentRequestsCollectionPath(officeId);
-    const docRef = doc(ref);
+    return this.inCtxAsync(async () => {
+      const ref = this.documentRequestsCollectionPath(officeId);
+      const docRef = doc(ref);
     const now = new Date().toISOString();
   
     const payload: DocumentRequest = {
@@ -231,8 +255,9 @@ export class DocumentsService {
       updatedAt: now
     };
   
-    const cleaned = this.removeUndefinedDeep(payload);
-    await setDoc(docRef, cleaned);
+      const cleaned = this.removeUndefinedDeep(payload);
+      await setDoc(docRef, cleaned);
+    });
   }
   
   /**
@@ -243,21 +268,23 @@ export class DocumentsService {
     requestId: string,
     status: DocumentRequestStatus
   ): Promise<void> {
-    const ref = doc(this.documentRequestsCollectionPath(officeId), requestId);
-    const now = new Date().toISOString();
+    return this.inCtxAsync(async () => {
+      const ref = doc(this.documentRequestsCollectionPath(officeId), requestId);
+      const now = new Date().toISOString();
 
-    const updateData: any = {
-      status,
-      updatedAt: now
-    };
+      const updateData: any = {
+        status,
+        updatedAt: now
+      };
 
-    // status === 'uploaded' の場合は resolvedAt も設定
-    if (status === 'uploaded') {
-      updateData.resolvedAt = now;
-    }
+      // status === 'uploaded' の場合は resolvedAt も設定
+      if (status === 'uploaded') {
+        updateData.resolvedAt = now;
+      }
 
-    const cleaned = this.removeUndefinedDeep(updateData);
-    await updateDoc(ref, cleaned);
+      const cleaned = this.removeUndefinedDeep(updateData);
+      await updateDoc(ref, cleaned);
+    });
   }
 }
 

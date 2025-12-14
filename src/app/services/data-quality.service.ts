@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -29,6 +29,11 @@ export class DataQualityService {
   private readonly employeesService = inject(EmployeesService);
   private readonly monthlyPremiumsService = inject(MonthlyPremiumsService);
   private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
+  private readonly injector = inject(EnvironmentInjector);
+
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
 
   listIssues(officeId: string): Observable<DataQualityIssue[]> {
     return this.employeesService.list(officeId).pipe(
@@ -52,16 +57,18 @@ export class DataQualityService {
   }
 
   private getTargetYearMonths(officeId: string): Observable<YearMonthString[]> {
-    const ref = collection(this.firestore, 'offices', officeId, 'monthlyPremiums');
-    const q = query(ref, orderBy('yearMonth', 'desc'), limit(1));
-    return from(getDocs(q)).pipe(
-      map((snap) => {
-        if (snap.empty) return [] as YearMonthString[];
-        const latest = (snap.docs[0].data() as any).yearMonth as YearMonthString;
-        const prev = this.getPreviousYearMonth(latest);
-        return prev ? [latest, prev] : [latest];
-      })
-    );
+    return this.inCtx(() => {
+      const ref = collection(this.firestore, 'offices', officeId, 'monthlyPremiums');
+      const q = query(ref, orderBy('yearMonth', 'desc'), limit(1));
+      return from(getDocs(q)).pipe(
+        map((snap) => {
+          if (snap.empty) return [] as YearMonthString[];
+          const latest = (snap.docs[0].data() as any).yearMonth as YearMonthString;
+          const prev = this.getPreviousYearMonth(latest);
+          return prev ? [latest, prev] : [latest];
+        })
+      );
+    });
   }
 
   private loadMonthlyPremiums(

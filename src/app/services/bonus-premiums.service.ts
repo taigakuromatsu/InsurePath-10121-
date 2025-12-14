@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -21,9 +21,18 @@ import { MastersService } from './masters.service';
 export class BonusPremiumsService {
   private readonly firestore = inject(Firestore);
   private readonly mastersService = inject(MastersService);
+  private readonly injector = inject(EnvironmentInjector);
+
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
 
   private getCollectionRef(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'bonusPremiums');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'bonusPremiums'));
   }
 
   private buildDocId(employeeId: string, payDate: IsoDateString): string {
@@ -37,6 +46,7 @@ export class BonusPremiumsService {
     officeId: string,
     employeeId?: string
   ): Observable<BonusPremium[]> {
+    return this.inCtx(() => {
     const ref = this.getCollectionRef(officeId);
     let q = query(ref, orderBy('payDate', 'desc'));
 
@@ -55,6 +65,7 @@ export class BonusPremiumsService {
         )
       )
     );
+    });
   }
 
   /**
@@ -65,11 +76,12 @@ export class BonusPremiumsService {
     officeId: string,
     yearMonth: YearMonthString
   ): Observable<BonusPremium[]> {
-    const ref = this.getCollectionRef(officeId);
-    const q = query(ref, orderBy('payDate', 'desc'));
-
     const targetYear = yearMonth.substring(0, 4);
     const targetMonth = yearMonth.substring(5, 7);
+
+    return this.inCtx(() => {
+      const ref = this.getCollectionRef(officeId);
+      const q = query(ref, orderBy('payDate', 'desc'));
 
     return collectionData(q, { idField: 'id' }).pipe(
       map((bonuses) =>
@@ -79,6 +91,7 @@ export class BonusPremiumsService {
           )
       )
     );
+    });
   }
 
   /**
@@ -89,6 +102,7 @@ export class BonusPremiumsService {
     bonus: Partial<BonusPremium> & { employeeId: string; payDate: IsoDateString },
     previousId?: string
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const collectionRef = this.getCollectionRef(officeId);
     const docId = this.buildDocId(bonus.employeeId, bonus.payDate);
     const ref = doc(collectionRef, docId);
@@ -143,15 +157,17 @@ export class BonusPremiumsService {
       const oldRef = doc(collectionRef, previousId);
       await deleteDoc(oldRef);
     }
-
+    });
   }
 
   /**
    * 賞与支給履歴の削除
    */
   async deleteBonusPremium(officeId: string, id: string): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = doc(this.getCollectionRef(officeId), id);
     return deleteDoc(ref);
+    });
   }
 
   /**
@@ -203,6 +219,7 @@ export class BonusPremiumsService {
     natureCode: BonusNatureCode,
     excludePayDate?: IsoDateString
   ): Promise<number> {
+    return this.inCtxAsync(async () => {
     const { startDate, endDate } = this.getBonusLimitPeriod(payDate);
 
     const ref = this.getCollectionRef(officeId);
@@ -226,6 +243,7 @@ export class BonusPremiumsService {
       });
 
     return bonuses.length;
+    });
   }
 
   /**
@@ -238,6 +256,7 @@ export class BonusPremiumsService {
     fiscalYear: string,
     excludePayDate?: IsoDateString
   ): Promise<number> {
+    return this.inCtxAsync(async () => {
     const ref = this.getCollectionRef(officeId);
     const q = query(
       ref,
@@ -254,6 +273,7 @@ export class BonusPremiumsService {
       (sum, b) => sum + (b.healthEffectiveAmount ?? b.standardBonusAmount),
       0
     );
+    });
   }
 
   /**
@@ -270,6 +290,7 @@ export class BonusPremiumsService {
     yearMonth: YearMonthString,
     excludePayDate?: IsoDateString
   ): Promise<number> {
+    return this.inCtxAsync(async () => {
     const ref = this.getCollectionRef(officeId);
     const targetYear = yearMonth.substring(0, 4);
     const targetMonth = yearMonth.substring(5, 7);
@@ -294,6 +315,7 @@ export class BonusPremiumsService {
       });
 
     return bonuses.reduce((sum, b) => sum + (b.pensionEffectiveAmount ?? 0), 0);
+    });
   }
 
   /**
@@ -311,6 +333,7 @@ export class BonusPremiumsService {
     employee: Employee,
     yearMonth: YearMonthString
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const officeId = office.id;
     const ref = this.getCollectionRef(officeId);
 
@@ -420,6 +443,7 @@ export class BonusPremiumsService {
       const docRef = doc(ref, bonus.id);
       await setDoc(docRef, updated, { merge: true });
     }
+    });
   }
 
   /**
@@ -437,6 +461,7 @@ export class BonusPremiumsService {
     employee: Employee,
     fiscalYear: string
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const officeId = office.id;
     const ref = this.getCollectionRef(officeId);
 
@@ -541,6 +566,7 @@ export class BonusPremiumsService {
 
       await setDoc(doc(ref, bonus.id), updated, { merge: true });
     }
+    });
   }
 
   /**

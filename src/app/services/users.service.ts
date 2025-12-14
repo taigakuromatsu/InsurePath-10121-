@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -15,7 +15,16 @@ import { UserProfile, UserRole } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class UsersService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(private readonly firestore: Firestore) {}
+
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
 
   /**
    * 指定した事業所に所属するユーザー一覧を取得
@@ -25,44 +34,50 @@ export class UsersService {
       return [];
     }
 
-    const usersRef = collection(this.firestore, 'users');
-    const q = query(usersRef, where('officeId', '==', officeId));
-    const snapshot = await getDocs(q);
+    return this.inCtxAsync(async () => {
+      const usersRef = collection(this.firestore, 'users');
+      const q = query(usersRef, where('officeId', '==', officeId));
+      const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
-      (docSnapshot) =>
-        ({
-          ...docSnapshot.data(),
-          id: docSnapshot.id
-        } as UserProfile)
-    );
+      return snapshot.docs.map(
+        (docSnapshot) =>
+          ({
+            ...docSnapshot.data(),
+            id: docSnapshot.id
+          } as UserProfile)
+      );
+    });
   }
 
   /**
    * ユーザーのロールを更新（admin のみ実行想定）
    */
   async updateUserRole(userId: string, newRole: UserRole): Promise<void> {
-    const userDoc = doc(this.firestore, 'users', userId);
-    const updatedAt = new Date().toISOString();
+    return this.inCtxAsync(async () => {
+      const userDoc = doc(this.firestore, 'users', userId);
+      const updatedAt = new Date().toISOString();
 
-    await updateDoc(userDoc, {
-      role: newRole,
-      updatedAt
+      await updateDoc(userDoc, {
+        role: newRole,
+        updatedAt
+      });
     });
   }
 
   private getUserDisplayName(userId: string): Observable<string | null> {
-    const ref = doc(this.firestore, 'users', userId);
-    return from(getDoc(ref)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
-          return null;
-        }
-        const data = snapshot.data() as UserProfile;
-        return data.displayName ?? null;
-      }),
-      catchError(() => of(null))
-    );
+    return this.inCtx(() => {
+      const ref = doc(this.firestore, 'users', userId);
+      return from(getDoc(ref)).pipe(
+        map((snapshot) => {
+          if (!snapshot.exists()) {
+            return null;
+          }
+          const data = snapshot.data() as UserProfile;
+          return data.displayName ?? null;
+        }),
+        catchError(() => of(null))
+      );
+    });
   }
 
   getUserDisplayNames(userIds: string[]): Observable<Map<string, string>> {

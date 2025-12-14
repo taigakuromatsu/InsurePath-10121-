@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   collection,
   collectionData,
@@ -14,15 +14,26 @@ import { Dependent } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class DependentsService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(private readonly firestore: Firestore) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private collectionPath(officeId: string, employeeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'employees', employeeId, 'dependents');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'employees', employeeId, 'dependents'));
   }
 
   list(officeId: string, employeeId: string): Observable<Dependent[]> {
+    return this.inCtx(() => {
     const ref = this.collectionPath(officeId, employeeId);
     return collectionData(ref, { idField: 'id' }) as Observable<Dependent[]>;
+    });
   }
 
   async save(
@@ -30,6 +41,7 @@ export class DependentsService {
     employeeId: string,
     dependent: Partial<Dependent> & { id?: string }
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const dependentsRef = this.collectionPath(officeId, employeeId);
     const ref = dependent.id ? doc(dependentsRef, dependent.id) : doc(dependentsRef);
     const now = new Date().toISOString();
@@ -86,10 +98,13 @@ export class DependentsService {
     }
 
     await setDoc(ref, processedPayload, { merge: true });
+    });
   }
 
   delete(officeId: string, employeeId: string, dependentId: string): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = doc(this.collectionPath(officeId, employeeId), dependentId);
     return deleteDoc(ref);
+    });
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -13,45 +13,60 @@ import { Office } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class OfficesService {
-  private readonly collectionRef: ReturnType<typeof collection>;
+  private readonly injector = inject(EnvironmentInjector);
 
-  constructor(private readonly firestore: Firestore) {
-    this.collectionRef = collection(this.firestore, 'offices');
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
   }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private getCollectionRef() {
+    return this.inCtx(() => collection(this.firestore, 'offices'));
+  }
+
+  constructor(private readonly firestore: Firestore) {}
 
   // 事業所を1件取得（現在は1回読み切りにしています）
   watchOffice(id: string): Observable<Office | null> {
-    const ref = doc(this.collectionRef, id);
-    return from(getDoc(ref)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
-          return null;
-        }
-        return {
-          id: snapshot.id,
-          ...(snapshot.data() as any)
-        } as Office;
-      })
-    );
+    return this.inCtx(() => {
+      const ref = doc(this.getCollectionRef(), id);
+      return from(getDoc(ref)).pipe(
+        map((snapshot) => {
+          if (!snapshot.exists()) {
+            return null;
+          }
+          return {
+            id: snapshot.id,
+            ...(snapshot.data() as any)
+          } as Office;
+        })
+      );
+    });
   }
 
   // 事業所一覧を1回取得
   listOffices(): Observable<Office[]> {
-    return from(getDocs(this.collectionRef)).pipe(
-      map((snapshot) =>
-        snapshot.docs.map(
-          (d) =>
-            ({
-              id: d.id,
-              ...(d.data() as any)
-            } as Office)
+    return this.inCtx(() => {
+      return from(getDocs(this.getCollectionRef())).pipe(
+        map((snapshot) =>
+          snapshot.docs.map(
+            (d) =>
+              ({
+                id: d.id,
+                ...(d.data() as any)
+              } as Office)
+          )
         )
-      )
-    );
+      );
+    });
   }
 
   async createOffice(partial: Partial<Office>): Promise<Office> {
-    const ref = doc(this.collectionRef);
+    return this.inCtxAsync(async () => {
+      const ref = doc(this.getCollectionRef());
     const now = new Date().toISOString();
 
     const office: Office = {
@@ -78,12 +93,14 @@ export class OfficesService {
       Object.entries(office).filter(([, value]) => value !== undefined)
     ) as Office;
 
-    await setDoc(ref, payload);
-    return office;
+      await setDoc(ref, payload);
+      return office;
+    });
   }
 
   async saveOffice(office: Office): Promise<void> {
-    const ref = doc(this.collectionRef, office.id);
+    return this.inCtxAsync(async () => {
+      const ref = doc(this.getCollectionRef(), office.id);
     const now = new Date().toISOString();
 
     const officeWithUpdated: Office = {
@@ -96,6 +113,7 @@ export class OfficesService {
       Object.entries(officeWithUpdated).filter(([, value]) => value !== undefined)
     );
 
-    await setDoc(ref, payload, { merge: true });
+      await setDoc(ref, payload, { merge: true });
+    });
   }
 }

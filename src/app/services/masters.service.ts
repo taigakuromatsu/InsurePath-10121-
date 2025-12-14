@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
+  collectionData,
   deleteDoc,
   doc,
   getDoc,
@@ -25,18 +26,27 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class MastersService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(private readonly firestore: Firestore) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxP<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private getHealthCollectionRef(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'healthRateTables');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'healthRateTables'));
   }
 
   private getCareCollectionRef(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'careRateTables');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'careRateTables'));
   }
 
   private getPensionCollectionRef(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'pensionRateTables');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'pensionRateTables'));
   }
 
   /**
@@ -46,41 +56,43 @@ export class MastersService {
     office: Office,
     yearMonth: YearMonthString
   ): Observable<HealthRateTable | null> {
-    const targetYear = parseInt(yearMonth.substring(0, 4), 10);
-    const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
-    const targetYearMonth = targetYear * 100 + targetMonth;
-    const officeId = office.id;
+    return this.inCtx(() => {
+      const targetYear = parseInt(yearMonth.substring(0, 4), 10);
+      const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
+      const targetYearMonth = targetYear * 100 + targetMonth;
+      const officeId = office.id;
 
-    const healthRef = this.getHealthCollectionRef(officeId);
-    let healthQuery;
+      const healthRef = this.getHealthCollectionRef(officeId);
+      let healthQuery;
 
-    if (office.healthPlanType === 'kyokai' && office.kyokaiPrefCode) {
-      healthQuery = query(
-        healthRef,
-        where('planType', '==', 'kyokai'),
-        where('kyokaiPrefCode', '==', office.kyokaiPrefCode),
-        where('effectiveYearMonth', '<=', targetYearMonth),
-        orderBy('effectiveYearMonth', 'desc'),
-        limit(1)
+      if (office.healthPlanType === 'kyokai' && office.kyokaiPrefCode) {
+        healthQuery = this.inCtx(() => query(
+          healthRef,
+          where('planType', '==', 'kyokai'),
+          where('kyokaiPrefCode', '==', office.kyokaiPrefCode),
+          where('effectiveYearMonth', '<=', targetYearMonth),
+          orderBy('effectiveYearMonth', 'desc'),
+          limit(1)
+        ));
+      } else if (office.healthPlanType === 'kumiai') {
+        healthQuery = this.inCtx(() => query(
+          healthRef,
+          where('planType', '==', 'kumiai'),
+          where('effectiveYearMonth', '<=', targetYearMonth),
+          orderBy('effectiveYearMonth', 'desc'),
+          limit(1)
+        ));
+      } else {
+        return of(null);
+      }
+
+      return from(this.inCtxP(() => getDocs(healthQuery))).pipe(
+        map((snapshot) => {
+          if (snapshot.empty) return null;
+          return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as HealthRateTable;
+        })
       );
-    } else if (office.healthPlanType === 'kumiai') {
-      healthQuery = query(
-        healthRef,
-        where('planType', '==', 'kumiai'),
-        where('effectiveYearMonth', '<=', targetYearMonth),
-        orderBy('effectiveYearMonth', 'desc'),
-        limit(1)
-      );
-    } else {
-      return of(null);
-    }
-
-    return from(getDocs(healthQuery)).pipe(
-      map((snapshot) => {
-        if (snapshot.empty) return null;
-        return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as HealthRateTable;
-      })
-    );
+    });
   }
 
   /**
@@ -90,57 +102,53 @@ export class MastersService {
     office: Office,
     yearMonth: YearMonthString
   ): Observable<PensionRateTable | null> {
-    const targetYear = parseInt(yearMonth.substring(0, 4), 10);
-    const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
-    const targetYearMonth = targetYear * 100 + targetMonth;
-    const officeId = office.id;
+    return this.inCtx(() => {
+      const targetYear = parseInt(yearMonth.substring(0, 4), 10);
+      const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
+      const targetYearMonth = targetYear * 100 + targetMonth;
+      const officeId = office.id;
 
-    const pensionRef = this.getPensionCollectionRef(officeId);
-    const pensionQuery = query(
-      pensionRef,
-      where('effectiveYearMonth', '<=', targetYearMonth),
-      orderBy('effectiveYearMonth', 'desc'),
-      limit(1)
-    );
+      const pensionRef = this.getPensionCollectionRef(officeId);
+      const pensionQuery = this.inCtx(() => query(
+        pensionRef,
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
+      ));
 
-    return from(getDocs(pensionQuery)).pipe(
-      map((snapshot) => {
-        if (snapshot.empty) return null;
-        return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as PensionRateTable;
-      })
-    );
+      return from(this.inCtxP(() => getDocs(pensionQuery))).pipe(
+        map((snapshot) => {
+          if (snapshot.empty) return null;
+          return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as PensionRateTable;
+        })
+      );
+    });
   }
 
   listHealthRateTables(officeId: string): Observable<HealthRateTable[]> {
-    const ref = this.getHealthCollectionRef(officeId);
-    const q = query(ref, orderBy('effectiveYearMonth', 'desc'));
+    return this.inCtx(() => {
+      const ref = this.getHealthCollectionRef(officeId);
+      const q = this.inCtx(() => query(ref, orderBy('effectiveYearMonth', 'desc')));
 
-    return from(getDocs(q)).pipe(
-      map((snapshot) =>
-        snapshot.docs.map(
-          (d) =>
-            ({
-              id: d.id,
-              ...(d.data() as any)
-            } as HealthRateTable)
-        )
-      )
-    );
+      return collectionData(q, { idField: 'id' }) as Observable<HealthRateTable[]>;
+    });
   }
 
   getHealthRateTable(officeId: string, id: string): Observable<HealthRateTable | null> {
-    const ref = doc(this.getHealthCollectionRef(officeId), id);
-    return from(getDoc(ref)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
-          return null;
-        }
-        return {
-          id: snapshot.id,
-          ...(snapshot.data() as any)
-        } as HealthRateTable;
-      })
-    );
+    return this.inCtx(() => {
+      const ref = this.inCtx(() => doc(this.getHealthCollectionRef(officeId), id));
+      return from(this.inCtxP(() => getDoc(ref))).pipe(
+        map((snapshot) => {
+          if (!snapshot.exists()) {
+            return null;
+          }
+          return {
+            id: snapshot.id,
+            ...(snapshot.data() as any)
+          } as HealthRateTable;
+        })
+      );
+    });
   }
 
   async saveHealthRateTable(
@@ -148,7 +156,7 @@ export class MastersService {
     table: Partial<HealthRateTable> & { id?: string }
   ): Promise<void> {
     const collectionRef = this.getHealthCollectionRef(officeId);
-    const ref = table.id ? doc(collectionRef, table.id) : doc(collectionRef);
+    const ref = this.inCtx(() => table.id ? doc(collectionRef, table.id) : doc(collectionRef));
     const now = new Date().toISOString();
 
     // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
@@ -181,7 +189,7 @@ export class MastersService {
       Object.entries(payload).filter(([, value]) => value !== undefined)
     ) as HealthRateTable;
 
-    await setDoc(ref, cleanPayload, { merge: true });
+    await this.inCtxP(() => setDoc(ref, cleanPayload, { merge: true }));
   }
 
   /**
@@ -200,26 +208,26 @@ export class MastersService {
     let q;
 
     if (planType === 'kyokai' && kyokaiPrefCode) {
-      q = query(
+      q = this.inCtx(() => query(
         ref,
         where('effectiveYearMonth', '==', effectiveYearMonth),
         where('planType', '==', 'kyokai'),
         where('kyokaiPrefCode', '==', kyokaiPrefCode)
-      );
+      ));
     } else if (planType === 'kumiai') {
-      q = query(
+      const baseQuery = this.inCtx(() => query(
         ref,
         where('effectiveYearMonth', '==', effectiveYearMonth),
         where('planType', '==', 'kumiai')
-      );
-      if (unionCode) {
-        q = query(q, where('unionCode', '==', unionCode));
-      }
+      ));
+      q = unionCode
+        ? this.inCtx(() => query(baseQuery, where('unionCode', '==', unionCode)))
+        : baseQuery;
     } else {
       return null;
     }
 
-    const snapshot = await firstValueFrom(from(getDocs(q)));
+    const snapshot = await firstValueFrom(from(this.inCtxP(() => getDocs(q))));
     const existing = snapshot.docs
       .map((d) => ({ id: d.id, ...(d.data() as any) } as HealthRateTable))
       .find((t) => !excludeId || t.id !== excludeId);
@@ -236,9 +244,9 @@ export class MastersService {
     excludeId?: string
   ): Promise<CareRateTable | null> {
     const ref = this.getCareCollectionRef(officeId);
-    const q = query(ref, where('effectiveYearMonth', '==', effectiveYearMonth));
+    const q = this.inCtx(() => query(ref, where('effectiveYearMonth', '==', effectiveYearMonth)));
 
-    const snapshot = await firstValueFrom(from(getDocs(q)));
+    const snapshot = await firstValueFrom(from(this.inCtxP(() => getDocs(q))));
     const existing = snapshot.docs
       .map((d) => ({ id: d.id, ...(d.data() as any) } as CareRateTable))
       .find((t) => !excludeId || t.id !== excludeId);
@@ -255,9 +263,9 @@ export class MastersService {
     excludeId?: string
   ): Promise<PensionRateTable | null> {
     const ref = this.getPensionCollectionRef(officeId);
-    const q = query(ref, where('effectiveYearMonth', '==', effectiveYearMonth));
+    const q = this.inCtx(() => query(ref, where('effectiveYearMonth', '==', effectiveYearMonth)));
 
-    const snapshot = await firstValueFrom(from(getDocs(q)));
+    const snapshot = await firstValueFrom(from(this.inCtxP(() => getDocs(q))));
     const existing = snapshot.docs
       .map((d) => ({ id: d.id, ...(d.data() as any) } as PensionRateTable))
       .find((t) => !excludeId || t.id !== excludeId);
@@ -270,53 +278,47 @@ export class MastersService {
    */
   async deleteAllHealthRateTables(officeId: string): Promise<void> {
     const ref = this.getHealthCollectionRef(officeId);
-    const snapshot = await firstValueFrom(from(getDocs(ref)));
+    const snapshot = await firstValueFrom(from(this.inCtxP(() => getDocs(ref))));
 
     if (snapshot.empty) return;
 
-    const batch = writeBatch(this.firestore);
+    const batch = this.inCtx(() => writeBatch(this.firestore));
     snapshot.docs.forEach((docSnap) => {
       batch.delete(docSnap.ref);
     });
 
-    await batch.commit();
+    await this.inCtxP(() => batch.commit());
   }
 
   async deleteHealthRateTable(officeId: string, id: string): Promise<void> {
-    const ref = doc(this.getHealthCollectionRef(officeId), id);
-    return deleteDoc(ref);
+    const ref = this.inCtx(() => doc(this.getHealthCollectionRef(officeId), id));
+    return this.inCtxP(() => deleteDoc(ref));
   }
 
   listCareRateTables(officeId: string): Observable<CareRateTable[]> {
-    const ref = this.getCareCollectionRef(officeId);
-    const q = query(ref, orderBy('effectiveYearMonth', 'desc'));
+    return this.inCtx(() => {
+      const ref = this.getCareCollectionRef(officeId);
+      const q = this.inCtx(() => query(ref, orderBy('effectiveYearMonth', 'desc')));
 
-    return from(getDocs(q)).pipe(
-      map((snapshot) =>
-        snapshot.docs.map(
-          (d) =>
-            ({
-              id: d.id,
-              ...(d.data() as any)
-            } as CareRateTable)
-        )
-      )
-    );
+      return collectionData(q, { idField: 'id' }) as Observable<CareRateTable[]>;
+    });
   }
 
   getCareRateTable(officeId: string, id: string): Observable<CareRateTable | null> {
-    const ref = doc(this.getCareCollectionRef(officeId), id);
-    return from(getDoc(ref)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
-          return null;
-        }
-        return {
-          id: snapshot.id,
-          ...(snapshot.data() as any)
-        } as CareRateTable;
-      })
-    );
+    return this.inCtx(() => {
+      const ref = this.inCtx(() => doc(this.getCareCollectionRef(officeId), id));
+      return from(this.inCtxP(() => getDoc(ref))).pipe(
+        map((snapshot) => {
+          if (!snapshot.exists()) {
+            return null;
+          }
+          return {
+            id: snapshot.id,
+            ...(snapshot.data() as any)
+          } as CareRateTable;
+        })
+      );
+    });
   }
 
   async saveCareRateTable(
@@ -324,7 +326,7 @@ export class MastersService {
     table: Partial<CareRateTable> & { id?: string }
   ): Promise<void> {
     const collectionRef = this.getCareCollectionRef(officeId);
-    const ref = table.id ? doc(collectionRef, table.id) : doc(collectionRef);
+    const ref = this.inCtx(() => table.id ? doc(collectionRef, table.id) : doc(collectionRef));
     const now = new Date().toISOString();
 
     // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
@@ -350,44 +352,38 @@ export class MastersService {
       Object.entries(payload).filter(([, value]) => value !== undefined)
     ) as CareRateTable;
 
-    await setDoc(ref, cleanPayload, { merge: true });
+    await this.inCtxP(() => setDoc(ref, cleanPayload, { merge: true }));
   }
 
   async deleteCareRateTable(officeId: string, id: string): Promise<void> {
-    const ref = doc(this.getCareCollectionRef(officeId), id);
-    return deleteDoc(ref);
+    const ref = this.inCtx(() => doc(this.getCareCollectionRef(officeId), id));
+    return this.inCtxP(() => deleteDoc(ref));
   }
 
   listPensionRateTables(officeId: string): Observable<PensionRateTable[]> {
-    const ref = this.getPensionCollectionRef(officeId);
-    const q = query(ref, orderBy('effectiveYearMonth', 'desc'));
+    return this.inCtx(() => {
+      const ref = this.getPensionCollectionRef(officeId);
+      const q = this.inCtx(() => query(ref, orderBy('effectiveYearMonth', 'desc')));
 
-    return from(getDocs(q)).pipe(
-      map((snapshot) =>
-        snapshot.docs.map(
-          (d) =>
-            ({
-              id: d.id,
-              ...(d.data() as any)
-            } as PensionRateTable)
-        )
-      )
-    );
+      return collectionData(q, { idField: 'id' }) as Observable<PensionRateTable[]>;
+    });
   }
 
   getPensionRateTable(officeId: string, id: string): Observable<PensionRateTable | null> {
-    const ref = doc(this.getPensionCollectionRef(officeId), id);
-    return from(getDoc(ref)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
-          return null;
-        }
-        return {
-          id: snapshot.id,
-          ...(snapshot.data() as any)
-        } as PensionRateTable;
-      })
-    );
+    return this.inCtx(() => {
+      const ref = this.inCtx(() => doc(this.getPensionCollectionRef(officeId), id));
+      return from(this.inCtxP(() => getDoc(ref))).pipe(
+        map((snapshot) => {
+          if (!snapshot.exists()) {
+            return null;
+          }
+          return {
+            id: snapshot.id,
+            ...(snapshot.data() as any)
+          } as PensionRateTable;
+        })
+      );
+    });
   }
 
   async savePensionRateTable(
@@ -395,7 +391,7 @@ export class MastersService {
     table: Partial<PensionRateTable> & { id?: string }
   ): Promise<void> {
     const collectionRef = this.getPensionCollectionRef(officeId);
-    const ref = table.id ? doc(collectionRef, table.id) : doc(collectionRef);
+    const ref = this.inCtx(() => table.id ? doc(collectionRef, table.id) : doc(collectionRef));
     const now = new Date().toISOString();
 
     // まずローカル変数に「実際に使う年・月」を決定する（デフォルト値を適用）
@@ -422,12 +418,12 @@ export class MastersService {
       Object.entries(payload).filter(([, value]) => value !== undefined)
     ) as PensionRateTable;
 
-    await setDoc(ref, cleanPayload, { merge: true });
+    await this.inCtxP(() => setDoc(ref, cleanPayload, { merge: true }));
   }
 
   async deletePensionRateTable(officeId: string, id: string): Promise<void> {
-    const ref = doc(this.getPensionCollectionRef(officeId), id);
-    return deleteDoc(ref);
+    const ref = this.inCtx(() => doc(this.getPensionCollectionRef(officeId), id));
+    return this.inCtxP(() => deleteDoc(ref));
   }
 
   /**
@@ -457,28 +453,28 @@ export class MastersService {
     // 健康保険マスタの取得
     if (office.healthPlanType === 'kyokai' && office.kyokaiPrefCode) {
       const healthRef = this.getHealthCollectionRef(officeId);
-      const healthQuery = query(
+      const healthQuery = this.inCtx(() => query(
         healthRef,
         where('planType', '==', 'kyokai'),
         where('kyokaiPrefCode', '==', office.kyokaiPrefCode),
         where('effectiveYearMonth', '<=', targetYearMonth),
         orderBy('effectiveYearMonth', 'desc'),
         limit(1)
-      );
-      const healthSnapshot = await firstValueFrom(from(getDocs(healthQuery)));
+      ));
+      const healthSnapshot = await firstValueFrom(from(this.inCtxP(() => getDocs(healthQuery))));
       if (!healthSnapshot.empty) {
         results.healthRate = healthSnapshot.docs[0].data()['healthRate'] as number;
       }
     } else if (office.healthPlanType === 'kumiai') {
       const healthRef = this.getHealthCollectionRef(officeId);
-      const healthQuery = query(
+      const healthQuery = this.inCtx(() => query(
         healthRef,
         where('planType', '==', 'kumiai'),
         where('effectiveYearMonth', '<=', targetYearMonth),
         orderBy('effectiveYearMonth', 'desc'),
         limit(1)
-      );
-      const healthSnapshot = await firstValueFrom(from(getDocs(healthQuery)));
+      ));
+      const healthSnapshot = await firstValueFrom(from(this.inCtxP(() => getDocs(healthQuery))));
       if (!healthSnapshot.empty) {
         results.healthRate = healthSnapshot.docs[0].data()['healthRate'] as number;
       }
@@ -486,26 +482,26 @@ export class MastersService {
 
     // 介護保険マスタの取得
     const careRef = this.getCareCollectionRef(officeId);
-    const careQuery = query(
+    const careQuery = this.inCtx(() => query(
       careRef,
       where('effectiveYearMonth', '<=', targetYearMonth),
       orderBy('effectiveYearMonth', 'desc'),
       limit(1)
-    );
-    const careSnapshot = await firstValueFrom(from(getDocs(careQuery)));
+    ));
+    const careSnapshot = await firstValueFrom(from(this.inCtxP(() => getDocs(careQuery))));
     if (!careSnapshot.empty) {
       results.careRate = careSnapshot.docs[0].data()['careRate'] as number;
     }
 
     // 厚生年金マスタの取得
     const pensionRef = this.getPensionCollectionRef(officeId);
-    const pensionQuery = query(
+    const pensionQuery = this.inCtx(() => query(
       pensionRef,
       where('effectiveYearMonth', '<=', targetYearMonth),
       orderBy('effectiveYearMonth', 'desc'),
       limit(1)
-    );
-    const pensionSnapshot = await firstValueFrom(from(getDocs(pensionQuery)));
+    ));
+    const pensionSnapshot = await firstValueFrom(from(this.inCtxP(() => getDocs(pensionQuery))));
     if (!pensionSnapshot.empty) {
       results.pensionRate = pensionSnapshot.docs[0].data()['pensionRate'] as number;
     }

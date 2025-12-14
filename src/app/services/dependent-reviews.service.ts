@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   collection,
   collectionData,
@@ -18,10 +18,19 @@ import { DependentReview, DependentReviewResult } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class DependentReviewsService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(private readonly firestore: Firestore) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private collectionPath(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'dependentReviews');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'dependentReviews'));
   }
 
   async create(
@@ -37,6 +46,7 @@ export class DependentReviewsService {
     },
     createdByUserId: string
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = this.collectionPath(officeId);
     const docRef = doc(ref);
     const now = new Date().toISOString();
@@ -65,6 +75,7 @@ export class DependentReviewsService {
     }
 
     await setDoc(docRef, payload);
+    });
   }
 
   list(
@@ -76,6 +87,7 @@ export class DependentReviewsService {
       sessionId?: string;
     }
   ): Observable<DependentReview[]> {
+    return this.inCtx(() => {
     const ref = this.collectionPath(officeId);
     const constraints: QueryConstraint[] = [];
 
@@ -97,6 +109,7 @@ export class DependentReviewsService {
     const q = constraints.length > 0 ? query(ref, ...constraints) : query(ref, orderBy('reviewDate', 'desc'));
 
     return collectionData(q, { idField: 'id' }) as Observable<DependentReview[]>;
+    });
   }
 
   async update(
@@ -105,6 +118,7 @@ export class DependentReviewsService {
     updates: Partial<DependentReview>,
     updatedByUserId: string
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = this.collectionPath(officeId);
     const docRef = doc(ref, reviewId);
     const now = new Date().toISOString();
@@ -116,11 +130,14 @@ export class DependentReviewsService {
     };
 
     await updateDoc(docRef, payload);
+    });
   }
 
   async delete(officeId: string, reviewId: string): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = this.collectionPath(officeId);
     const docRef = doc(ref, reviewId);
     await deleteDoc(docRef);
+    });
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   collection,
   collectionData,
@@ -22,10 +22,19 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ChangeRequestsService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(private readonly firestore: Firestore) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private collectionPath(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'changeRequests');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'changeRequests'));
   }
 
   /**
@@ -70,6 +79,7 @@ export class ChangeRequestsService {
       payload?: ChangeRequestPayload;
     }
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const ref = this.collectionPath(officeId);
     const docRef = doc(ref);
     const now = new Date().toISOString();
@@ -94,9 +104,11 @@ export class ChangeRequestsService {
     const cleaned = this.removeUndefinedDeep(payload);
 
     await setDoc(docRef, cleaned);
+    });
   }
 
   list(officeId: string, status?: ChangeRequestStatus, limitCount?: number): Observable<ChangeRequest[]> {
+    return this.inCtx(() => {
     const ref = this.collectionPath(officeId);
     const constraints: any[] = [];
     
@@ -113,6 +125,7 @@ export class ChangeRequestsService {
 
     return (collectionData(q, { idField: 'id' }) as Observable<ChangeRequest[]>)
       .pipe(map((requests) => requests.map((req) => this.normalizeRequest(req))));
+    });
   }
 
   listForUser(
@@ -121,6 +134,7 @@ export class ChangeRequestsService {
     status?: ChangeRequestStatus,
     limitCount?: number
   ): Observable<ChangeRequest[]> {
+    return this.inCtx(() => {
     const ref = this.collectionPath(officeId);
     const constraints: any[] = [
       where('requestedByUserId', '==', userId)
@@ -139,9 +153,11 @@ export class ChangeRequestsService {
 
     return (collectionData(q, { idField: 'id' }) as Observable<ChangeRequest[]>)
       .pipe(map((requests) => requests.map((req) => this.normalizeRequest(req))));
+    });
   }
 
   async approve(officeId: string, requestId: string, decidedByUserId: string): Promise<void> {
+    return this.inCtxAsync(async () => {
     const docRef = doc(this.collectionPath(officeId), requestId);
     const now = new Date().toISOString();
 
@@ -149,6 +165,7 @@ export class ChangeRequestsService {
       status: 'approved',
       decidedAt: now,
       decidedByUserId
+      });
     });
   }
 
@@ -158,6 +175,7 @@ export class ChangeRequestsService {
     decidedByUserId: string,
     rejectReason: string
   ): Promise<void> {
+    return this.inCtxAsync(async () => {
     const docRef = doc(this.collectionPath(officeId), requestId);
     const now = new Date().toISOString();
 
@@ -166,14 +184,17 @@ export class ChangeRequestsService {
       decidedAt: now,
       decidedByUserId,
       rejectReason
+      });
     });
   }
 
   async cancel(officeId: string, requestId: string): Promise<void> {
+    return this.inCtxAsync(async () => {
     const docRef = doc(this.collectionPath(officeId), requestId);
 
     await updateDoc(docRef, {
       status: 'canceled'
+      });
     });
   }
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   collection,
   collectionData,
@@ -21,10 +21,19 @@ import { addDays, getNextWeekMonday, getSundayOfWeek, getThisWeekMonday, todayYm
 
 @Injectable({ providedIn: 'root' })
 export class ProceduresService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(private readonly firestore: Firestore) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private collectionPath(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'procedures');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'procedures'));
   }
 
   async create(
@@ -42,8 +51,9 @@ export class ProceduresService {
     },
     createdByUserId: string
   ): Promise<void> {
-    const ref = this.collectionPath(officeId);
-    const docRef = doc(ref);
+    return this.inCtxAsync(async () => {
+      const ref = this.collectionPath(officeId);
+      const docRef = doc(ref);
     const now = new Date().toISOString();
 
     const payload: SocialInsuranceProcedure = {
@@ -73,7 +83,8 @@ export class ProceduresService {
       payload.note = procedure.note;
     }
 
-    await setDoc(docRef, payload);
+      await setDoc(docRef, payload);
+    });
   }
 
   list(
@@ -83,85 +94,93 @@ export class ProceduresService {
       procedureType?: ProcedureType;
     }
   ): Observable<SocialInsuranceProcedure[]> {
-    const ref = this.collectionPath(officeId);
-    const constraints: QueryConstraint[] = [];
+    return this.inCtx(() => {
+      const ref = this.collectionPath(officeId);
+      const constraints: QueryConstraint[] = [];
 
-    if (filters?.status) {
-      constraints.push(where('status', '==', filters.status));
-    }
-    if (filters?.procedureType) {
-      constraints.push(where('procedureType', '==', filters.procedureType));
-    }
+      if (filters?.status) {
+        constraints.push(where('status', '==', filters.status));
+      }
+      if (filters?.procedureType) {
+        constraints.push(where('procedureType', '==', filters.procedureType));
+      }
 
-    constraints.push(orderBy('deadline', 'asc'));
+      constraints.push(orderBy('deadline', 'asc'));
 
-    const q = constraints.length > 0 ? query(ref, ...constraints) : query(ref, orderBy('deadline', 'asc'));
+      const q = constraints.length > 0 ? query(ref, ...constraints) : query(ref, orderBy('deadline', 'asc'));
 
-    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+      return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+    });
   }
 
   listByDeadline(
     officeId: string,
     filter: 'upcoming' | 'overdue' | 'all'
   ): Observable<SocialInsuranceProcedure[]> {
-    const ref = this.collectionPath(officeId);
-    const now = todayYmd();
-    const sevenDaysLater = addDays(now, 7);
+    return this.inCtx(() => {
+      const ref = this.collectionPath(officeId);
+      const now = todayYmd();
+      const sevenDaysLater = addDays(now, 7);
 
-    let q: Query;
+      let q: Query;
 
-    if (filter === 'upcoming') {
-      q = query(
-        ref,
-        where('deadline', '>=', now),
-        where('deadline', '<=', sevenDaysLater),
-        where('status', 'in', PENDING_PROCEDURE_STATUSES),
-        orderBy('deadline', 'asc')
-      );
-    } else if (filter === 'overdue') {
-      q = query(
-        ref,
-        where('deadline', '<', now),
-        where('status', 'in', PENDING_PROCEDURE_STATUSES),
-        orderBy('deadline', 'asc')
-      );
-    } else {
-      q = query(ref, orderBy('deadline', 'asc'));
-    }
+      if (filter === 'upcoming') {
+        q = query(
+          ref,
+          where('deadline', '>=', now),
+          where('deadline', '<=', sevenDaysLater),
+          where('status', 'in', PENDING_PROCEDURE_STATUSES),
+          orderBy('deadline', 'asc')
+        );
+      } else if (filter === 'overdue') {
+        q = query(
+          ref,
+          where('deadline', '<', now),
+          where('status', 'in', PENDING_PROCEDURE_STATUSES),
+          orderBy('deadline', 'asc')
+        );
+      } else {
+        q = query(ref, orderBy('deadline', 'asc'));
+      }
 
-    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+      return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+    });
   }
 
   listThisWeekDeadlines(officeId: string): Observable<SocialInsuranceProcedure[]> {
-    const ref = this.collectionPath(officeId);
-    const thisWeekMonday = getThisWeekMonday();
-    const thisWeekSunday = getSundayOfWeek(thisWeekMonday);
+    return this.inCtx(() => {
+      const ref = this.collectionPath(officeId);
+      const thisWeekMonday = getThisWeekMonday();
+      const thisWeekSunday = getSundayOfWeek(thisWeekMonday);
 
-    const q = query(
-      ref,
-      where('deadline', '>=', thisWeekMonday),
-      where('deadline', '<=', thisWeekSunday),
-      where('status', 'in', PENDING_PROCEDURE_STATUSES),
-      orderBy('deadline', 'asc')
-    );
+      const q = query(
+        ref,
+        where('deadline', '>=', thisWeekMonday),
+        where('deadline', '<=', thisWeekSunday),
+        where('status', 'in', PENDING_PROCEDURE_STATUSES),
+        orderBy('deadline', 'asc')
+      );
 
-    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+      return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+    });
   }
 
   listNextWeekDeadlines(officeId: string): Observable<SocialInsuranceProcedure[]> {
-    const ref = this.collectionPath(officeId);
-    const nextWeekMonday = getNextWeekMonday();
-    const nextWeekSunday = getSundayOfWeek(nextWeekMonday);
+    return this.inCtx(() => {
+      const ref = this.collectionPath(officeId);
+      const nextWeekMonday = getNextWeekMonday();
+      const nextWeekSunday = getSundayOfWeek(nextWeekMonday);
 
-    const q = query(
-      ref,
-      where('deadline', '>=', nextWeekMonday),
-      where('deadline', '<=', nextWeekSunday),
-      where('status', 'in', PENDING_PROCEDURE_STATUSES),
-      orderBy('deadline', 'asc')
-    );
+      const q = query(
+        ref,
+        where('deadline', '>=', nextWeekMonday),
+        where('deadline', '<=', nextWeekSunday),
+        where('status', 'in', PENDING_PROCEDURE_STATUSES),
+        orderBy('deadline', 'asc')
+      );
 
-    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+      return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+    });
   }
 
   countThisWeekDeadlines(officeId: string): Observable<number> {
@@ -178,22 +197,26 @@ export class ProceduresService {
     updates: Partial<SocialInsuranceProcedure>,
     updatedByUserId: string
   ): Promise<void> {
-    const ref = this.collectionPath(officeId);
-    const docRef = doc(ref, procedureId);
-    const now = new Date().toISOString();
+    return this.inCtxAsync(async () => {
+      const ref = this.collectionPath(officeId);
+      const docRef = doc(ref, procedureId);
+      const now = new Date().toISOString();
 
-    const payload: Partial<SocialInsuranceProcedure> = {
-      ...updates,
-      updatedAt: now,
-      updatedByUserId
-    };
+      const payload: Partial<SocialInsuranceProcedure> = {
+        ...updates,
+        updatedAt: now,
+        updatedByUserId
+      };
 
-    await updateDoc(docRef, payload);
+      await updateDoc(docRef, payload);
+    });
   }
 
   async delete(officeId: string, procedureId: string): Promise<void> {
-    const ref = this.collectionPath(officeId);
-    const docRef = doc(ref, procedureId);
-    await deleteDoc(docRef);
+    return this.inCtxAsync(async () => {
+      const ref = this.collectionPath(officeId);
+      const docRef = doc(ref, procedureId);
+      await deleteDoc(docRef);
+    });
   }
 }

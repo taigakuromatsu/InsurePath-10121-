@@ -69,7 +69,7 @@ export interface CareMasterDialogData {
         <div class="flex-row justify-end mb-2">
           <button mat-stroked-button color="primary" type="button" (click)="loadPreset()">
             <mat-icon>download</mat-icon>
-            初期値を読み込む
+            現在の料率を読み込む
           </button>
         </div>
 

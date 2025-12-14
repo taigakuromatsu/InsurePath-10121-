@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Auth,
   GoogleAuthProvider,
@@ -17,7 +17,16 @@ import { UserProfile } from '../types';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly injector = inject(EnvironmentInjector);
   readonly authState$: Observable<User | null>;
+
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxP<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
 
   constructor(private readonly auth: Auth, private readonly firestore: Firestore) {
     this.authState$ = authState(this.auth);
@@ -59,8 +68,8 @@ export class AuthService {
   }
 
   async ensureUserDocument(user: User): Promise<void> {
-    const userDoc = doc(this.firestore, 'users', user.uid);
-    const snapshot = await getDoc(userDoc);
+    const userDoc = this.inCtx(() => doc(this.firestore, 'users', user.uid));
+    const snapshot = await this.inCtxP(() => getDoc(userDoc));
 
     const baseProfile: UserProfile = {
       id: user.uid,
@@ -77,11 +86,11 @@ export class AuthService {
     };
 
     if (snapshot.exists()) {
-      await updateDoc(userDoc, {
+      await this.inCtxP(() => updateDoc(userDoc, {
         displayName: baseProfile.displayName,
         email: baseProfile.email,
         updatedAt: baseProfile.updatedAt
-      });
+      }));
       return;
     }
 
@@ -95,6 +104,6 @@ export class AuthService {
       delete dataToSave.employeeId;
     }
 
-    await setDoc(userDoc, dataToSave);
+    await this.inCtxP(() => setDoc(userDoc, dataToSave));
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -32,6 +32,7 @@ export interface SaveForMonthOptions {
 
 @Injectable({ providedIn: 'root' })
 export class MonthlyPremiumsService {
+  private readonly injector = inject(EnvironmentInjector);
   constructor(
     private readonly firestore: Firestore,
     private readonly officesService: OfficesService,
@@ -39,8 +40,16 @@ export class MonthlyPremiumsService {
     private readonly standardRewardHistoryService: StandardRewardHistoryService
   ) {}
 
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
+
   private getCollectionRef(officeId: string) {
-    return collection(this.firestore, 'offices', officeId, 'monthlyPremiums');
+    return this.inCtx(() => collection(this.firestore, 'offices', officeId, 'monthlyPremiums'));
   }
 
   private buildDocId(employeeId: string, yearMonth: YearMonthString): string {
@@ -176,6 +185,7 @@ export class MonthlyPremiumsService {
     }
 
     // Firestore に保存（Promise.all で並列実行）
+    return this.inCtxAsync(async () => {
     const collectionRef = this.getCollectionRef(officeId);
     await Promise.all(
       premiumsToSave.map((premium) => {
@@ -185,6 +195,7 @@ export class MonthlyPremiumsService {
     );
 
     return premiumsToSave;
+    });
   }
 
   /**
@@ -195,6 +206,7 @@ export class MonthlyPremiumsService {
    * @returns MonthlyPremium の配列（Observable）
    */
   listByOfficeAndYearMonth(officeId: string, yearMonth: YearMonthString): Observable<MonthlyPremium[]> {
+    return this.inCtx(() => {
     const collectionRef = this.getCollectionRef(officeId);
     const q = query(collectionRef, where('yearMonth', '==', yearMonth));
 
@@ -209,6 +221,7 @@ export class MonthlyPremiumsService {
         )
       )
     );
+    });
   }
 
   /**
@@ -218,6 +231,7 @@ export class MonthlyPremiumsService {
     officeId: string,
     employeeId: string
   ): Observable<MonthlyPremium[]> {
+    return this.inCtx(() => {
     const collectionRef = this.getCollectionRef(officeId);
     const q = query(
       collectionRef,
@@ -237,6 +251,7 @@ export class MonthlyPremiumsService {
         )
       )
     );
+    });
   }
 
   /**

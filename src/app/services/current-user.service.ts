@@ -1,6 +1,6 @@
 // src/app/services/current-user.service.ts
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import {
   collection,
@@ -22,6 +22,7 @@ import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class CurrentUserService {
+  private readonly injector = inject(EnvironmentInjector);
   private readonly profileSubject = new BehaviorSubject<UserProfile | null>(null);
   readonly profile$ = this.profileSubject
     .asObservable()
@@ -29,6 +30,14 @@ export class CurrentUserService {
 
   readonly hasOffice$ = this.profile$.pipe(map((profile) => Boolean(profile?.officeId)));
   readonly officeId$ = this.profile$.pipe(map((profile) => profile?.officeId ?? null));
+
+  private inCtx<T>(fn: () => T): T {
+    return runInInjectionContext(this.injector, fn);
+  }
+
+  private inCtxAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, fn);
+  }
 
   constructor(
     private readonly auth: Auth,
@@ -43,12 +52,13 @@ export class CurrentUserService {
             return of(null);
           }
 
-          const ref = doc(this.firestore, 'users', user.uid);
-
           // 1) 必ず users/{uid} を作っておく（既にあれば update だけ）
           return from(this.authService.ensureUserDocument(user)).pipe(
             // 2) そのあとで Firestore から 1 回だけ最新プロファイルを取得
-            switchMap(() => from(getDoc(ref))),
+            switchMap(() => from(this.inCtx(() => {
+              const ref = doc(this.firestore, 'users', user.uid);
+              return getDoc(ref);
+            }))),
             map((snapshot) => {
               if (!snapshot.exists()) {
                 // ここに来ることはほぼない想定だが、安全のため null を返す
@@ -82,6 +92,7 @@ export class CurrentUserService {
       return null;
     }
 
+    return this.inCtxAsync(async () => {
     try {
       const employeesRef = collection(this.firestore, 'offices', officeId, 'employees');
       const q = query(employeesRef, where('contactEmail', '==', email.toLowerCase()));
@@ -96,9 +107,11 @@ export class CurrentUserService {
       console.error('従業員レコードの検索に失敗しました', error);
       return null;
     }
+    });
   }
 
   async assignOffice(officeId: string): Promise<void> {
+    return this.inCtxAsync(async () => {
     const user = this.auth.currentUser;
     if (!user) {
       throw new Error('ログイン情報を確認できませんでした');
@@ -139,9 +152,11 @@ export class CurrentUserService {
         updatedAt: now,
       });
     }
+    });
   }
 
   async updateProfile(payload: Partial<UserProfile>): Promise<void> {
+    return this.inCtxAsync(async () => {
     const user = this.auth.currentUser;
     if (!user) {
       throw new Error('ログイン情報を確認できませんでした');
@@ -156,5 +171,6 @@ export class CurrentUserService {
     if (current) {
       this.profileSubject.next({ ...current, ...payload, updatedAt });
     }
+    });
   }
 }
