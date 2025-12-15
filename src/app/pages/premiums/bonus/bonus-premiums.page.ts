@@ -183,6 +183,12 @@ interface BonusPremiumViewRow extends BonusPremium {
                 健康保険・介護保険・厚生年金の保険料と「納入告知額」を自動計算します。
               </p>
 
+              <p class="info-note" style="margin-top: 16px; margin-bottom: 16px; padding: 12px; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px;">
+                <strong>【重要】産前産後休業・育児休業の免除月について</strong><br />
+                産前産後休業・育児休業の免除月（月次保険料用）に該当する従業員の賞与は、賞与登録の際に免除対象かを判断して免除対象の場合は賞与登録をしないでください。<br />
+                免除月に該当する従業員の賞与を登録しようとした場合、システムが警告ダイアログを表示しますが、最終的な判断はユーザーが行います（システムによる自動判定は行いません）。
+              </p>
+
               <ol class="info-list">
                 <li>
                   <strong>対象となる賞与データの抽出</strong><br />

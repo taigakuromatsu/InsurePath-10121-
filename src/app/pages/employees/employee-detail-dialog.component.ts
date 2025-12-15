@@ -31,8 +31,8 @@ import {
   getBankAccountTypeLabel,
   getPayrollPayTypeLabel,
   getPayrollPayCycleLabel,
-  getPremiumTreatmentLabel,
-  getWorkingStatusLabel
+  getWorkingStatusLabel,
+  getExemptionKindLabel
 } from '../../utils/label-utils';
 import { DependentsService } from '../../services/dependents.service';
 import { CurrentUserService } from '../../services/current-user.service';
@@ -317,14 +317,18 @@ export interface EmployeeDetailDialogData {
         <div class="label">就業状態</div>
         <div class="value">{{ getWorkingStatusLabel(data.employee.workingStatus) }}</div>
 
-        <div class="label">状態開始日</div>
-        <div class="value">{{ data.employee.workingStatusStartDate || '-' }}</div>
-
-        <div class="label">状態終了日</div>
-        <div class="value">{{ data.employee.workingStatusEndDate || '-' }}</div>
-
-        <div class="label">保険料の扱い</div>
-        <div class="value">{{ getPremiumTreatmentLabel(data.employee.premiumTreatment) }}</div>
+        <!-- 免除月（産休/育休） -->
+        <ng-container *ngIf="data.employee.premiumExemptionMonths && data.employee.premiumExemptionMonths.length > 0">
+          <div class="label full-row">免除月（月次保険料用）（産前産後休業・育児休業）</div>
+          <div class="value full-row">
+            <div class="exemption-months-list">
+              <div *ngFor="let exemption of data.employee.premiumExemptionMonths" class="exemption-month-item">
+                <span class="exemption-kind">{{ getExemptionKindLabel(exemption.kind) }}</span>
+                <span class="exemption-yearmonth">{{ exemption.yearMonth }}</span>
+              </div>
+            </div>
+          </div>
+        </ng-container>
       </div>
       </div>
 
@@ -903,6 +907,32 @@ export interface EmployeeDetailDialogData {
         color: #111827;
         font-weight: 500;
       }
+
+      .exemption-months-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .exemption-month-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+      }
+
+      .exemption-kind {
+        font-weight: 500;
+        color: #1976d2;
+      }
+
+      .exemption-yearmonth {
+        color: #666;
+        font-size: 0.9rem;
+      }
     `
   ]
 })
@@ -1000,13 +1030,13 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   protected readonly getInsuranceLossReasonKindLabel =
     getInsuranceLossReasonKindLabel;
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
-  protected readonly getPremiumTreatmentLabel = getPremiumTreatmentLabel;
   protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
   protected readonly getStandardRewardDecisionKindLabel =
     getStandardRewardDecisionKindLabel;
   protected readonly getBankAccountTypeLabel = getBankAccountTypeLabel;
   protected readonly getPayrollPayTypeLabel = getPayrollPayTypeLabel;
   protected readonly getPayrollPayCycleLabel = getPayrollPayCycleLabel;
+  protected readonly getExemptionKindLabel = getExemptionKindLabel;
 
   protected readonly getSexLabel = (sex: Sex | null | undefined): string => {
     switch (sex) {

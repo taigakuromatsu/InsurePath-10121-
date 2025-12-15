@@ -1,7 +1,7 @@
 import { AsyncPipe, DatePipe, DecimalPipe, NgForOf, NgIf } from '@angular/common';
 import { Component, Inject, inject, signal, OnDestroy } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Auth } from '@angular/fire/auth';
-import { debounceTime, Subscription } from 'rxjs';
+import { debounceTime, Subscription, firstValueFrom } from 'rxjs';
 
 import { BonusPremium, BonusNatureCode, Employee, Office, YearMonthString, IsoDateString } from '../../../types';
 import { BonusPremiumsService } from '../../../services/bonus-premiums.service';
@@ -19,6 +19,8 @@ import {
   calculateBonusPremium,
   getFiscalYear
 } from '../../../utils/bonus-calculator';
+import { ConfirmDialogComponent, ConfirmDialogData } from '../../../components/confirm-dialog.component';
+import { getExemptionKindLabel } from '../../../utils/label-utils';
 
 export interface BonusFormDialogData {
   office: Office;
@@ -280,6 +282,7 @@ export interface BonusFormDialogData {
 })
 export class BonusFormDialogComponent implements OnDestroy {
   private readonly dialogRef = inject(MatDialogRef<BonusFormDialogComponent>);
+  private readonly dialog = inject(MatDialog);
   private readonly fb = inject(FormBuilder);
   private readonly mastersService = inject(MastersService);
   private readonly bonusPremiumsService = inject(BonusPremiumsService);
@@ -433,6 +436,45 @@ export class BonusFormDialogComponent implements OnDestroy {
       return;
     }
 
+    const formValue = this.form.value;
+    const employeeId = formValue.employeeId;
+    const payDate = formValue.payDate;
+    const bonusNatureCode = formValue.bonusNatureCode;
+    
+    // 免除月のチェック
+    if (employeeId && payDate) {
+      const employee = this.insuredEmployees.find((e) => e.id === employeeId);
+      if (employee?.premiumExemptionMonths && employee.premiumExemptionMonths.length > 0) {
+        const yearMonth = String(payDate).substring(0, 7) as YearMonthString;
+        const exemptionMonth = employee.premiumExemptionMonths.find(
+          (ex) => ex.yearMonth === yearMonth
+        );
+        
+        if (exemptionMonth) {
+          const exemptionKindLabel = getExemptionKindLabel(exemptionMonth.kind);
+          const confirmed = await firstValueFrom(
+            this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
+              ConfirmDialogComponent,
+              {
+                width: '500px',
+                data: {
+                  title: '免除月の可能性があります',
+                  message: `この従業員は「月次保険料の免除月（${exemptionKindLabel}）」として ${yearMonth} が登録されています。`,
+                  warningMessage: '賞与の免除判定は月次と一致しない場合があります。免除対象か確認の上、登録を続行してください。',
+                  confirmLabel: '登録する（続行）',
+                  cancelLabel: 'キャンセル'
+                }
+              }
+            ).afterClosed()
+          );
+          
+          if (!confirmed) {
+            return; // キャンセルされた場合は保存処理を中断
+          }
+        }
+      }
+    }
+
     // プレビューが最新でない可能性があるので、一度更新
     await this.refreshPreview();
 
@@ -445,7 +487,6 @@ export class BonusFormDialogComponent implements OnDestroy {
       }
 
     // 年4回制限のチェック（保存を完全にブロック・同じ性質ベース）
-    const { employeeId, payDate, bonusNatureCode } = this.form.value;
     if (employeeId && payDate && bonusNatureCode) {
       const bonusCount = await this.bonusPremiumsService.getBonusCountInPeriod(
         this.data.office.id,

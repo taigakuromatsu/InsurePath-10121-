@@ -213,14 +213,8 @@ export class EmployeesService {
     if (employee.workingStatus !== undefined) {
       payload.workingStatus = employee.workingStatus;
     }
-    if (employee.workingStatusStartDate !== undefined) {
-      payload.workingStatusStartDate = employee.workingStatusStartDate;
-    }
-    if (employee.workingStatusEndDate !== undefined) {
-      payload.workingStatusEndDate = employee.workingStatusEndDate;
-    }
-    if (employee.premiumTreatment !== undefined) {
-      payload.premiumTreatment = employee.premiumTreatment;
+    if (employee.premiumExemptionMonths !== undefined) {
+      payload.premiumExemptionMonths = employee.premiumExemptionMonths;
     }
     if (employee.workingStatusNote !== undefined) {
       payload.workingStatusNote = employee.workingStatusNote;

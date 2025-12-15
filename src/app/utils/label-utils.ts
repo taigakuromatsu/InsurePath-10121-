@@ -13,11 +13,11 @@ import {
   InsuranceQualificationKind,
   IsoDateString,
   MyNumber,
-  PremiumTreatment,
   Sex,
   StandardRewardDecisionKind,
   WorkingStatus,
-  PortalStatus
+  PortalStatus,
+  ExemptionKind
 } from '../types';
 
 export function getInsuranceQualificationKindLabel(kind?: InsuranceQualificationKind): string {
@@ -58,10 +58,6 @@ export function getWorkingStatusLabel(status?: WorkingStatus): string {
       return '産前産後休業';
     case 'childcare_leave':
       return '育児休業';
-    case 'sick_leave':
-      return '傷病休職';
-    case 'other':
-      return 'その他';
     default:
       return '-';
   }
@@ -99,12 +95,12 @@ export function getPortalStatusColor(
   }
 }
 
-export function getPremiumTreatmentLabel(treatment?: PremiumTreatment): string {
-  switch (treatment) {
-    case 'normal':
-      return '通常徴収';
-    case 'exempt':
-      return '保険料免除';
+export function getExemptionKindLabel(kind?: ExemptionKind): string {
+  switch (kind) {
+    case 'maternity':
+      return '産前産後休業';
+    case 'childcare':
+      return '育児休業';
     default:
       return '-';
   }

@@ -314,7 +314,11 @@ export function calculateMonthlyPremiumForEmployee(
     return null;
   }
 
-  const isExempt = employee.premiumTreatment === 'exempt';
+  // 5. 免除判定（premiumExemptionMonths）
+  const exemptionMonth = employee.premiumExemptionMonths?.find(
+    (ex) => ex.yearMonth === rateContext.yearMonth
+  );
+  const isExempt = exemptionMonth != null;
 
     // 健康保険 + 介護保険（合算率）
     const isCareTarget = isCareInsuranceTarget(employee.birthDate, rateContext.yearMonth);

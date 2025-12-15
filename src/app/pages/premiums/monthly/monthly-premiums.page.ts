@@ -69,6 +69,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
   careEmployer: number;
   isCareTarget: boolean;
   age?: number; // 対象年月時点での年齢
+  exemptionReason?: 'maternity' | 'childcare'; // 免除理由（産休/育休）
 };
 
 @Component({
@@ -300,8 +301,13 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
                   </span>
                 </li>
                 <li>
-                  <strong>保険料の扱い（premiumTreatment）</strong><br />
-                  「免除」の場合、このページでは保険料を 0 円として扱います。
+                  <strong>免除月（月次保険料用）（premiumExemptionMonths）</strong><br />
+                  従業員台帳で「免除月（月次保険料用）」に登録された年月の場合、その月の保険料は 0 円として扱われます。<br />
+                  <span style="margin-left: 8px; color: #666; font-size: 0.9em;">
+                    ・産前産後休業・育児休業の免除月を登録できます<br />
+                    ・対象年月が免除月に該当する場合、健康保険・介護保険・厚生年金すべて 0 円になります<br />
+                    ・画面には「0円（産休の免除月（月次保険料用））」または「0円（育休の免除月（月次保険料用））」と表示されます
+                  </span>
                 </li>
               </ul>
 
@@ -316,7 +322,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
               <p class="info-note" style="margin-top: 20px;">
                 対象年月の保険料が想定どおりにならない場合は、<br />
-                (1) 社会保険対象ON → (2) 資格取得日/喪失日 → (3) 標準報酬履歴が入っているか → (4) 生年月日 → (5) 免除設定<br />
+                (1) 社会保険対象ON → (2) 資格取得日/喪失日 → (3) 標準報酬履歴が入っているか → (4) 生年月日 → (5) 免除月（月次保険料用）の登録<br />
                 の順に従業員台帳を確認してください。
               </p>
             </div>
@@ -446,7 +452,14 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
           <ng-container matColumnDef="healthCareFull">
               <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
-              <td mat-cell *matCellDef="let row" class="number-cell">{{ row.healthCareFull | number:'1.0-2' }}</td>
+              <td mat-cell *matCellDef="let row" class="number-cell">
+                <ng-container *ngIf="row.exemptionReason">
+                  <span class="exemption-label">0円（{{ row.exemptionReason === 'maternity' ? '産休' : '育休' }}の免除月（月次保険料用））</span>
+                </ng-container>
+                <ng-container *ngIf="!row.exemptionReason">
+                  {{ row.healthCareFull | number:'1.0-2' }}
+                </ng-container>
+              </td>
           </ng-container>
 
           <ng-container matColumnDef="healthCareEmployee">
@@ -482,7 +495,14 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
 
           <ng-container matColumnDef="pensionFull">
               <th mat-header-cell *matHeaderCellDef class="number-cell">全額</th>
-              <td mat-cell *matCellDef="let row" class="number-cell">{{ row.pensionFull | number:'1.0-2' }}</td>
+              <td mat-cell *matCellDef="let row" class="number-cell">
+                <ng-container *ngIf="row.exemptionReason">
+                  <span class="exemption-label">0円（{{ row.exemptionReason === 'maternity' ? '産休' : '育休' }}の免除月（月次保険料用））</span>
+                </ng-container>
+                <ng-container *ngIf="!row.exemptionReason">
+                  {{ row.pensionFull | number:'1.0-2' }}
+                </ng-container>
+              </td>
           </ng-container>
 
           <ng-container matColumnDef="pensionEmployee">
@@ -868,6 +888,12 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
       .font-bold { font-weight: 700; }
       .font-medium { font-weight: 500; }
       .text-secondary { color: #666; }
+
+      .exemption-label {
+        color: #d32f2f;
+        font-weight: 500;
+        font-size: 0.875rem;
+      }
 
       .hover-row:hover {
         background-color: #f5f5f5;
@@ -1407,14 +1433,20 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
           // 従業員データと料率のハッシュを作成（変更検知用）
           const employeesHash = JSON.stringify(
             employees
-              .filter((e) => e.isInsured)
               .map((e) => ({
                 id: e.id,
-                healthStandardMonthly: e.healthStandardMonthly,
-                healthGrade: e.healthGrade,
-                pensionStandardMonthly: e.pensionStandardMonthly,
-                pensionGrade: e.pensionGrade,
-                birthDate: e.birthDate
+                isInsured: e.isInsured ?? false,
+                healthQualificationDate: e.healthQualificationDate ?? null,
+                healthLossDate: e.healthLossDate ?? null,
+                pensionQualificationDate: e.pensionQualificationDate ?? null,
+                pensionLossDate: e.pensionLossDate ?? null,
+                exemptionKindForYm:
+                  e.premiumExemptionMonths?.find((x) => x.yearMonth === yearMonth)?.kind ?? null,
+                healthStandardMonthly: e.healthStandardMonthly ?? null,
+                healthGrade: e.healthGrade ?? null,
+                pensionStandardMonthly: e.pensionStandardMonthly ?? null,
+                pensionGrade: e.pensionGrade ?? null,
+                birthDate: e.birthDate ?? null
               }))
               .sort((a, b) => a.id.localeCompare(b.id))
           );
@@ -1648,6 +1680,12 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
     const employee = employeeMap.get(premium.employeeId);
     const age = employee ? calculateAge(employee.birthDate, yearMonth) : undefined;
     const isCareTarget = employee ? isCareInsuranceTarget(employee.birthDate, yearMonth) : false;
+    
+    // 免除月の判定
+    const exemptionMonth = employee?.premiumExemptionMonths?.find(
+      (ex) => ex.yearMonth === yearMonth
+    );
+    const exemptionReason = exemptionMonth?.kind;
     const careEmployee = premium.careEmployee ?? 0;
     const careEmployer = premium.careEmployer ?? 0;
 
@@ -1666,7 +1704,8 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
       totalEmployer,
       careEmployee,
       careEmployer,
-      isCareTarget
+      isCareTarget,
+      exemptionReason
     };
   }
 

@@ -153,12 +153,20 @@ export type InsuranceLossReasonKind = 'retirement' | 'hours_decrease' | 'death' 
 export type WorkingStatus =
   | 'normal'
   | 'maternity_leave'
-  | 'childcare_leave'
-  | 'sick_leave'
-  | 'other';
+  | 'childcare_leave';
 
-// 就業状態における保険料の扱い（簡易）
-export type PremiumTreatment = 'normal' | 'exempt';
+/**
+ * 保険料免除の種別
+ */
+export type ExemptionKind = 'maternity' | 'childcare';
+
+/**
+ * 保険料免除月
+ */
+export interface PremiumExemptionMonth {
+  kind: ExemptionKind;
+  yearMonth: YearMonthString;
+}
 
 // 標準報酬決定区分
 export type StandardRewardDecisionKind =
@@ -364,10 +372,10 @@ export interface Employee {
 
   /** 就業状態（産休・育休・休職など） */
   workingStatus?: WorkingStatus;
-  workingStatusStartDate?: IsoDateString;
-  workingStatusEndDate?: IsoDateString;
-  premiumTreatment?: PremiumTreatment;
   workingStatusNote?: string;
+
+  /** 保険料免除月（産前産後休業・育児休業） */
+  premiumExemptionMonths?: PremiumExemptionMonth[];
 
   /** 健康保険の等級・標準報酬（月額） */
   healthGrade?: number | null;

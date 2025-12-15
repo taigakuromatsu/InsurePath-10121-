@@ -51,7 +51,6 @@ import {
   getPayrollPayCycleLabel,
   getInsuranceLossReasonKindLabel,
   getInsuranceQualificationKindLabel,
-  getPremiumTreatmentLabel,
   getSexLabel,
   getWorkingStatusLabel,
   maskMyNumber,
@@ -371,14 +370,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="label">現在の就業状態</span>
                 <span class="value">{{ getWorkingStatusLabel(employee.workingStatus) }}</span>
               </div>
-              <div class="info-item" *ngIf="employee.workingStatusStartDate">
-                <span class="label">状態開始日</span>
-                <span class="value">{{ employee.workingStatusStartDate | date: 'yyyy-MM-dd' }}</span>
-              </div>
-              <div class="info-item" *ngIf="employee.premiumTreatment">
-                <span class="label">保険料の扱い</span>
-                <span class="value">{{ getPremiumTreatmentLabel(employee.premiumTreatment) }}</span>
-              </div>
             </div>
           </div>
 
@@ -429,10 +420,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
               <div class="info-item" *ngIf="employee.pensionLossReasonKind">
                 <span class="label">喪失理由区分（厚年）</span>
                 <span class="value">{{ getInsuranceLossReasonKindLabel(employee.pensionLossReasonKind) }}</span>
-              </div>
-              <div class="info-item" *ngIf="employee.workingStatusEndDate">
-                <span class="label">状態終了日</span>
-                <span class="value">{{ employee.workingStatusEndDate | date: 'yyyy-MM-dd' }}</span>
               </div>
             </div>
           </mat-expansion-panel>
@@ -1689,7 +1676,6 @@ export class MyPage {
   protected readonly getInsuranceQualificationKindLabel = getInsuranceQualificationKindLabel;
   protected readonly getInsuranceLossReasonKindLabel = getInsuranceLossReasonKindLabel;
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
-  protected readonly getPremiumTreatmentLabel = getPremiumTreatmentLabel;
   protected readonly getSexLabel = getSexLabel;
   protected readonly maskMyNumber = maskMyNumber;
   protected readonly calculateAge = calculateAge;

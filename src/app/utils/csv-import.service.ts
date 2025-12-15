@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-import { Employee, EmploymentType, InsuranceQualificationKind, InsuranceLossReasonKind, WorkingStatus, PremiumTreatment } from '../types';
+import { Employee, EmploymentType, InsuranceQualificationKind, InsuranceLossReasonKind, WorkingStatus } from '../types';
 
 export interface CsvParseResult<T> {
   data: T[];
@@ -57,9 +57,6 @@ export class CsvImportService {
     '資格喪失日（年金）': 'pensionLossDate',
     '資格喪失理由（年金）': 'pensionLossReasonKind',
     雇用契約期間の見込み: 'contractPeriodNote',
-    就業状態開始日: 'workingStatusStartDate',
-    就業状態終了日: 'workingStatusEndDate',
-    保険料の扱い: 'premiumTreatment',
     就業状態メモ: 'workingStatusNote'
   };
 
@@ -93,9 +90,7 @@ export class CsvImportService {
     'healthQualificationDate',
     'healthLossDate',
     'pensionQualificationDate',
-    'pensionLossDate',
-    'workingStatusStartDate',
-    'workingStatusEndDate'
+    'pensionLossDate'
   ]);
 
   /**

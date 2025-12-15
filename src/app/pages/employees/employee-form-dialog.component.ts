@@ -1,5 +1,5 @@
 import { Component, DestroyRef, Inject, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -8,7 +8,8 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { NgIf } from '@angular/common';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { NgFor, NgIf } from '@angular/common';
 import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialog.component';
 import {
   StandardRewardAutoInputConfirmDialogComponent,
@@ -28,7 +29,9 @@ import {
   PayrollPayType,
   GradeDecisionSource,
   Sex,
-  YearMonthString
+  YearMonthString,
+  ExemptionKind,
+  PremiumExemptionMonth
 } from '../../types';
 import { CurrentUserService } from '../../services/current-user.service';
 import { firstValueFrom, map } from 'rxjs';
@@ -56,7 +59,9 @@ export interface EmployeeDialogData {
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
-    NgIf
+    MatTooltipModule,
+    NgIf,
+    NgFor
   ],
   template: `
     <h1 mat-dialog-title class="dialog-title">
@@ -552,29 +557,60 @@ export interface EmployeeDialogData {
           <mat-option [value]="'normal'">通常勤務</mat-option>
           <mat-option [value]="'maternity_leave'">産前産後休業</mat-option>
           <mat-option [value]="'childcare_leave'">育児休業</mat-option>
-          <mat-option [value]="'sick_leave'">傷病休職</mat-option>
-          <mat-option [value]="'other'">その他</mat-option>
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>状態開始日</mat-label>
-        <input matInput type="date" formControlName="workingStatusStartDate" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>状態終了日</mat-label>
-        <input matInput type="date" formControlName="workingStatusEndDate" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>保険料の扱い</mat-label>
-        <mat-select formControlName="premiumTreatment">
-          <mat-option [value]="''">未選択</mat-option>
-          <mat-option [value]="'normal'">通常徴収</mat-option>
-          <mat-option [value]="'exempt'">保険料免除</mat-option>
-        </mat-select>
-      </mat-form-field>
+      <!-- 免除月（産休/育休）セクション -->
+      <div class="exemption-months-section full-row">
+        <div class="section-header">
+          <h4 class="mat-h4 mb-2">免除月（月次保険料用）（産前産後休業・育児休業）</h4>
+          <p class="mat-body-2 hint-text">
+            免除月に登録した月は、月次保険料計算で0円として扱われます（制度の詳細判定は行いません）。<br />
+            賞与保険料については、システムによる制御は行いません。免除月に該当する従業員の賞与は、賞与登録の際に免除対象かを判断して、免除対象の場合は賞与登録をしないでください。
+          </p>
+        </div>
+        <div formArrayName="premiumExemptionMonths" class="exemption-months-list">
+          <div
+            *ngFor="let idx of sortedExemptionMonthsIndices; let i = index"
+            [formGroupName]="idx"
+            class="exemption-month-row"
+          >
+            <mat-form-field appearance="outline" class="exemption-kind-field">
+              <mat-label>種別</mat-label>
+              <mat-select formControlName="kind">
+                <mat-option value="maternity">産前産後休業</mat-option>
+                <mat-option value="childcare">育児休業</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="exemption-yearmonth-field">
+              <mat-label>対象年月</mat-label>
+              <input matInput type="month" formControlName="yearMonth" />
+              <mat-error *ngIf="exemptionMonthsArray.at(idx).get('yearMonth')?.hasError('duplicate')">
+                この年月は既に登録されています
+              </mat-error>
+            </mat-form-field>
+            <button
+              mat-icon-button
+              color="warn"
+              type="button"
+              (click)="removeExemptionMonth(idx)"
+              matTooltip="削除"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+        <button
+          mat-stroked-button
+          color="primary"
+          type="button"
+          (click)="addExemptionMonth()"
+          class="add-exemption-button"
+        >
+          <mat-icon>add</mat-icon>
+          免除月（月次保険料用）を追加
+        </button>
+      </div>
         </div>
       </div>
     </form>
@@ -798,6 +834,49 @@ export interface EmployeeDialogData {
           grid-template-columns: 1fr;
         }
       }
+
+      .exemption-months-section {
+        grid-column: 1 / -1;
+        padding: 16px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+      }
+
+      .section-header {
+        margin-bottom: 16px;
+      }
+
+      .hint-text {
+        color: #666;
+        font-size: 0.875rem;
+        margin-top: 4px;
+      }
+
+      .exemption-months-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .exemption-month-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .exemption-kind-field {
+        flex: 0 0 200px;
+      }
+
+      .exemption-yearmonth-field {
+        flex: 0 0 180px;
+      }
+
+      .add-exemption-button {
+        margin-top: 8px;
+      }
     `
   ]
 })
@@ -812,6 +891,7 @@ export class EmployeeFormDialogComponent {
   private readonly mastersService = inject(MastersService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly fb = inject(FormBuilder);
 
   protected maskedMyNumber: string | null = null;
   protected healthCalculationError: string | null = null;
@@ -877,10 +957,8 @@ export class EmployeeFormDialogComponent {
     pensionQualificationKind: [''],
     pensionLossReasonKind: [''],
     workingStatus: [''],
-    workingStatusStartDate: [''],
-    workingStatusEndDate: [''],
-    premiumTreatment: [''],
     workingStatusNote: [''],
+    premiumExemptionMonths: this.fb.array([] as any[]),
     bankAccountBankName: [''],
     bankAccountBankCode: [''],
     bankAccountBranchName: [''],
@@ -931,9 +1009,6 @@ export class EmployeeFormDialogComponent {
         pensionQualificationKind: employee.pensionQualificationKind ?? '',
         pensionLossReasonKind: employee.pensionLossReasonKind ?? '',
         workingStatus: employee.workingStatus ?? '',
-        workingStatusStartDate: employee.workingStatusStartDate ?? '',
-        workingStatusEndDate: employee.workingStatusEndDate ?? '',
-        premiumTreatment: employee.premiumTreatment ?? '',
         workingStatusNote: employee.workingStatusNote ?? '',
         bankAccountBankName: employee.bankAccount?.bankName ?? '',
         bankAccountBankCode: employee.bankAccount?.bankCode ?? '',
@@ -951,6 +1026,24 @@ export class EmployeeFormDialogComponent {
 
       if (employee.myNumber) {
         void this.loadExistingMyNumber(employee.myNumber);
+      }
+
+      // 免除月の設定
+      if (employee.premiumExemptionMonths && employee.premiumExemptionMonths.length > 0) {
+        const exemptionMonthsArray = this.form.get('premiumExemptionMonths') as FormArray;
+        exemptionMonthsArray.clear();
+        // yearMonth昇順でソート
+        const sorted = [...employee.premiumExemptionMonths].sort((a, b) =>
+          a.yearMonth.localeCompare(b.yearMonth)
+        );
+        sorted.forEach((exemption) => {
+          exemptionMonthsArray.push(
+            this.fb.group({
+              kind: [exemption.kind, Validators.required],
+              yearMonth: [exemption.yearMonth, Validators.required]
+            })
+          );
+        });
       }
 
       // 変更前の値を初期化
@@ -1157,6 +1250,106 @@ export class EmployeeFormDialogComponent {
     return !!(standardMonthly && standardMonthly > 0 && decisionYearMonth);
   }
 
+  get exemptionMonthsArray(): FormArray {
+    return this.form.get('premiumExemptionMonths') as FormArray;
+  }
+
+  /**
+   * 免除月の配列をyearMonth昇順でソートしたインデックス配列を返す（表示用）
+   */
+  get sortedExemptionMonthsIndices(): number[] {
+    const array = this.exemptionMonthsArray.controls;
+    const indices = array.map((_, i) => i);
+    return indices.sort((a, b) => {
+      const aYm = array[a].get('yearMonth')?.value || '';
+      const bYm = array[b].get('yearMonth')?.value || '';
+      return aYm.localeCompare(bYm);
+    });
+  }
+
+  addExemptionMonth(): void {
+    const exemptionMonthsArray = this.exemptionMonthsArray;
+    const newGroup = this.fb.group({
+      kind: ['maternity', Validators.required],
+      yearMonth: ['', Validators.required]
+    });
+    exemptionMonthsArray.push(newGroup);
+  }
+
+  removeExemptionMonth(index: number): void {
+    this.exemptionMonthsArray.removeAt(index);
+  }
+
+  private getExemptionMonthsValue(): PremiumExemptionMonth[] | null | undefined {
+    const exemptionMonthsArray = this.exemptionMonthsArray;
+    const values: PremiumExemptionMonth[] = [];
+    const yearMonthSet = new Set<string>();
+    let hasDuplicate = false;
+
+    // 重複エラーをクリア
+    for (let i = 0; i < exemptionMonthsArray.length; i++) {
+      const group = exemptionMonthsArray.at(i);
+      group.get('yearMonth')?.setErrors(null);
+    }
+
+    for (let i = 0; i < exemptionMonthsArray.length; i++) {
+      const group = exemptionMonthsArray.at(i);
+      const kind = group.get('kind')?.value as ExemptionKind | null;
+      const yearMonth = group.get('yearMonth')?.value as YearMonthString | null;
+
+      if (!kind || !yearMonth) {
+        continue; // 未入力の行はスキップ
+      }
+
+      // 重複チェック（yearMonthは1回だけ）
+      if (yearMonthSet.has(yearMonth)) {
+        hasDuplicate = true;
+        group.get('yearMonth')?.setErrors({ duplicate: true });
+        this.snackBar.open(
+          `対象年月「${yearMonth}」は既に登録されています。重複は登録できません。`,
+          '閉じる',
+          { duration: 4000 }
+        );
+        continue;
+      }
+
+      yearMonthSet.add(yearMonth);
+      values.push({ kind, yearMonth });
+    }
+
+    // yearMonth昇順でソート
+    values.sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+
+    // 0件の場合：編集時は null（削除）、新規作成時は undefined（フィールドを載せない）
+    if (values.length === 0) {
+      return this.data.employee ? null : undefined;
+    }
+
+    return values;
+  }
+
+  private hasDuplicateExemptionMonths(): boolean {
+    const exemptionMonthsArray = this.exemptionMonthsArray;
+    const yearMonthSet = new Set<string>();
+
+    for (let i = 0; i < exemptionMonthsArray.length; i++) {
+      const group = exemptionMonthsArray.at(i);
+      const yearMonth = group.get('yearMonth')?.value as YearMonthString | null;
+
+      if (!yearMonth) {
+        continue;
+      }
+
+      if (yearMonthSet.has(yearMonth)) {
+        return true;
+      }
+
+      yearMonthSet.add(yearMonth);
+    }
+
+    return false;
+  }
+
   get canAddPensionHistory(): boolean {
     const standardMonthly = this.form.get('pensionStandardMonthly')?.value;
     const decisionYearMonth = this.form.get('decisionYearMonth')?.value;
@@ -1274,6 +1467,10 @@ export class EmployeeFormDialogComponent {
 
   get canSave(): boolean {
     // 標準報酬は履歴で管理するため、フォーム保存時には標準報酬の入力は必須ではない
+    // 免除月の重複チェック
+    if (this.hasDuplicateExemptionMonths()) {
+      return false;
+    }
     return !this.form.invalid;
   }
 
@@ -1432,12 +1629,15 @@ export class EmployeeFormDialogComponent {
       pensionQualificationKind: normalizeSelectString(formValue.pensionQualificationKind) as any,
       pensionLossReasonKind: normalizeSelectString(formValue.pensionLossReasonKind) as any,
       workingStatus: normalizeSelectString(formValue.workingStatus) as any,
-      workingStatusStartDate: normalizeDate(formValue.workingStatusStartDate) as any,
-      workingStatusEndDate: normalizeDate(formValue.workingStatusEndDate) as any,
-      premiumTreatment: normalizeSelectString(formValue.premiumTreatment) as any,
       workingStatusNote: normalizeString(formValue.workingStatusNote) as any,
       updatedByUserId: currentUserId ?? undefined
     };
+
+    // 免除月の設定（undefined の場合はフィールドを載せない）
+    const exemptionMonths = this.getExemptionMonthsValue();
+    if (exemptionMonths !== undefined) {
+      (payload as any).premiumExemptionMonths = exemptionMonths;
+    }
 
     const hasBankAccountInput = [
       bankName,
