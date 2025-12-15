@@ -1,6 +1,6 @@
 // src/app/pages/employees/employees.page.ts
 import { AsyncPipe, DatePipe, DecimalPipe, NgIf, NgClass } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, computed, DestroyRef } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,6 +10,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatSortModule, MatSort, Sort } from '@angular/material/sort';
 import {
   Subject,
   combineLatest,
@@ -20,6 +22,8 @@ import {
   tap,
   firstValueFrom
 } from 'rxjs';
+import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatTableDataSource } from '@angular/material/table';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { CurrentUserService } from '../../services/current-user.service';
@@ -74,7 +78,9 @@ interface EmployeeWithUpdatedBy extends Employee {
     DatePipe,
     MatChipsModule,
     MatTooltipModule,
-    MatExpansionModule
+    MatExpansionModule,
+    MatRadioModule,
+    MatSortModule
   ],
   template: `
     <div class="page-container">
@@ -284,9 +290,23 @@ interface EmployeeWithUpdatedBy extends Employee {
             <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
               <mat-icon color="primary">list</mat-icon> 従業員一覧
             </h2>
-            <p class="mat-body-2" style="color: #666">登録されている従業員の一覧を表示します。</p>
+            <p class="mat-body-2" style="color: #666">
+              登録されている従業員の一覧を表示します。「従業員情報」と「管理情報」のヘッダーをクリックするとソートできます。
+            </p>
           </div>
           <div class="header-actions flex-row gap-2 flex-wrap">
+            <div class="filter-section">
+              <mat-radio-group [value]="filterMode()" (change)="filterMode.set($event.value)" class="filter-radio-group">
+                <mat-radio-button value="active">在籍者のみ</mat-radio-button>
+                <mat-radio-button value="retired">退職者のみ</mat-radio-button>
+                <mat-radio-button value="all">すべて</mat-radio-button>
+              </mat-radio-group>
+              <div class="employee-count-info">
+                <span *ngIf="employeeCounts$ | async as counts">
+                  在籍者: {{ counts.active }}名 / 退職者: {{ counts.retired }}名 / 合計: {{ counts.total }}名
+                </span>
+              </div>
+            </div>
             <button
               mat-stroked-button
               color="primary"
@@ -332,12 +352,19 @@ interface EmployeeWithUpdatedBy extends Employee {
           <div class="table-container">
           <table
             mat-table
-            [dataSource]="(employeesWithUpdatedBy$ | async) || []"
-              class="admin-table"
+            [dataSource]="dataSource"
+            matSort
+            (matSortChange)="onSortChange($event)"
+            class="admin-table"
           >
             <!-- 1. 従業員情報 -->
             <ng-container matColumnDef="employeeInfo">
-              <th mat-header-cell *matHeaderCellDef class="col-employee">従業員情報</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="kana" class="col-employee sortable-header" matTooltip="クリックでカナ順にソート">
+                <div class="header-content">
+                  <span>従業員情報</span>
+                  <mat-icon class="sort-indicator">swap_vert</mat-icon>
+                </div>
+              </th>
               <td mat-cell *matCellDef="let row" class="col-employee cell-padding">
                 <div class="info-cell">
                   <div class="name-row">
@@ -445,7 +472,12 @@ interface EmployeeWithUpdatedBy extends Employee {
 
             <!-- 5. 管理情報 (New) -->
             <ng-container matColumnDef="managementInfo">
-              <th mat-header-cell *matHeaderCellDef class="col-management">管理情報</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="employeeCodeInOffice" class="col-management sortable-header" matTooltip="クリックで社員番号順にソート">
+                <div class="header-content">
+                  <span>管理情報</span>
+                  <mat-icon class="sort-indicator">swap_vert</mat-icon>
+                </div>
+              </th>
               <td mat-cell *matCellDef="let row" class="col-management cell-padding">
                 <div class="info-cell">
                   <div class="meta-row mb-1">
@@ -536,13 +568,11 @@ interface EmployeeWithUpdatedBy extends Employee {
               <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns" class="hover-row"></tr>
           </table>
-          <div class="empty-state" *ngIf="(employeesWithUpdatedBy$ | async)?.length === 0">
+          <div class="empty-state" *ngIf="dataSource.data.length === 0">
             <mat-icon>people_outline</mat-icon>
-            <p>従業員が登録されていません</p>
-            <button mat-stroked-button color="primary" (click)="openDialog()" [disabled]="!(officeId$ | async)">
-              <mat-icon>person_add</mat-icon>
-              最初の従業員を追加
-            </button>
+            <p *ngIf="filterMode() === 'active'">在籍者が登録されていません</p>
+            <p *ngIf="filterMode() === 'retired'">退職者が登録されていません</p>
+            <p *ngIf="filterMode() === 'all'">従業員が登録されていません</p>
           </div>
           </div>
         </ng-container>
@@ -607,6 +637,67 @@ interface EmployeeWithUpdatedBy extends Employee {
         display: flex;
         align-items: center;
         gap: 8px;
+      }
+
+      .filter-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 16px;
+        background-color: #f5f5f5;
+        border-radius: 8px;
+        margin-bottom: 16px;
+      }
+
+      .filter-radio-group {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .employee-count-info {
+        font-size: 0.875rem;
+        color: #666;
+        margin-top: 4px;
+      }
+
+      th[mat-sort-header].sortable-header {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        transition: background-color 0.2s ease;
+      }
+
+      th[mat-sort-header].sortable-header:hover {
+        background-color: rgba(0, 0, 0, 0.06);
+      }
+
+      th[mat-sort-header].sortable-header .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      th[mat-sort-header].sortable-header .sort-indicator {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: rgba(0, 0, 0, 0.54);
+        transition: color 0.2s ease;
+      }
+
+      th[mat-sort-header].sortable-header:hover .sort-indicator {
+        color: rgba(0, 0, 0, 0.87);
+      }
+
+      th[mat-sort-header].mat-sort-header-sorted .sort-indicator {
+        color: var(--mat-sys-primary);
+      }
+
+      /* MatSortのデフォルトアイコンを非表示 */
+      th[mat-sort-header].sortable-header .mat-sort-header-arrow {
+        display: none !important;
       }
 
       /* テーブル全体 */
@@ -891,6 +982,15 @@ export class EmployeesPage {
   // 保存・削除後に一覧を取り直すためのトリガー
   private readonly reload$ = new Subject<void>();
 
+  // フィルターモード（デフォルトは在籍者のみ）
+  readonly filterMode = signal<'active' | 'retired' | 'all'>('active');
+
+  // ソート状態
+  readonly sortState = signal<Sort | null>(null);
+
+  // MatTableDataSource
+  readonly dataSource = new MatTableDataSource<EmployeeWithUpdatedBy>([]);
+
   // officeId$ と reload$ を組み合わせて、初回＆更新のたびに list() を実行
   readonly employees$ = combineLatest([
     this.officeId$,
@@ -902,6 +1002,34 @@ export class EmployeesPage {
         return of([] as Employee[]);
       }
       return this.employeesService.list(officeId);
+    })
+  );
+
+  // フィルタリングされた従業員リスト
+  readonly filteredEmployees$ = combineLatest([
+    this.employees$,
+    toObservable(this.filterMode)
+  ]).pipe(
+    map(([employees, mode]) => {
+      if (mode === 'active') {
+        return employees.filter((e: Employee) => !e.retireDate);
+      } else if (mode === 'retired') {
+        return employees.filter((e: Employee) => !!e.retireDate);
+      }
+      return employees;
+    })
+  );
+
+  // 件数統計
+  readonly employeeCounts$ = this.employees$.pipe(
+    map((employees) => {
+      const active = employees.filter((e) => !e.retireDate).length;
+      const retired = employees.filter((e) => !!e.retireDate).length;
+      return {
+        active,
+        retired,
+        total: employees.length
+      };
     })
   );
 
@@ -945,6 +1073,129 @@ export class EmployeesPage {
       );
       })
     );
+
+  // フィルタリングされた従業員リスト（updatedByDisplayName付き）
+  readonly filteredEmployeesWithUpdatedBy$ = combineLatest([
+    this.filteredEmployees$,
+    this.currentUser.profile$
+  ]).pipe(
+    switchMap(([employees, profile]) => {
+      // hr は /users を読めないので displayName 付与をスキップ（admin のみ取得）
+      if (!profile || profile.role !== 'admin') {
+        return of(
+          employees.map((employee: Employee) => ({
+            ...employee,
+            updatedByDisplayName: null
+          })) as EmployeeWithUpdatedBy[]
+        );
+      }
+
+      const userIds = employees
+        .map((emp: Employee) => emp.updatedByUserId)
+        .filter((id): id is string => Boolean(id));
+
+      if (userIds.length === 0) {
+        return of(
+          employees.map((employee: Employee) => ({
+            ...employee,
+            updatedByDisplayName: null
+          })) as EmployeeWithUpdatedBy[]
+        );
+      }
+
+      return this.usersService.getUserDisplayNames(userIds).pipe(
+        map((nameMap) =>
+          employees.map((employee: Employee) => ({
+            ...employee,
+            updatedByDisplayName: employee.updatedByUserId
+              ? nameMap.get(employee.updatedByUserId) ?? null
+              : null
+          })) as EmployeeWithUpdatedBy[]
+        )
+      );
+    }),
+    tap((employees) => {
+      // MatTableDataSourceにデータを設定
+      this.dataSource.data = employees;
+      // ソート状態があれば適用
+      if (this.sortState()) {
+        this.applySort();
+      }
+    })
+  );
+
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor() {
+    // filteredEmployeesWithUpdatedBy$を購読してdataSourceを更新
+    this.filteredEmployeesWithUpdatedBy$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+  }
+
+  // ソート変更時の処理
+  onSortChange(sort: Sort): void {
+    this.sortState.set(sort);
+    this.applySort();
+  }
+
+  // ソートを適用
+  private applySort(): void {
+    const sort = this.sortState();
+    if (!sort || !sort.active) {
+      // ソートなしの場合は元の順序を維持
+      return;
+    }
+
+    const data = this.dataSource.data;
+    data.sort((a, b) => {
+      if (sort.active === 'kana') {
+        return this.compareKana(a.kana, b.kana, sort.direction === 'asc');
+      } else if (sort.active === 'employeeCodeInOffice') {
+        return this.compareEmployeeCode(
+          a.employeeCodeInOffice,
+          b.employeeCodeInOffice,
+          sort.direction === 'asc'
+        );
+      }
+      return 0;
+    });
+
+    this.dataSource.data = [...data];
+  }
+
+  // カナで比較（文字列比較）
+  private compareKana(a: string, b: string, ascending: boolean): number {
+    const aVal = a || '';
+    const bVal = b || '';
+    const result = aVal.localeCompare(bVal, 'ja');
+    return ascending ? result : -result;
+  }
+
+  // 社員番号で比較（数値比較、未入力は最後）
+  private compareEmployeeCode(
+    a: string | undefined,
+    b: string | undefined,
+    ascending: boolean
+  ): number {
+    // 両方未入力 → 順序維持
+    if (!a && !b) return 0;
+    // aが未入力 → 最後に
+    if (!a) return ascending ? 1 : -1;
+    // bが未入力 → 最後に
+    if (!b) return ascending ? -1 : 1;
+
+    // 両方あり → 数値として比較
+    const aNum = parseInt(a, 10);
+    const bNum = parseInt(b, 10);
+
+    // 数値として解釈できない場合は文字列比較
+    if (isNaN(aNum) || isNaN(bNum)) {
+      const result = a.localeCompare(b, 'ja');
+      return ascending ? result : -result;
+    }
+
+    const result = aNum - bNum;
+    return ascending ? result : -result;
+  }
 
   openHelp(): void {
     this.dialog.open(HelpDialogComponent, {

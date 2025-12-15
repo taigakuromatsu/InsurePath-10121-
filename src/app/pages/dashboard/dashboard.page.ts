@@ -629,10 +629,13 @@ export class DashboardPage implements OnInit {
   );
 
   // データ品質（Phase3-13）
+  // 確認済みの警告は含めない（未確認のものだけをカウント）
   readonly dataQualityIssuesCount$ = this.officeId$.pipe(
     switchMap((officeId) => {
       if (!officeId) return of(0);
-      return this.dataQualityService.listIssues(officeId).pipe(map((issues) => issues.length));
+      return this.dataQualityService.listIssues(officeId).pipe(
+        map((issues) => issues.filter((issue) => !issue.isAcknowledged).length)
+      );
     })
   );
   readonly dataQualityIssuesCount = toSignal(this.dataQualityIssuesCount$, { initialValue: 0 });

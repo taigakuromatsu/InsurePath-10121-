@@ -214,7 +214,7 @@ export class CsvExportService {
     lines.push('# 従業員インポート用テンプレート（InsurePath）');
     lines.push('# 雇用形態: regular(正社員) / contract(契約社員) / part(パート) / アルバイト / other(その他)');
     lines.push('# 資格取得区分: new_hire(新規採用) / expansion(適用拡大) / hours_change(所定労働時間変更) / other(その他)');
-    lines.push('# 資格喪失理由: retirement(退職) / hours_decrease(所定労働時間減少) / death(死亡) / other(その他)');
+    lines.push('# 資格喪失理由: retirement(退職) / death(死亡) / age_75(75歳到達) / disability(障害認定) / social_security_agreement(社会保障協定)');
     lines.push('# 就業状態: normal(通常勤務) / maternity_leave(産前産後休業) / childcare_leave(育児休業)');
     lines.push('# ※日付は YYYY-MM-DD 形式で入力してください（例: 2024-04-01）');
     lines.push('# ※学生・社会保険加入は true / false（小文字）で入力してください');

@@ -1,5 +1,5 @@
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
-import { Firestore, collection, doc, getDoc, getDocs, setDoc } from '@angular/fire/firestore';
+import { Firestore, collection, doc, deleteDoc, getDoc, getDocs, setDoc } from '@angular/fire/firestore';
 import { combineLatest, firstValueFrom, from, map, of, switchMap, Observable } from 'rxjs';
 
 import {
@@ -34,12 +34,39 @@ export class DataQualityService {
           ),
           this.loadAcknowledgedIssues(officeId)
         ]).pipe(
-          map(([issues, acknowledgedIds]) => {
+          switchMap(([issues, acknowledgedIds]) => {
+            // 現在検出されているissue.idのセットを作成
+            const currentIssueIds = new Set<string>(issues.map((issue) => issue.id));
+
+            // staleな確認済みマークを削除（検出されていないが確認済みとして残っているもの）
+            const staleIds = Array.from(acknowledgedIds).filter((id) => !currentIssueIds.has(id));
+
+            if (staleIds.length > 0) {
+              // stale削除を実行（エラーは握りつぶす）
+              const deletePromises = staleIds.map((staleId) =>
+                this.inCtxAsync(async () => {
+                  try {
+                    const ref = doc(this.getAcknowledgedIssuesCollectionRef(officeId), staleId);
+                    await deleteDoc(ref);
+                  } catch (error) {
+                    console.warn(`確認済みマークの削除に失敗しました (issueId: ${staleId}):`, error);
+                  }
+                })
+              );
+
+              // 削除処理を実行しつつ、issuesを返す（削除完了を待たない）
+              Promise.all(deletePromises).catch((error) => {
+                console.warn('stale確認済みマークの削除中にエラーが発生しました:', error);
+              });
+            }
+
             // 確認済みフラグを設定
-            return issues.map((issue) => ({
-              ...issue,
-              isAcknowledged: acknowledgedIds.has(issue.id)
-            }));
+            return of(
+              issues.map((issue) => ({
+                ...issue,
+                isAcknowledged: acknowledgedIds.has(issue.id)
+              }))
+            );
           })
         );
       })
@@ -466,6 +493,7 @@ export class DataQualityService {
 
   /**
    * 確認済み警告IDのセットを取得
+   * docId = issueId なので、doc.idを直接使用する
    */
   private loadAcknowledgedIssues(officeId: string): Observable<Set<string>> {
     return this.inCtx(() => {
@@ -473,11 +501,9 @@ export class DataQualityService {
       return from(getDocs(ref)).pipe(
         map((snapshot) => {
           const acknowledgedIds = new Set<string>();
-          snapshot.docs.forEach((doc) => {
-            const data = doc.data();
-            if (data['issueId']) {
-              acknowledgedIds.add(data['issueId']);
-            }
+          snapshot.docs.forEach((docSnapshot) => {
+            // docId = issueId なので、doc.idを直接使用
+            acknowledgedIds.add(docSnapshot.id);
           });
           return acknowledgedIds;
         })
@@ -495,6 +521,16 @@ export class DataQualityService {
         issueId,
         acknowledgedAt: new Date().toISOString()
       }, { merge: true });
+    });
+  }
+
+  /**
+   * 警告の確認済みを解除する
+   */
+  async unacknowledgeIssue(officeId: string, issueId: string): Promise<void> {
+    return this.inCtxAsync(async () => {
+      const ref = doc(this.getAcknowledgedIssuesCollectionRef(officeId), issueId);
+      await deleteDoc(ref);
     });
   }
 

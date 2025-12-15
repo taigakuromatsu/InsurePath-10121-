@@ -92,8 +92,11 @@ export interface EmployeeDialogData {
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>カナ</mat-label>
-        <input matInput formControlName="kana" />
+        <mat-label>カナ *</mat-label>
+        <input matInput formControlName="kana" required />
+        <mat-error *ngIf="form.controls.kana.hasError('required')">
+          カナを入力してください
+        </mat-error>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -527,9 +530,10 @@ export interface EmployeeDialogData {
         <mat-select formControlName="healthLossReasonKind">
           <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'retirement'">退職</mat-option>
-          <mat-option [value]="'hours_decrease'">所定労働時間減少</mat-option>
           <mat-option [value]="'death'">死亡</mat-option>
-          <mat-option [value]="'other'">その他</mat-option>
+          <mat-option [value]="'age_75'">75歳到達</mat-option>
+          <mat-option [value]="'disability'">障害認定</mat-option>
+          <mat-option [value]="'social_security_agreement'">社会保障協定</mat-option>
         </mat-select>
       </mat-form-field>
         </div>
@@ -567,9 +571,10 @@ export interface EmployeeDialogData {
         <mat-select formControlName="pensionLossReasonKind">
           <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'retirement'">退職</mat-option>
-          <mat-option [value]="'hours_decrease'">所定労働時間減少</mat-option>
           <mat-option [value]="'death'">死亡</mat-option>
-          <mat-option [value]="'other'">その他</mat-option>
+          <mat-option [value]="'age_75'">75歳到達</mat-option>
+          <mat-option [value]="'disability'">障害認定</mat-option>
+          <mat-option [value]="'social_security_agreement'">社会保障協定</mat-option>
         </mat-select>
       </mat-form-field>
         </div>
@@ -977,7 +982,7 @@ export class EmployeeFormDialogComponent {
   readonly form = inject(FormBuilder).group({
     id: [''],
     name: ['', Validators.required],
-    kana: [''],
+    kana: ['', Validators.required],
     birthDate: ['', Validators.required],
     department: [''],
     hireDate: [''],

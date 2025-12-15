@@ -39,12 +39,14 @@ export function getInsuranceLossReasonKindLabel(kind?: InsuranceLossReasonKind):
   switch (kind) {
     case 'retirement':
       return '退職';
-    case 'hours_decrease':
-      return '所定労働時間減少';
     case 'death':
       return '死亡';
-    case 'other':
-      return 'その他';
+    case 'age_75':
+      return '75歳到達';
+    case 'disability':
+      return '障害認定';
+    case 'social_security_agreement':
+      return '社会保障協定';
     default:
       return '-';
   }

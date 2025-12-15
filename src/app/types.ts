@@ -147,7 +147,7 @@ export type InsuranceQualificationKind =
   | 'other';
 
 // 資格喪失理由区分（簡易）
-export type InsuranceLossReasonKind = 'retirement' | 'hours_decrease' | 'death' | 'other';
+export type InsuranceLossReasonKind = 'retirement' | 'death' | 'age_75' | 'disability' | 'social_security_agreement';
 
 // 就業状態（簡易）
 export type WorkingStatus =
@@ -332,7 +332,7 @@ export interface Employee {
   id: string;
   officeId: string;
   name: string;
-  kana?: string;
+  kana: string;
   birthDate: IsoDateString;
   department?: string;
   hireDate: IsoDateString;
