@@ -113,7 +113,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
           </h1>
         </div>
         <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
-          対象年月を指定すると、マスタで定義された保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を自動計算します。
+          対象年月を指定すると、保険料率管理ページで設定した保険料率を用いて現在の事業所に所属する社会保険加入者の月次保険料を自動計算します。
         </p>
       </header>
 

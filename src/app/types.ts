@@ -256,7 +256,14 @@ export interface StandardRewardHistory {
 // データ品質チェック（Phase3-13）
 export type DataQualityIssueType =
   | 'insured_qualification_inconsistent' // ルール1: 資格・加入フラグ不整合
-  | 'loss_retire_premium_mismatch'; // ルール2: 退職日と資格喪失日の不整合
+  | 'loss_retire_premium_mismatch' // ルール2: 退職日と資格喪失日の不整合
+  | 'standard_reward_before_qualification' // ルール3: 資格取得日より前の適用開始年月の履歴
+  | 'loss_date_before_qualification' // ルール4: 資格喪失日が資格取得日より前
+  | 'retire_date_before_hire' // ルール5: 退職日が入社日より前
+  | 'standard_reward_after_loss' // ルール6: 資格喪失日より後の標準報酬履歴
+  | 'standard_reward_future_date' // ルール7: 標準報酬履歴の適用開始年月が未来
+  | 'qualification_before_hire' // ルール8: 資格取得日が入社日より前
+  | 'qualification_future_date'; // ルール9: 資格取得日が未来
 
 export interface DataQualityIssue {
   id: string;
@@ -267,6 +274,7 @@ export interface DataQualityIssue {
   targetPeriod?: string; // YYYY-MM など
   detectedAt: string; // ISO or YYYY-MM-DD
   severity?: 'warning' | 'error'; // MVPはwarningで運用、将来errorも使用可
+  isAcknowledged?: boolean; // 確認済みフラグ
 }
 
 // 銀行口座情報

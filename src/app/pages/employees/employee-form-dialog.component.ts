@@ -287,7 +287,7 @@ export interface EmployeeDialogData {
       <!-- 標準報酬セクション -->
       <div class="standard-reward-section">
         <!-- 最新の標準報酬履歴見出し -->
-        <h4 class="latest-standard-reward-title">最新の標準報酬履歴</h4>
+        <h4 class="latest-standard-reward-title">最新の標準報酬履歴・更新登録（新規登録）</h4>
 
         <!-- ヘッダー行：適用開始年月と自動計算ボタン -->
         <div class="standard-reward-header">
@@ -1622,6 +1622,33 @@ export class EmployeeFormDialogComponent {
         return;
       }
       employeeId = savedId;
+    }
+
+    // 重複チェック：同じ保険種別・適用開始年月の履歴が既に存在するか確認
+    try {
+      const existingHistories = await firstValueFrom(
+        this.standardRewardHistoryService.listByInsuranceKind(
+          this.data.officeId,
+          employeeId,
+          insuranceKind
+        )
+      );
+
+      const isDuplicate = existingHistories.some(
+        (h) => h.appliedFromYearMonth === decisionYearMonth
+      );
+
+      if (isDuplicate) {
+        this.snackBar.open(
+          `この保険種別・適用開始年月（${decisionYearMonth}）の履歴が既に存在します。変更が必要な場合は標準報酬履歴フォームから編集してください。`,
+          '閉じる',
+          { duration: 5000 }
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('重複チェックに失敗しました:', error);
+      // 重複チェックに失敗しても続行（エラーをログに記録するだけ）
     }
 
     try {

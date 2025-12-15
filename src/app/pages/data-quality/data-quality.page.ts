@@ -3,6 +3,9 @@ import { Component, inject } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { firstValueFrom } from 'rxjs';
 import { map, of, switchMap } from 'rxjs';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
@@ -12,7 +15,7 @@ import { DataQualityIssue, DataQualityIssueType } from '../../types';
 @Component({
   selector: 'ip-data-quality-page',
   standalone: true,
-  imports: [MatCardModule, MatTableModule, MatIconModule, AsyncPipe, NgIf],
+  imports: [MatCardModule, MatTableModule, MatIconModule, MatButtonModule, MatSnackBarModule, AsyncPipe, NgIf],
   template: `
     <div class="page-container">
       <header class="page-header">
@@ -63,6 +66,26 @@ import { DataQualityIssue, DataQualityIssueType } from '../../types';
                 <td mat-cell *matCellDef="let row">{{ row.detectedAt }}</td>
               </ng-container>
 
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef>操作</th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    *ngIf="!row.isAcknowledged"
+                    mat-stroked-button
+                    color="primary"
+                    (click)="onAcknowledge(row)"
+                    [disabled]="acknowledgingIds.has(row.id)"
+                  >
+                    <mat-icon>check</mat-icon>
+                    確認済み
+                  </button>
+                  <span *ngIf="row.isAcknowledged" class="acknowledged-badge">
+                    <mat-icon>check_circle</mat-icon>
+                    確認済み
+                  </span>
+                </td>
+              </ng-container>
+
               <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
             </table>
@@ -93,14 +116,30 @@ import { DataQualityIssue, DataQualityIssueType } from '../../types';
         overflow: hidden;
         background: #fff;
       }
+
+      .acknowledged-badge {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #2e7d32;
+        font-size: 0.875rem;
+      }
+
+      .acknowledged-badge mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
     `
   ]
 })
 export class DataQualityPage {
   private readonly currentOffice = inject(CurrentOfficeService);
   private readonly dataQualityService = inject(DataQualityService);
+  private readonly snackBar = inject(MatSnackBar);
 
-  readonly displayedColumns = ['employeeName', 'issueType', 'description', 'targetPeriod', 'detectedAt'];
+  readonly displayedColumns = ['employeeName', 'issueType', 'description', 'targetPeriod', 'detectedAt', 'actions'];
+  readonly acknowledgingIds = new Set<string>();
 
   readonly issues$ = this.currentOffice.officeId$.pipe(
     switchMap((officeId) => {
@@ -112,11 +151,39 @@ export class DataQualityPage {
 
   private readonly ISSUE_TYPE_LABELS: Record<DataQualityIssueType, string> = {
     insured_qualification_inconsistent: '資格・加入フラグ不整合',
-    loss_retire_premium_mismatch: '退職日と資格喪失日の不整合'
+    loss_retire_premium_mismatch: '退職日と資格喪失日の不整合',
+    standard_reward_before_qualification: '資格取得日より前の適用開始年月の履歴',
+    loss_date_before_qualification: '資格喪失日が資格取得日より前',
+    retire_date_before_hire: '退職日が入社日より前',
+    standard_reward_after_loss: '資格喪失日より後の標準報酬履歴',
+    standard_reward_future_date: '標準報酬履歴の適用開始年月が未来',
+    qualification_before_hire: '資格取得日が入社日より前',
+    qualification_future_date: '資格取得日が未来'
   };
 
   issueTypeLabel(type: DataQualityIssueType): string {
     return this.ISSUE_TYPE_LABELS[type] ?? type;
+  }
+
+  async onAcknowledge(issue: DataQualityIssue): Promise<void> {
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
+    if (!officeId) {
+      this.snackBar.open('事業所情報を取得できませんでした', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    this.acknowledgingIds.add(issue.id);
+    try {
+      await this.dataQualityService.acknowledgeIssue(officeId, issue.id);
+      this.snackBar.open('確認済みとしてマークしました', '閉じる', { duration: 3000 });
+      // リストを再読み込み（確認済みフラグを更新）
+      // issues$は自動的に更新されるため、特に処理は不要
+    } catch (error) {
+      console.error('確認済みマークに失敗しました:', error);
+      this.snackBar.open('確認済みマークに失敗しました', '閉じる', { duration: 3000 });
+    } finally {
+      this.acknowledgingIds.delete(issue.id);
+    }
   }
 }
 
