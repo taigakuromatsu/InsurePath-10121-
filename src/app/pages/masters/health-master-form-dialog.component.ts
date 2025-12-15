@@ -1,6 +1,6 @@
 import { NgFor, NgIf } from '@angular/common';
 import { Component, Inject, inject } from '@angular/core';
-import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -8,6 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 
 import { HealthRateTable, Office, StandardRewardBand } from '../../types';
 import { CloudMasterService } from '../../services/cloud-master.service';
@@ -30,6 +31,7 @@ export interface HealthMasterDialogData {
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
+    MatCheckboxModule,
     NgIf,
     NgFor
   ],
@@ -138,6 +140,7 @@ export interface HealthMasterDialogData {
             <div class="col col-currency">下限</div>
             <div class="col col-separator"></div>
             <div class="col col-currency">上限</div>
+            <div class="col col-unlimited"></div>
             <div class="col col-currency">標準報酬</div>
             <div class="col col-action"></div>
           </div>
@@ -158,9 +161,19 @@ export interface HealthMasterDialogData {
               <div class="col col-separator">~</div>
               <div class="col col-currency">
                 <mat-form-field appearance="outline" class="no-subscript">
-                  <input matInput type="number" formControlName="upperLimit" placeholder="上限" />
+                  <input matInput type="number" formControlName="upperLimit" placeholder="上限" 
+                         [disabled]="isUnlimitedUpperLimit(i)" 
+                         [value]="getUpperLimitDisplayValue(i)" />
+                  <mat-hint *ngIf="isUnlimitedUpperLimit(i)" class="unlimited-hint">上限なし</mat-hint>
           </mat-form-field>
               </div>
+              <div class="col col-unlimited" *ngIf="isMaxGrade(i)">
+                <mat-checkbox formControlName="unlimitedUpperLimit" 
+                              (change)="onUnlimitedChange(i, $event)">
+                  上限なし
+                </mat-checkbox>
+              </div>
+              <div class="col col-unlimited" *ngIf="!isMaxGrade(i)"></div>
               <div class="col col-currency">
                 <mat-form-field appearance="outline" class="no-subscript">
                   <input matInput type="number" formControlName="standardMonthly" placeholder="標準報酬" />
@@ -212,6 +225,18 @@ export interface HealthMasterDialogData {
       ::ng-deep .editable-table-row .mat-mdc-text-field-wrapper {
         padding-left: 8px;
         padding-right: 8px;
+      }
+      
+      .col-unlimited {
+        flex: 0 0 100px;
+        display: flex;
+        align-items: center;
+        padding: 0 8px;
+      }
+      
+      .unlimited-hint {
+        color: #666;
+        font-size: 12px;
       }
     `
   ]
@@ -305,13 +330,75 @@ export class HealthMasterFormDialogComponent {
   }
 
   addBand(band?: StandardRewardBand): void {
+    const upperLimit = band?.upperLimit ?? null;
+    const isUnlimited = upperLimit != null && (upperLimit === Infinity || upperLimit >= 999999999);
     const group = this.fb.group({
       grade: [band?.grade ?? null, Validators.required],
       lowerLimit: [band?.lowerLimit ?? null, Validators.required],
-      upperLimit: [band?.upperLimit ?? null, Validators.required],
-      standardMonthly: [band?.standardMonthly ?? null, Validators.required]
+      upperLimit: [
+        isUnlimited ? Infinity : upperLimit, 
+        // 上限なしの場合は必須チェックをスキップ（unlimitedUpperLimitの値に応じて動的に変更）
+        (control: AbstractControl) => {
+          const parent = control.parent;
+          if (!parent) return null;
+          const isUnlimited = parent.get('unlimitedUpperLimit')?.value === true;
+          return isUnlimited ? null : Validators.required(control);
+        }
+      ],
+      standardMonthly: [band?.standardMonthly ?? null, Validators.required],
+      unlimitedUpperLimit: [isUnlimited]
     });
     this.bands.push(group);
+  }
+  
+  isUnlimitedUpperLimit(index: number): boolean {
+    const band = this.bands.at(index);
+    return band?.get('unlimitedUpperLimit')?.value === true;
+  }
+  
+  getUpperLimitDisplayValue(index: number): string | number {
+    const band = this.bands.at(index);
+    const upperLimit = band?.get('upperLimit')?.value;
+    const isUnlimited = band?.get('unlimitedUpperLimit')?.value === true;
+    
+    if (isUnlimited || upperLimit === Infinity || (typeof upperLimit === 'number' && upperLimit >= 999999999)) {
+      return '';
+    }
+    return upperLimit ?? '';
+  }
+  
+  isMaxGrade(index: number): boolean {
+    if (this.bands.length === 0) return false;
+    
+    const currentGrade = this.bands.at(index)?.get('grade')?.value;
+    if (currentGrade == null) return false;
+    
+    // 全等級の中で最大の等級を取得
+    const maxGrade = Math.max(
+      ...this.bands.controls
+        .map(control => control.get('grade')?.value)
+        .filter((grade): grade is number => grade != null)
+    );
+    
+    return currentGrade === maxGrade;
+  }
+  
+  onUnlimitedChange(index: number, event: any): void {
+    const band = this.bands.at(index);
+    const isUnlimited = event.checked;
+    if (isUnlimited) {
+      band?.patchValue({ upperLimit: Infinity });
+      // バリデーションを更新
+      band?.get('upperLimit')?.updateValueAndValidity();
+    } else {
+      // 上限なしを解除する場合、デフォルト値を設定（必要に応じて調整）
+      const currentValue = band?.get('upperLimit')?.value;
+      if (currentValue === Infinity || currentValue >= 999999999) {
+        band?.patchValue({ upperLimit: null });
+      }
+      // バリデーションを更新
+      band?.get('upperLimit')?.updateValueAndValidity();
+    }
   }
 
   removeBand(index: number): void {
@@ -446,12 +533,20 @@ export class HealthMasterFormDialogComponent {
       if (!confirmed) {
         return;
       }
+      // Infinityを大きな値に変換（FirestoreではInfinityを保存できないため）
+      const processedBands = (this.bands.value as any[]).map(band => ({
+        ...band,
+        upperLimit: band.upperLimit === Infinity || band.upperLimit >= 999999999 
+          ? 999999999 
+          : band.upperLimit
+      })) as StandardRewardBand[];
+      
       const payload: Partial<HealthRateTable> = {
         id: existing.id,
         effectiveYear,
         effectiveMonth,
         healthRate: Number(this.form.value.healthRate ?? 0),
-        bands: this.bands.value as StandardRewardBand[],
+        bands: processedBands,
         effectiveYearMonth,
         planType,
         kyokaiPrefCode:
@@ -465,21 +560,29 @@ export class HealthMasterFormDialogComponent {
       return;
     }
 
+    // Infinityを大きな値に変換（FirestoreではInfinityを保存できないため）
+    const processedBands = (this.bands.value as any[]).map(band => ({
+      ...band,
+      upperLimit: band.upperLimit === Infinity || band.upperLimit >= 999999999 
+        ? 999999999 
+        : band.upperLimit
+    })) as StandardRewardBand[];
+    
     const payload: Partial<HealthRateTable> = {
-      id: this.data.table?.id,
-      effectiveYear,
-      effectiveMonth,
-      healthRate: Number(this.form.value.healthRate ?? 0),
-      bands: this.bands.value as StandardRewardBand[],
-      effectiveYearMonth,
-      planType,
-      kyokaiPrefCode:
-        planType === 'kyokai' ? this.data.office.kyokaiPrefCode ?? undefined : undefined,
-      kyokaiPrefName:
-        planType === 'kyokai' ? this.data.office.kyokaiPrefName ?? undefined : undefined,
-      unionName: planType === 'kyokai' ? undefined : unionName,
-      unionCode: planType === 'kyokai' ? undefined : unionCode
-    };
+        id: this.data.table?.id,
+        effectiveYear,
+        effectiveMonth,
+        healthRate: Number(this.form.value.healthRate ?? 0),
+        bands: processedBands,
+        effectiveYearMonth,
+        planType,
+        kyokaiPrefCode:
+          planType === 'kyokai' ? this.data.office.kyokaiPrefCode ?? undefined : undefined,
+        kyokaiPrefName:
+          planType === 'kyokai' ? this.data.office.kyokaiPrefName ?? undefined : undefined,
+        unionName: planType === 'kyokai' ? undefined : unionName,
+        unionCode: planType === 'kyokai' ? undefined : unionCode
+      };
     this.dialogRef.close(payload);
   }
 }

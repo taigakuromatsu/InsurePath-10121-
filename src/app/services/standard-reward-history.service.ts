@@ -163,9 +163,8 @@ export class StandardRewardHistoryService {
     if (insuranceKind === 'health') {
       if (latestHistory) {
         updatePayload.healthStandardMonthly = latestHistory.standardMonthlyReward;
-        if (latestHistory.grade != null) {
-          updatePayload.healthGrade = latestHistory.grade;
-        }
+        // 等級は明示的に設定（nullの場合はnullに設定）
+        updatePayload.healthGrade = latestHistory.grade ?? null;
       } else {
         // 履歴が0件の場合はnullに戻す
         updatePayload.healthStandardMonthly = null;
@@ -174,9 +173,8 @@ export class StandardRewardHistoryService {
     } else if (insuranceKind === 'pension') {
       if (latestHistory) {
         updatePayload.pensionStandardMonthly = latestHistory.standardMonthlyReward;
-        if (latestHistory.grade != null) {
-          updatePayload.pensionGrade = latestHistory.grade;
-        }
+        // 等級は明示的に設定（nullの場合はnullに設定）
+        updatePayload.pensionGrade = latestHistory.grade ?? null;
       } else {
         // 履歴が0件の場合はnullに戻す
         updatePayload.pensionStandardMonthly = null;

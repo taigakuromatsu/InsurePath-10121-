@@ -44,7 +44,8 @@ export class App {
     { label: '保険手続き状況管理', path: '/procedures', icon: 'assignment_turned_in', roles: ['admin', 'hr'] },
     { label: '扶養状況確認', path: '/dependent-reviews', icon: 'family_restroom', roles: ['admin', 'hr'] },
     { label: '書類管理', path: '/documents', icon: 'description', roles: ['admin', 'hr'] },
-    { label: 'シミュレーター', path: '/simulator', icon: 'calculate', roles: ['admin', 'hr'] },
+    // シュミレーター機能は一時的に非表示（コードは残す）
+    // { label: 'シミュレーター', path: '/simulator', icon: 'calculate', roles: ['admin', 'hr'] },
     // マイページは employeeId の有無で判定（navLinks$ で特別処理）
     { label: 'マイページ', path: '/me', icon: 'person', roles: ['admin', 'hr', 'employee'] }
   ];

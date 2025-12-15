@@ -15,13 +15,16 @@ function resolveFromBands(
   const sorted = [...bands].sort((a, b) => a.grade - b.grade);
 
   for (const band of sorted) {
-    if (band.lowerLimit <= salary && salary <= band.upperLimit) {
+    // Infinityや大きな値（999999999以上）の場合は上限なしとして扱う
+    const isUnlimited = band.upperLimit === Infinity || band.upperLimit >= 999999999;
+    if (band.lowerLimit <= salary && (isUnlimited || salary <= band.upperLimit)) {
       return { grade: band.grade, standardMonthly: band.standardMonthly };
     }
   }
 
   const maxBand = sorted[sorted.length - 1];
-  if (salary > maxBand.upperLimit) {
+  const isMaxUnlimited = maxBand.upperLimit === Infinity || maxBand.upperLimit >= 999999999;
+  if (!isMaxUnlimited && salary > maxBand.upperLimit) {
     return { grade: maxBand.grade, standardMonthly: maxBand.standardMonthly };
   }
 

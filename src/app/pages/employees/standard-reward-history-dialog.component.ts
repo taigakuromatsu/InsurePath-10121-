@@ -89,6 +89,13 @@ export interface StandardRewardHistoryDialogData {
                     </td>
                   </ng-container>
 
+                  <ng-container matColumnDef="grade">
+                    <th mat-header-cell *matHeaderCellDef>等級</th>
+                    <td mat-cell *matCellDef="let history">
+                      {{ history.grade ?? '-' }}
+                    </td>
+                  </ng-container>
+
                   <ng-container matColumnDef="decisionKind">
                     <th mat-header-cell *matHeaderCellDef>決定区分</th>
                     <td mat-cell *matCellDef="let history">
@@ -160,6 +167,13 @@ export interface StandardRewardHistoryDialogData {
                     <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
                     <td mat-cell *matCellDef="let history">
                       {{ history.standardMonthlyReward | number }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="grade">
+                    <th mat-header-cell *matHeaderCellDef>等級</th>
+                    <td mat-cell *matCellDef="let history">
+                      {{ history.grade ?? '-' }}
                     </td>
                   </ng-container>
 
@@ -352,11 +366,12 @@ export class StandardRewardHistoryDialogComponent {
   readonly displayedStandardRewardColumns: Array<
     keyof Pick<
       StandardRewardHistory,
-      'appliedFromYearMonth' | 'standardMonthlyReward' | 'decisionKind' | 'note'
+      'appliedFromYearMonth' | 'standardMonthlyReward' | 'grade' | 'decisionKind' | 'note'
     > | 'actions'
   > = [
     'appliedFromYearMonth',
     'standardMonthlyReward',
+    'grade',
     'decisionKind',
     'note',
     'actions'

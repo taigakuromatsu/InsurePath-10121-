@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { DecimalPipe, NgIf } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,18 +8,18 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatRadioModule } from '@angular/material/radio';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTableModule } from '@angular/material/table';
 import { firstValueFrom } from 'rxjs';
 
 import { CurrentOfficeService } from '../../services/current-office.service';
-import { MastersService } from '../../services/masters.service';
 import {
-  calculateMonthlyPremiumForEmployee,
   MonthlyPremiumCalculationResult,
-  PremiumRateContext
+  roundForEmployeeDeduction,
+  isCareInsuranceTarget as checkIsCareInsuranceTarget
 } from '../../utils/premium-calculator';
-import { Employee } from '../../types';
-import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-calculator';
+import { YearMonthString } from '../../types';
 
 @Component({
   selector: 'ip-simulator-page',
@@ -33,7 +33,9 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
     MatCheckboxModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatRadioModule,
     MatSnackBarModule,
+    MatTableModule,
     DecimalPipe,
     NgIf
   ],
@@ -60,29 +62,44 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
 
         <form [formGroup]="form" (ngSubmit)="onSimulate()" class="dense-form">
           <div class="form-section">
+            <!-- 計算モード選択 -->
+            <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">計算モード</label>
+                <mat-radio-group formControlName="calculationMode" class="radio-group">
+                  <mat-radio-button value="single">単月計算</mat-radio-button>
+                  <mat-radio-button value="multiple">複数月計算</mat-radio-button>
+                </mat-radio-group>
+              </div>
+            </div>
+
+            <!-- 複数月計算の場合のみ、期間指定 -->
+            <div class="form-row flex-row gap-3 flex-wrap mb-3" *ngIf="form.get('calculationMode')?.value === 'multiple'">
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>開始年月</mat-label>
+                <input matInput type="month" formControlName="startYearMonth" required />
+                <mat-error *ngIf="form.get('startYearMonth')?.hasError('required')">
+                  開始年月を選択してください
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>終了年月</mat-label>
+                <input matInput type="month" formControlName="endYearMonth" required />
+                <mat-error *ngIf="form.get('endYearMonth')?.hasError('required')">
+                  終了年月を選択してください
+                </mat-error>
+                <mat-error *ngIf="form.get('endYearMonth')?.hasError('invalidRange')">
+                  終了年月は開始年月以降を選択してください
+                </mat-error>
+              </mat-form-field>
+            </div>
+
             <div class="form-row flex-row gap-3 flex-wrap mb-3">
               <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>対象年月</mat-label>
-                <input matInput type="month" formControlName="yearMonth" required />
-                <mat-error *ngIf="form.get('yearMonth')?.hasError('required')">
-                  対象年月を選択してください
-                </mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>適用開始年月</mat-label>
-                <input matInput type="month" formControlName="decisionYearMonth" required />
-                <mat-error *ngIf="form.get('decisionYearMonth')?.hasError('required')">
-                  適用開始年月を入力してください
-                </mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>報酬月額（円）</mat-label>
-                <input matInput type="number" formControlName="salary" required />
-                <mat-error *ngIf="form.get('salary')?.hasError('required')">
-                  報酬月額を入力してください
-                </mat-error>
+                <input matInput type="number" formControlName="salary" />
+                <mat-hint>参考用（等級・標準報酬は手動入力）</mat-hint>
                 <mat-error *ngIf="form.get('salary')?.hasError('min')">
                   1円以上の値を入力してください
                 </mat-error>
@@ -138,6 +155,62 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
             </mat-checkbox>
           </div>
 
+          <!-- 保険料率セクション -->
+          <div class="form-section rate-section">
+            <div class="section-header">
+              <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                <mat-icon color="primary">percent</mat-icon>
+                保険料率（%）
+              </h3>
+            </div>
+            <div class="form-row flex-row gap-3 flex-wrap mb-3">
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>健康保険料率（%）</mat-label>
+                <input matInput type="number" formControlName="healthRate" step="0.0001" required />
+                <span matSuffix>%</span>
+                <mat-hint>例: 9.91（事業主＋被保険者合計）</mat-hint>
+                <mat-error *ngIf="form.get('healthRate')?.hasError('required')">
+                  健康保険料率を入力してください
+                </mat-error>
+                <mat-error *ngIf="form.get('healthRate')?.hasError('min')">
+                  0以上の値を入力してください
+                </mat-error>
+                <mat-error *ngIf="form.get('healthRate')?.hasError('max')">
+                  100以下の値を入力してください
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>介護保険料率（%）</mat-label>
+                <input matInput type="number" formControlName="careRate" step="0.0001" />
+                <span matSuffix>%</span>
+                <mat-hint>例: 1.91（事業主＋被保険者合計）</mat-hint>
+                <mat-error *ngIf="form.get('careRate')?.hasError('min')">
+                  0以上の値を入力してください
+                </mat-error>
+                <mat-error *ngIf="form.get('careRate')?.hasError('max')">
+                  100以下の値を入力してください
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>厚生年金保険料率（%）</mat-label>
+                <input matInput type="number" formControlName="pensionRate" step="0.0001" required />
+                <span matSuffix>%</span>
+                <mat-hint>例: 18.3（事業主＋被保険者合計）</mat-hint>
+                <mat-error *ngIf="form.get('pensionRate')?.hasError('required')">
+                  厚生年金保険料率を入力してください
+                </mat-error>
+                <mat-error *ngIf="form.get('pensionRate')?.hasError('min')">
+                  0以上の値を入力してください
+                </mat-error>
+                <mat-error *ngIf="form.get('pensionRate')?.hasError('max')">
+                  100以下の値を入力してください
+                </mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+
           <div class="actions">
             <button
               mat-flat-button
@@ -153,7 +226,9 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
         </form>
       </mat-card>
 
-      <ng-container *ngIf="calculationResult() as result; else noResult">
+      <ng-container *ngIf="calculationResult() || multipleMonthResults().length > 0; else noResult">
+        <!-- 単月計算結果 -->
+        <ng-container *ngIf="form.get('calculationMode')?.value === 'single' && calculationResult() as result">
         <mat-card class="content-card">
           <div class="flex-row justify-between align-center mb-4">
             <div>
@@ -259,6 +334,97 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
             </div>
           </div>
         </mat-card>
+        </ng-container>
+
+        <!-- 複数月計算結果 -->
+        <ng-container *ngIf="form.get('calculationMode')?.value === 'multiple' && multipleMonthResults().length > 0">
+          <mat-card class="content-card">
+            <div class="flex-row justify-between align-center mb-4">
+              <div>
+                <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+                  <mat-icon color="primary">assessment</mat-icon> 計算結果（{{ multipleMonthResults().length }}ヶ月分）
+                </h2>
+              </div>
+            </div>
+
+            <div class="result-content">
+              <div class="info-section">
+                <div class="info-section-header">
+                  <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                    月別計算結果
+                  </h3>
+                </div>
+                <div class="table-container">
+                  <table mat-table [dataSource]="multipleMonthResults()" class="results-table">
+                    <ng-container matColumnDef="yearMonth">
+                      <th mat-header-cell *matHeaderCellDef>対象年月</th>
+                      <td mat-cell *matCellDef="let row">{{ row.yearMonth }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="healthCareEmployee">
+                      <th mat-header-cell *matHeaderCellDef>健保・介護<br/>本人負担</th>
+                      <td mat-cell *matCellDef="let row">{{ row.amounts.healthCareEmployee | number }}円</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="pensionEmployee">
+                      <th mat-header-cell *matHeaderCellDef>厚生年金<br/>本人負担</th>
+                      <td mat-cell *matCellDef="let row">{{ row.amounts.pensionEmployee | number }}円</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="totalEmployee">
+                      <th mat-header-cell *matHeaderCellDef>本人負担<br/>合計</th>
+                      <td mat-cell *matCellDef="let row" class="total-cell">
+                        <strong>{{ row.amounts.totalEmployee | number }}円</strong>
+                      </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="healthCareEmployer">
+                      <th mat-header-cell *matHeaderCellDef>健保・介護<br/>会社負担</th>
+                      <td mat-cell *matCellDef="let row">{{ row.amounts.healthCareEmployer | number }}円</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="pensionEmployer">
+                      <th mat-header-cell *matHeaderCellDef>厚生年金<br/>会社負担</th>
+                      <td mat-cell *matCellDef="let row">{{ row.amounts.pensionEmployer | number }}円</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="totalEmployer">
+                      <th mat-header-cell *matHeaderCellDef>会社負担<br/>合計</th>
+                      <td mat-cell *matCellDef="let row" class="total-cell">
+                        <strong>{{ row.amounts.totalEmployer | number }}円</strong>
+                      </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                  </table>
+                </div>
+              </div>
+
+              <div class="info-section total-section">
+                <div class="info-section-header">
+                  <h3 class="mat-h3 flex-row align-center gap-2 m-0">
+                    合計
+                  </h3>
+                </div>
+                <div class="info-grid">
+                  <div class="info-item">
+                    <span class="label">本人負担合計</span>
+                    <span class="value employee large">{{ totalAmounts().totalEmployee | number }}円</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">会社負担合計</span>
+                    <span class="value employer large">{{ totalAmounts().totalEmployer | number }}円</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">全額合計（端数処理前）</span>
+                    <span class="value large">{{ totalAmounts().totalFull | number:'1.0-2' }}円</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </mat-card>
+        </ng-container>
       </ng-container>
 
       <ng-template #noResult>
@@ -410,30 +576,164 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
         margin: 0;
           font-size: 14px;
       }
+
+      /* フォームセクション */
+      .form-section {
+        margin-bottom: 24px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .form-label {
+        font-weight: 500;
+        color: rgba(0, 0, 0, 0.87);
+        font-size: 14px;
+      }
+
+      .radio-group {
+        display: flex;
+        gap: 16px;
+      }
+
+      .rate-section {
+        padding: 16px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background-color: #fafafa;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .reset-button {
+        font-size: 12px;
+      }
+
+      /* テーブルスタイル */
+      .table-container {
+        overflow-x: auto;
+      }
+
+      .results-table {
+        width: 100%;
+      }
+
+      .results-table th {
+        font-weight: 500;
+        background-color: #f5f5f5;
+        white-space: nowrap;
+      }
+
+      .results-table td {
+        text-align: right;
+      }
+
+      .results-table td.total-cell {
+        font-weight: 600;
+        color: #1976d2;
+      }
+
+      .results-table th:first-child,
+      .results-table td:first-child {
+        text-align: left;
+      }
     `
   ]
 })
 export class SimulatorPage {
   private readonly fb = inject(FormBuilder);
   private readonly currentOffice = inject(CurrentOfficeService);
-  private readonly mastersService = inject(MastersService);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly office$ = this.currentOffice.office$;
 
   readonly calculationResult = signal<MonthlyPremiumCalculationResult | null>(null);
+  readonly multipleMonthResults = signal<MonthlyPremiumCalculationResult[]>([]);
   readonly loading = signal(false);
+  readonly displayedColumns = ['yearMonth', 'healthCareEmployee', 'pensionEmployee', 'totalEmployee', 'healthCareEmployer', 'pensionEmployer', 'totalEmployer'];
 
   readonly form = this.fb.group({
-    yearMonth: [new Date().toISOString().substring(0, 7), Validators.required],
-    decisionYearMonth: [new Date().toISOString().substring(0, 7), Validators.required],
-    salary: [null as number | null, [Validators.required, Validators.min(1)]],
+    calculationMode: ['single' as 'single' | 'multiple', Validators.required],
+    startYearMonth: [null as string | null],
+    endYearMonth: [null as string | null],
+    salary: [null as number | null, [Validators.min(1)]],
     healthGrade: [null as number | null, [Validators.min(1), Validators.max(100)]],
     healthStandardMonthly: [null as number | null, [Validators.min(1)]],
     pensionGrade: [null as number | null, [Validators.min(1), Validators.max(100)]],
     pensionStandardMonthly: [null as number | null, [Validators.min(1)]],
-    isCareInsuranceTarget: [false]
+    isCareInsuranceTarget: [false],
+    healthRate: [null as number | null, [Validators.required, Validators.min(0), Validators.max(100)]],
+    careRate: [null as number | null, [Validators.min(0), Validators.max(100)]],
+    pensionRate: [null as number | null, [Validators.required, Validators.min(0), Validators.max(100)]]
   });
+
+  readonly totalAmounts = computed(() => {
+    const results = this.multipleMonthResults();
+    if (results.length === 0) {
+      return { totalEmployee: 0, totalEmployer: 0, totalFull: 0 };
+    }
+    return results.reduce(
+      (acc, result) => ({
+        totalEmployee: acc.totalEmployee + result.amounts.totalEmployee,
+        totalEmployer: acc.totalEmployer + result.amounts.totalEmployer,
+        totalFull: acc.totalFull + result.amounts.totalFull
+      }),
+      { totalEmployee: 0, totalEmployer: 0, totalFull: 0 }
+    );
+  });
+
+  constructor() {
+    // 計算モード変更時にバリデーションを更新
+    this.form.get('calculationMode')?.valueChanges.subscribe((mode) => {
+      const startYearMonthControl = this.form.get('startYearMonth');
+      const endYearMonthControl = this.form.get('endYearMonth');
+      if (mode === 'multiple') {
+        startYearMonthControl?.setValidators([Validators.required]);
+        endYearMonthControl?.setValidators([Validators.required, this.validateDateRange.bind(this)]);
+      } else {
+        startYearMonthControl?.clearValidators();
+        endYearMonthControl?.clearValidators();
+      }
+      startYearMonthControl?.updateValueAndValidity();
+      endYearMonthControl?.updateValueAndValidity();
+    });
+  }
+
+  private validateDateRange(control: any): { [key: string]: any } | null {
+    const startYearMonth = this.form.get('startYearMonth')?.value;
+    const endYearMonth = control.value;
+    if (!startYearMonth || !endYearMonth) {
+      return null;
+    }
+    if (endYearMonth < startYearMonth) {
+      return { invalidRange: true };
+    }
+    return null;
+  }
+
+  private generateYearMonthRange(start: string, end: string): YearMonthString[] {
+    const months: YearMonthString[] = [];
+    const startDate = new Date(start + '-01');
+    const endDate = new Date(end + '-01');
+    
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      months.push(`${year}-${month}` as YearMonthString);
+      current.setMonth(current.getMonth() + 1);
+    }
+    
+    return months;
+  }
 
   async onSimulate(): Promise<void> {
     if (this.form.invalid) {
@@ -443,66 +743,26 @@ export class SimulatorPage {
 
     try {
       this.loading.set(true);
+      this.calculationResult.set(null);
+      this.multipleMonthResults.set([]);
 
       const office = await firstValueFrom(this.office$);
       if (!office) {
-        this.calculationResult.set(null);
         this.snackBar.open('事業所情報を取得できませんでした', '閉じる', { duration: 3000 });
         return;
       }
 
       const formValue = this.form.value;
-      const yearMonth = formValue.yearMonth as string;
-      const decisionYearMonth = formValue.decisionYearMonth as string;
-      const salary = Number(formValue.salary);
-      let healthGrade = formValue.healthGrade != null ? Number(formValue.healthGrade) : null;
-      let pensionGrade = formValue.pensionGrade != null ? Number(formValue.pensionGrade) : null;
-      let healthStandardMonthly =
+      const calculationMode = formValue.calculationMode as 'single' | 'multiple';
+      const healthGrade = formValue.healthGrade != null ? Number(formValue.healthGrade) : null;
+      const pensionGrade = formValue.pensionGrade != null ? Number(formValue.pensionGrade) : null;
+      const healthStandardMonthly =
         formValue.healthStandardMonthly != null ? Number(formValue.healthStandardMonthly) : null;
-      let pensionStandardMonthly =
+      const pensionStandardMonthly =
         formValue.pensionStandardMonthly != null ? Number(formValue.pensionStandardMonthly) : null;
       const isCareInsuranceTarget = formValue.isCareInsuranceTarget === true;
 
-      // 自動計算（報酬月額と決定年月から）
-      const autoResult = await calculateStandardRewardsFromSalary(
-        office,
-        salary,
-        decisionYearMonth,
-        this.mastersService
-      );
-
-      // エラー表示（存在する場合）
-      if (autoResult.errors.health) {
-        this.snackBar.open(autoResult.errors.health, '閉じる', { duration: 5000 });
-      }
-      if (autoResult.errors.pension) {
-        this.snackBar.open(autoResult.errors.pension, '閉じる', { duration: 5000 });
-      }
-
-      // 自動計算結果をフォームと計算値に反映（未入力のみ上書き）
-      if (!healthGrade && autoResult.healthGrade) {
-        healthGrade = autoResult.healthGrade;
-      }
-      if (!healthStandardMonthly && autoResult.healthStandardMonthly) {
-        healthStandardMonthly = autoResult.healthStandardMonthly;
-      }
-      if (!pensionGrade && autoResult.pensionGrade) {
-        pensionGrade = autoResult.pensionGrade;
-      }
-      if (!pensionStandardMonthly && autoResult.pensionStandardMonthly) {
-        pensionStandardMonthly = autoResult.pensionStandardMonthly;
-      }
-
-      this.form.patchValue(
-        {
-          healthGrade,
-          healthStandardMonthly,
-          pensionGrade,
-          pensionStandardMonthly
-        },
-        { emitEvent: false }
-      );
-
+      // 等級・標準報酬のバリデーション
       const hasHealth =
         healthGrade != null && healthGrade > 0 && healthStandardMonthly != null && healthStandardMonthly > 0;
       const hasPension =
@@ -512,67 +772,115 @@ export class SimulatorPage {
         pensionStandardMonthly > 0;
 
       if (!hasHealth && !hasPension) {
-        this.calculationResult.set(null);
         this.snackBar.open(
-          '健保または厚年の標準報酬が決定できません。報酬月額とマスタ設定を確認してください。',
+          '健保または厚年の等級・標準報酬月額を入力してください。',
           '閉じる',
           { duration: 4000 }
         );
         return;
       }
 
-      const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
+      // 保険料率のバリデーション
+      const healthRate = formValue.healthRate != null ? Number(formValue.healthRate) / 100 : null;
+      const pensionRate = formValue.pensionRate != null ? Number(formValue.pensionRate) / 100 : null;
 
-      if (rates.healthRate == null || rates.pensionRate == null) {
-        this.calculationResult.set(null);
-        let errorMessage = '対象年月の保険料率がマスタに設定されていません。';
-        if (rates.healthRate == null) {
-          errorMessage += ' 健康保険料率が未設定です。';
-        }
-        if (rates.pensionRate == null) {
-          errorMessage += ' 厚生年金保険料率が未設定です。';
-        }
-        errorMessage += ' 保険料率管理画面で設定してください。';
-        this.snackBar.open(errorMessage, '閉じる', { duration: 5000 });
+      if (healthRate == null || pensionRate == null) {
+        this.snackBar.open('健康保険料率と厚生年金保険料率を入力してください。', '閉じる', { duration: 3000 });
         return;
       }
 
-      const tempEmployee: Employee = {
-        id: 'temp',
+      // 計算対象年月のリストを生成
+      const yearMonths: YearMonthString[] = [];
+      if (calculationMode === 'single') {
+        // 単月計算の場合、現在の年月を使用
+        yearMonths.push(new Date().toISOString().substring(0, 7) as YearMonthString);
+      } else {
+        const startYearMonth = formValue.startYearMonth as string;
+        const endYearMonth = formValue.endYearMonth as string;
+        if (!startYearMonth || !endYearMonth) {
+          this.snackBar.open('開始年月と終了年月を選択してください', '閉じる', { duration: 3000 });
+          return;
+        }
+        yearMonths.push(...this.generateYearMonthRange(startYearMonth, endYearMonth));
+      }
+
+      // 介護保険対象判定用の生年月日
+      const birthDate = isCareInsuranceTarget ? '1980-01-01' : '2005-01-01';
+
+      // 保険料率を取得（フォームの値を使用）
+      const careRate = formValue.careRate != null ? Number(formValue.careRate) / 100 : 0;
+
+      const results: MonthlyPremiumCalculationResult[] = [];
+
+      for (const yearMonth of yearMonths) {
+        // シンプルな保険料計算（資格取得日などのチェックなし）
+        const healthStandard = healthStandardMonthly ?? 0;
+        const pensionStandard = pensionStandardMonthly ?? 0;
+
+        // 介護保険対象判定
+        const isCareTarget = checkIsCareInsuranceTarget(birthDate, yearMonth);
+        const actualCareRate = isCareTarget && careRate > 0 ? careRate : 0;
+
+        // 健康保険 + 介護保険（合算）
+        const healthTotalRate = healthRate! + actualCareRate;
+        const healthCareFull = hasHealth ? healthStandard * healthTotalRate : 0;
+        const healthCareEmployee = roundForEmployeeDeduction(healthCareFull / 2);
+        const healthCareEmployer = healthCareFull - healthCareEmployee;
+
+        // 介護保険単体（参考値）
+        const careFull = hasHealth ? healthStandard * actualCareRate : 0;
+        const careEmployee = roundForEmployeeDeduction(careFull / 2);
+        const careEmployer = careFull - careEmployee;
+
+        // 厚生年金
+        const pensionFull = hasPension ? pensionStandard * pensionRate! : 0;
+        const pensionEmployee = roundForEmployeeDeduction(pensionFull / 2);
+        const pensionEmployer = pensionFull - pensionEmployee;
+
+        // 合計
+        const totalFull = healthCareFull + pensionFull;
+        const totalEmployee = healthCareEmployee + pensionEmployee;
+        const totalEmployer = healthCareEmployer + pensionEmployer;
+
+        const result: MonthlyPremiumCalculationResult = {
+          employeeId: 'temp',
         officeId: office.id,
-        name: 'シミュレーション用',
-        birthDate: isCareInsuranceTarget ? '1980-01-01' : '2005-01-01',
-        hireDate: '2000-01-01',
-        employmentType: 'regular',
-        isInsured: true,
-        healthGrade: hasHealth ? healthGrade ?? undefined : undefined,
-        healthStandardMonthly: hasHealth ? healthStandardMonthly ?? undefined : undefined,
-        pensionGrade: hasPension ? pensionGrade ?? undefined : undefined,
-        pensionStandardMonthly: hasPension ? pensionStandardMonthly ?? undefined : undefined
-      };
-
-      const rateContext: PremiumRateContext = {
         yearMonth,
-        calcDate: new Date().toISOString(),
-        healthRate: rates.healthRate,
-        careRate: rates.careRate,
-        pensionRate: rates.pensionRate
-      };
+          healthGrade: hasHealth ? healthGrade! : 0,
+          healthStandardMonthly: healthStandard,
+          pensionGrade: hasPension ? pensionGrade! : 0,
+          pensionStandardMonthly: pensionStandard,
+          amounts: {
+            healthCareFull,
+            healthCareEmployee,
+            healthCareEmployer,
+            pensionFull,
+            pensionEmployee,
+            pensionEmployer,
+            totalFull,
+            totalEmployee,
+            totalEmployer,
+            // deprecated fields（後方互換）
+            healthTotal: healthCareFull,
+            healthEmployee: healthCareEmployee,
+            healthEmployer: healthCareEmployer,
+            careTotal: careFull,
+            careEmployee,
+            careEmployer,
+            pensionTotal: pensionFull
+          }
+        };
 
-      const result = calculateMonthlyPremiumForEmployee(tempEmployee, rateContext);
-
-      if (!result) {
-        this.calculationResult.set(null);
-        this.snackBar.open('保険料の計算に失敗しました。入力値を確認してください。', '閉じる', {
-          duration: 3000
-        });
-        return;
+        results.push(result);
       }
 
-      this.calculationResult.set(result);
+      if (calculationMode === 'single') {
+        this.calculationResult.set(results[0]);
+      } else {
+        this.multipleMonthResults.set(results);
+      }
     } catch (error) {
       console.error('シミュレーション実行に失敗しました', error);
-      this.calculationResult.set(null);
       this.snackBar.open('シミュレーション実行に失敗しました', '閉じる', { duration: 3000 });
     } finally {
       this.loading.set(false);

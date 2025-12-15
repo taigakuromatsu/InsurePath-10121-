@@ -61,11 +61,12 @@ export const routes: Routes = [
         canActivate: [authGuard, officeGuard, hasEmployeeIdGuard],
         loadComponent: () => import('./pages/me/my-page').then((m) => m.MyPage)
       },
-      {
-        path: 'simulator',
-        canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
-        loadComponent: () => import('./pages/simulator/simulator.page').then((m) => m.SimulatorPage)
-      },
+      // シュミレーター機能は一時的に非表示（コードは残す）
+      // {
+      //   path: 'simulator',
+      //   canActivate: [authGuard, officeGuard, roleGuard(['admin', 'hr'])],
+      //   loadComponent: () => import('./pages/simulator/simulator.page').then((m) => m.SimulatorPage)
+      // },
       {
         path: 'masters',
         canActivate: [authGuard, officeGuard, roleGuard(['admin'])],

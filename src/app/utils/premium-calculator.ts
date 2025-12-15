@@ -175,7 +175,7 @@ export function hasInsuranceInMonth(
  * - 取得日が未入力の保険種別は常に対象外（hireDate / retireDate にはフォールバックしない）。
  * - 保険種別ごとの計算では必ず hasInsuranceInMonth(...) を使用すること。
  */
-function hasSocialInsuranceInMonth(
+export function hasSocialInsuranceInMonth(
   employee: Employee,
   yearMonth: YearMonthString
 ): boolean {

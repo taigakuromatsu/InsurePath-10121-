@@ -112,11 +112,7 @@ export class DataQualityPage {
 
   private readonly ISSUE_TYPE_LABELS: Record<DataQualityIssueType, string> = {
     insured_qualification_inconsistent: '資格・加入フラグ不整合',
-    missing_premium_record: '保険料レコード欠落',
-    loss_retire_premium_mismatch: '喪失/退職と保険料計上の矛盾',
-    standard_reward_overlap: '標準報酬履歴の期間矛盾',
-    care_premium_mismatch: '介護保険料の年齢不整合',
-    premium_snapshot_missing: '標準報酬スナップショット欠落'
+    loss_retire_premium_mismatch: '退職日と資格喪失日の不整合'
   };
 
   issueTypeLabel(type: DataQualityIssueType): string {

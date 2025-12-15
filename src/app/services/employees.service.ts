@@ -5,6 +5,7 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  docData,
   getDoc,
   getDocs,
   setDoc
@@ -60,6 +61,16 @@ export class EmployeesService {
         return { id: snapshot.id, ...(snapshot.data() as any) } as Employee;
       })
     );
+    });
+  }
+
+  /**
+   * 従業員をリアルタイムで監視（watch）
+   */
+  watch(officeId: string, employeeId: string): Observable<Employee | null> {
+    return this.inCtx(() => {
+      const ref = doc(this.collectionPath(officeId), employeeId);
+      return docData(ref, { idField: 'id' }) as Observable<Employee | null>;
     });
   }
 

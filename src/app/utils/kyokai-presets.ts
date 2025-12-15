@@ -213,8 +213,8 @@ export const HEALTH_STANDARD_REWARD_BANDS_DEFAULT: StandardRewardBand[] = [
   { grade: 47, lowerLimit: 1175000, upperLimit: 1235000, standardMonthly: 1210000 },
   { grade: 48, lowerLimit: 1235000, upperLimit: 1295000, standardMonthly: 1270000 },
   { grade: 49, lowerLimit: 1295000, upperLimit: 1355000, standardMonthly: 1330000 },
-  // 最上位等級は「135万5千円以上〜」なので、上限は便宜上大きな値を入れておく
-  { grade: 50, lowerLimit: 1355000, upperLimit: 999999999, standardMonthly: 1390000 }
+  // 最上位等級は「135万5千円以上〜」なので、上限なし（Infinity）を設定
+  { grade: 50, lowerLimit: 1355000, upperLimit: Infinity, standardMonthly: 1390000 }
 ];
 
 /**

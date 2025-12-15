@@ -255,12 +255,8 @@ export interface StandardRewardHistory {
 
 // データ品質チェック（Phase3-13）
 export type DataQualityIssueType =
-  | 'insured_qualification_inconsistent' // ルール1
-  | 'missing_premium_record' // ルール2
-  | 'loss_retire_premium_mismatch' // ルール3
-  | 'standard_reward_overlap' // ルール4
-  | 'care_premium_mismatch' // ルール5
-  | 'premium_snapshot_missing'; // ルール6
+  | 'insured_qualification_inconsistent' // ルール1: 資格・加入フラグ不整合
+  | 'loss_retire_premium_mismatch'; // ルール2: 退職日と資格喪失日の不整合
 
 export interface DataQualityIssue {
   id: string;
