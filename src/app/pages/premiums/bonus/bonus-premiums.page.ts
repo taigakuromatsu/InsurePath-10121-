@@ -14,6 +14,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { combineLatest, of, switchMap, firstValueFrom, Subscription, map } from 'rxjs';
+import { Auth } from '@angular/fire/auth';
 
 import { CurrentOfficeService } from '../../../services/current-office.service';
 import { CurrentUserService } from '../../../services/current-user.service';
@@ -1232,6 +1233,7 @@ export class BonusPremiumsPage implements OnDestroy {
   private readonly snackBar = inject(MatSnackBar);
   private readonly csvExportService = inject(CsvExportService);
   private readonly documentGenerator = inject(DocumentGeneratorService);
+  private readonly auth = inject(Auth);
 
   readonly officeId$ = this.currentOffice.officeId$;
   readonly office$ = this.currentOffice.office$;
@@ -1294,6 +1296,10 @@ export class BonusPremiumsPage implements OnDestroy {
   readonly rows = signal<BonusPremiumViewRow[]>([]);
   private dataSubscription?: Subscription;
   private refreshSeq = 0;  // レースコンディション対策: 世代番号
+  
+  // 自動再計算の状態管理（年月ごと）
+  private readonly autoCalcInProgressByYearMonth = new Map<YearMonthString, boolean>();
+  private readonly lastAutoCalcHashByYearMonth = new Map<YearMonthString, string>();
 
   constructor() {
     effect((onCleanup) => {
@@ -1355,6 +1361,69 @@ export class BonusPremiumsPage implements OnDestroy {
         });
 
         const employeeMap = new Map(employees.map((e) => [e.id, e]));
+        
+        // 自動再計算の判定
+        // 賞与保険料の計算に影響する従業員データのハッシュを作成
+        const employeesHash = JSON.stringify(
+          employees
+            .map((e) => ({
+              id: e.id,
+              isInsured: e.isInsured ?? false,
+              healthQualificationDate: e.healthQualificationDate ?? null,
+              healthLossDate: e.healthLossDate ?? null,
+              pensionQualificationDate: e.pensionQualificationDate ?? null,
+              pensionLossDate: e.pensionLossDate ?? null,
+              birthDate: e.birthDate ?? null
+            }))
+            .sort((a, b) => a.id.localeCompare(b.id))
+        );
+        const ratesHash = JSON.stringify({
+          healthRate: rates.healthRate,
+          careRate: rates.careRate,
+          pensionRate: rates.pensionRate
+        });
+        const currentHash = `${employeesHash}|${ratesHash}`;
+        
+        // 自動再計算が必要かチェック（年月ごとにハッシュを管理）
+        const lastHash = this.lastAutoCalcHashByYearMonth.get(yearMonth);
+        const isAutoCalcInProgress = this.autoCalcInProgressByYearMonth.get(yearMonth) ?? false;
+        const needsAutoCalc =
+          !isAutoCalcInProgress &&
+          (bonuses.length === 0 || lastHash !== currentHash);
+        
+        if (needsAutoCalc && employees.length > 0 && rates.healthRate != null && rates.pensionRate != null) {
+          // 自動再計算を実行
+          this.autoCalcInProgressByYearMonth.set(yearMonth, true);
+          try {
+            // 対象年月に賞与がある従業員のみ再計算
+            const employeesWithBonuses = new Set(bonuses.map((b) => b.employeeId));
+            const targetEmployees = (employees as Employee[]).filter((e) =>
+              employeesWithBonuses.has(e.id)
+            );
+            
+            for (const employee of targetEmployees) {
+              await this.bonusPremiumsService.recalculateForEmployeeMonth(
+                office,
+                employee,
+                yearMonth
+              );
+            }
+            
+            // 保存後にハッシュを更新
+            this.lastAutoCalcHashByYearMonth.set(yearMonth, currentHash);
+            
+            // 再計算後にデータを再取得（リアルタイムリスナーにより自動更新される）
+            // 年月が変更されていないか再チェック
+            if (seq !== this.refreshSeq) {
+              this.autoCalcInProgressByYearMonth.set(yearMonth, false);
+              return;
+            }
+          } catch (error) {
+            console.error(`賞与保険料自動再計算に失敗 (${yearMonth})`, error);
+          } finally {
+            this.autoCalcInProgressByYearMonth.set(yearMonth, false);
+          }
+        }
 
         const rows: BonusPremiumViewRow[] = bonuses
           .filter((b) => {

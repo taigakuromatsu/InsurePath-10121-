@@ -50,23 +50,6 @@ export interface StandardRewardHistoryFormDialogData {
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
-        <mat-label>決定年月 *</mat-label>
-        <input
-          matInput
-          formControlName="decisionYearMonth"
-          type="month"
-          required
-          placeholder="YYYY-MM"
-        />
-        <mat-error *ngIf="form.controls.decisionYearMonth.hasError('required')">
-          決定年月を入力してください
-        </mat-error>
-        <mat-error *ngIf="form.controls.decisionYearMonth.hasError('pattern')">
-          YYYY-MM 形式で入力してください
-        </mat-error>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-width">
         <mat-label>適用開始年月 *</mat-label>
         <input
           matInput
@@ -176,7 +159,6 @@ export class StandardRewardHistoryFormDialogComponent {
 
   readonly form = this.fb.nonNullable.group({
     insuranceKind: ['health' as InsuranceKind, Validators.required],
-    decisionYearMonth: ['', [Validators.required, Validators.pattern(/^\d{4}-\d{2}$/)]],
     appliedFromYearMonth: ['', [Validators.required, Validators.pattern(/^\d{4}-\d{2}$/)]],
     standardMonthlyReward: [0, [Validators.required, Validators.min(0)]],
     decisionKind: ['', Validators.required],
@@ -190,7 +172,6 @@ export class StandardRewardHistoryFormDialogComponent {
     if (data.history) {
       this.form.patchValue({
         insuranceKind: data.history.insuranceKind,
-        decisionYearMonth: data.history.decisionYearMonth,
         appliedFromYearMonth: data.history.appliedFromYearMonth,
         standardMonthlyReward: data.history.standardMonthlyReward,
         decisionKind: data.history.decisionKind,
@@ -213,7 +194,6 @@ export class StandardRewardHistoryFormDialogComponent {
     const payload: Partial<StandardRewardHistory> & { id?: string } = {
       id: this.data.history?.id,
       insuranceKind: value.insuranceKind,
-      decisionYearMonth: value.decisionYearMonth,
       appliedFromYearMonth: value.appliedFromYearMonth,
       standardMonthlyReward: Number(value.standardMonthlyReward),
       decisionKind: value.decisionKind as StandardRewardDecisionKind,

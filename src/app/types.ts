@@ -242,7 +242,6 @@ export interface StandardRewardHistory {
   id: string;
   employeeId: string;
   insuranceKind: InsuranceKind;
-  decisionYearMonth: YearMonthString;
   appliedFromYearMonth: YearMonthString;
   standardMonthlyReward: number;
   grade?: number;

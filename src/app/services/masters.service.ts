@@ -57,41 +57,41 @@ export class MastersService {
     yearMonth: YearMonthString
   ): Observable<HealthRateTable | null> {
     return this.inCtx(() => {
-      const targetYear = parseInt(yearMonth.substring(0, 4), 10);
-      const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
-      const targetYearMonth = targetYear * 100 + targetMonth;
-      const officeId = office.id;
+    const targetYear = parseInt(yearMonth.substring(0, 4), 10);
+    const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
+    const targetYearMonth = targetYear * 100 + targetMonth;
+    const officeId = office.id;
 
-      const healthRef = this.getHealthCollectionRef(officeId);
-      let healthQuery;
+    const healthRef = this.getHealthCollectionRef(officeId);
+    let healthQuery;
 
-      if (office.healthPlanType === 'kyokai' && office.kyokaiPrefCode) {
+    if (office.healthPlanType === 'kyokai' && office.kyokaiPrefCode) {
         healthQuery = this.inCtx(() => query(
-          healthRef,
-          where('planType', '==', 'kyokai'),
-          where('kyokaiPrefCode', '==', office.kyokaiPrefCode),
-          where('effectiveYearMonth', '<=', targetYearMonth),
-          orderBy('effectiveYearMonth', 'desc'),
-          limit(1)
+        healthRef,
+        where('planType', '==', 'kyokai'),
+        where('kyokaiPrefCode', '==', office.kyokaiPrefCode),
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
         ));
-      } else if (office.healthPlanType === 'kumiai') {
+    } else if (office.healthPlanType === 'kumiai') {
         healthQuery = this.inCtx(() => query(
-          healthRef,
-          where('planType', '==', 'kumiai'),
-          where('effectiveYearMonth', '<=', targetYearMonth),
-          orderBy('effectiveYearMonth', 'desc'),
-          limit(1)
+        healthRef,
+        where('planType', '==', 'kumiai'),
+        where('effectiveYearMonth', '<=', targetYearMonth),
+        orderBy('effectiveYearMonth', 'desc'),
+        limit(1)
         ));
-      } else {
-        return of(null);
-      }
+    } else {
+      return of(null);
+    }
 
       return from(this.inCtxP(() => getDocs(healthQuery))).pipe(
-        map((snapshot) => {
-          if (snapshot.empty) return null;
-          return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as HealthRateTable;
-        })
-      );
+      map((snapshot) => {
+        if (snapshot.empty) return null;
+        return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as HealthRateTable;
+      })
+    );
     });
   }
 
@@ -103,31 +103,31 @@ export class MastersService {
     yearMonth: YearMonthString
   ): Observable<PensionRateTable | null> {
     return this.inCtx(() => {
-      const targetYear = parseInt(yearMonth.substring(0, 4), 10);
-      const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
-      const targetYearMonth = targetYear * 100 + targetMonth;
-      const officeId = office.id;
+    const targetYear = parseInt(yearMonth.substring(0, 4), 10);
+    const targetMonth = parseInt(yearMonth.substring(5, 7), 10);
+    const targetYearMonth = targetYear * 100 + targetMonth;
+    const officeId = office.id;
 
-      const pensionRef = this.getPensionCollectionRef(officeId);
+    const pensionRef = this.getPensionCollectionRef(officeId);
       const pensionQuery = this.inCtx(() => query(
-        pensionRef,
-        where('effectiveYearMonth', '<=', targetYearMonth),
-        orderBy('effectiveYearMonth', 'desc'),
-        limit(1)
+      pensionRef,
+      where('effectiveYearMonth', '<=', targetYearMonth),
+      orderBy('effectiveYearMonth', 'desc'),
+      limit(1)
       ));
 
       return from(this.inCtxP(() => getDocs(pensionQuery))).pipe(
-        map((snapshot) => {
-          if (snapshot.empty) return null;
-          return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as PensionRateTable;
-        })
-      );
+      map((snapshot) => {
+        if (snapshot.empty) return null;
+        return { id: snapshot.docs[0].id, ...(snapshot.docs[0].data() as any) } as PensionRateTable;
+      })
+    );
     });
   }
 
   listHealthRateTables(officeId: string): Observable<HealthRateTable[]> {
     return this.inCtx(() => {
-      const ref = this.getHealthCollectionRef(officeId);
+    const ref = this.getHealthCollectionRef(officeId);
       const q = this.inCtx(() => query(ref, orderBy('effectiveYearMonth', 'desc')));
 
       return collectionData(q, { idField: 'id' }) as Observable<HealthRateTable[]>;
@@ -138,16 +138,16 @@ export class MastersService {
     return this.inCtx(() => {
       const ref = this.inCtx(() => doc(this.getHealthCollectionRef(officeId), id));
       return from(this.inCtxP(() => getDoc(ref))).pipe(
-        map((snapshot) => {
-          if (!snapshot.exists()) {
-            return null;
-          }
-          return {
-            id: snapshot.id,
-            ...(snapshot.data() as any)
-          } as HealthRateTable;
-        })
-      );
+      map((snapshot) => {
+        if (!snapshot.exists()) {
+          return null;
+        }
+        return {
+          id: snapshot.id,
+          ...(snapshot.data() as any)
+        } as HealthRateTable;
+      })
+    );
     });
   }
 
@@ -297,7 +297,7 @@ export class MastersService {
 
   listCareRateTables(officeId: string): Observable<CareRateTable[]> {
     return this.inCtx(() => {
-      const ref = this.getCareCollectionRef(officeId);
+    const ref = this.getCareCollectionRef(officeId);
       const q = this.inCtx(() => query(ref, orderBy('effectiveYearMonth', 'desc')));
 
       return collectionData(q, { idField: 'id' }) as Observable<CareRateTable[]>;
@@ -308,16 +308,16 @@ export class MastersService {
     return this.inCtx(() => {
       const ref = this.inCtx(() => doc(this.getCareCollectionRef(officeId), id));
       return from(this.inCtxP(() => getDoc(ref))).pipe(
-        map((snapshot) => {
-          if (!snapshot.exists()) {
-            return null;
-          }
-          return {
-            id: snapshot.id,
-            ...(snapshot.data() as any)
-          } as CareRateTable;
-        })
-      );
+      map((snapshot) => {
+        if (!snapshot.exists()) {
+          return null;
+        }
+        return {
+          id: snapshot.id,
+          ...(snapshot.data() as any)
+        } as CareRateTable;
+      })
+    );
     });
   }
 
@@ -362,7 +362,7 @@ export class MastersService {
 
   listPensionRateTables(officeId: string): Observable<PensionRateTable[]> {
     return this.inCtx(() => {
-      const ref = this.getPensionCollectionRef(officeId);
+    const ref = this.getPensionCollectionRef(officeId);
       const q = this.inCtx(() => query(ref, orderBy('effectiveYearMonth', 'desc')));
 
       return collectionData(q, { idField: 'id' }) as Observable<PensionRateTable[]>;
@@ -373,16 +373,16 @@ export class MastersService {
     return this.inCtx(() => {
       const ref = this.inCtx(() => doc(this.getPensionCollectionRef(officeId), id));
       return from(this.inCtxP(() => getDoc(ref))).pipe(
-        map((snapshot) => {
-          if (!snapshot.exists()) {
-            return null;
-          }
-          return {
-            id: snapshot.id,
-            ...(snapshot.data() as any)
-          } as PensionRateTable;
-        })
-      );
+      map((snapshot) => {
+        if (!snapshot.exists()) {
+          return null;
+        }
+        return {
+          id: snapshot.id,
+          ...(snapshot.data() as any)
+        } as PensionRateTable;
+      })
+    );
     });
   }
 

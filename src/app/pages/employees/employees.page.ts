@@ -9,6 +9,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatExpansionModule } from '@angular/material/expansion';
 import {
   Subject,
   combineLatest,
@@ -30,6 +31,8 @@ import {
   DialogFocusSection,
   EmployeeDetailDialogComponent
 } from './employee-detail-dialog.component';
+import { StandardRewardHistoryDialogComponent } from './standard-reward-history-dialog.component';
+import { DependentsDialogComponent } from './dependents-dialog.component';
 import {
   getPortalStatusColor,
   getPortalStatusLabel,
@@ -70,7 +73,8 @@ interface EmployeeWithUpdatedBy extends Employee {
     DecimalPipe,
     DatePipe,
     MatChipsModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatExpansionModule
   ],
   template: `
     <div class="page-container">
@@ -90,6 +94,189 @@ interface EmployeeWithUpdatedBy extends Employee {
           現在の事業所に紐づく従業員を登録・更新できます。
         </p>
       </header>
+
+      <mat-card class="content-card info-card">
+        <mat-accordion [multi]="true">
+          <!-- 従業員台帳の各項目の説明 -->
+          <mat-expansion-panel>
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <mat-icon class="info-icon">info</mat-icon>
+                従業員台帳の各項目について
+              </mat-panel-title>
+              <mat-panel-description>
+                各入力項目がどのように使われるか
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="info-body">
+              <p class="info-intro">
+                従業員台帳では、従業員の基本情報・就労条件・社会保険関連情報を登録・管理します。<br />
+                これらの情報は、月次保険料・賞与保険料の計算に使用されます。
+              </p>
+
+              <h4 style="margin-top: 20px; margin-bottom: 12px; font-size: 1rem; font-weight: 600;">基本情報</h4>
+              <ul class="info-list">
+                <li>
+                  <strong>氏名・カナ</strong><br />
+                  従業員の識別に使用されます。保険料計算には直接使用されません。
+                </li>
+                <li>
+                  <strong>生年月日</strong><br />
+                  介護保険の対象判定（40〜65歳未満）に使用されます。また、年齢計算にも使用されます。
+                </li>
+                <li>
+                  <strong>所属・入社日・退社日・住所・電話番号・連絡先メール・社員番号・性別・郵便番号・住所カナ・マイナンバー</strong><br />
+                  管理用の情報です。保険料計算には直接使用されません。
+                </li>
+              </ul>
+
+              <h4 style="margin-top: 20px; margin-bottom: 12px; font-size: 1rem; font-weight: 600;">就労条件</h4>
+              <ul class="info-list">
+                <li>
+                  <strong>雇用形態・所定労働時間（週）・所定労働日数（週）・雇用契約期間の見込み</strong><br />
+                  管理用の情報です。保険料計算には直接使用されません。
+                </li>
+                <li>
+                  <strong>学生</strong><br />
+                  管理用の情報です。保険料計算には直接使用されません。
+                </li>
+                <li>
+                  <strong>現在の就業状態</strong><br />
+                  管理用の情報です。保険料計算には直接使用されません（免除月の登録とは別管理です）。
+                </li>
+              </ul>
+
+              <h4 style="margin-top: 20px; margin-bottom: 12px; font-size: 1rem; font-weight: 600;">社会保険関連</h4>
+              <ul class="info-list">
+                <li>
+                  <strong>社会保険対象</strong><br />
+                  OFF の場合、この従業員は月次保険料・賞与保険料の計算対象外になります。
+                </li>
+                <li>
+                  <strong>支給形態・支給サイクル</strong><br />
+                  管理用の情報です。保険料計算には直接使用されません。
+                </li>
+                <li>
+                  <strong>報酬月額（円）</strong><br />
+                  標準報酬月額を概算するための月額給与です。「報酬月額から概算して標準報酬を自動入力」ボタンで標準報酬を自動計算する際に使用されます。
+                </li>
+                <li>
+                  <strong>適用開始年月</strong><br />
+                  標準報酬が適用される開始年月です。「履歴に追加」ボタンを押すと、この年月が標準報酬履歴の適用開始年月として保存され、その月以降の保険料計算で使用されます。
+                </li>
+                <li>
+                  <strong>健康保険の等級・標準報酬</strong><br />
+                  健康保険の標準報酬月額と等級です。「履歴に追加」ボタンで標準報酬履歴に追加すると、月次保険料・賞与保険料の計算で使用されます。
+                </li>
+                <li>
+                  <strong>厚生年金の等級・標準報酬</strong><br />
+                  厚生年金の標準報酬月額と等級です。「履歴に追加」ボタンで標準報酬履歴に追加すると、月次保険料・賞与保険料の計算で使用されます。
+                </li>
+                <li>
+                  <strong>標準報酬履歴</strong><br />
+                  標準報酬の変更履歴を管理します。月次保険料・賞与保険料の計算では、対象年月に適用される履歴（appliedFromYearMonth <= 対象年月 の最新）が使用されます。
+                </li>
+                <li>
+                  <strong>免除月（月次保険料用）</strong><br />
+                  産前産後休業・育児休業により月次保険料が免除となる月を登録します。登録した月は、月次保険料計算で0円として扱われます。賞与保険料については、システムによる制御は行いません。
+                </li>
+              </ul>
+
+              <h4 style="margin-top: 20px; margin-bottom: 12px; font-size: 1rem; font-weight: 600;">資格情報</h4>
+              <ul class="info-list">
+                <li>
+                  <strong>健康保険の資格取得日・喪失日</strong><br />
+                  対象年月に健康保険の資格があるかを判定するために使用されます。資格がない場合は、健康保険料・介護保険料は0円になります。
+                </li>
+                <li>
+                  <strong>厚生年金の資格取得日・喪失日</strong><br />
+                  対象年月に厚生年金の資格があるかを判定するために使用されます。資格がない場合は、厚生年金保険料は0円になります。
+                </li>
+              </ul>
+
+              <p class="info-note" style="margin-top: 20px;">
+                <strong>注意事項</strong><br />
+                ・報酬月額と標準報酬は別管理です。標準報酬は「履歴に追加」した内容が保険料計算で使用されます。<br />
+                ・標準報酬を変更する場合は、「履歴に追加」ボタンで新しい履歴を追加してください。<br />
+                ・月次保険料・賞与保険料の計算結果が想定どおりにならない場合は、社会保険対象ON → 資格取得日/喪失日 → 標準報酬履歴が入っているか → 生年月日 → 免除月（月次保険料用）の登録の順に確認してください。
+              </p>
+            </div>
+          </mat-expansion-panel>
+
+          <!-- 保険料計算への影響 -->
+          <mat-expansion-panel>
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <mat-icon class="info-icon">calculate</mat-icon>
+                保険料計算への影響
+              </mat-panel-title>
+              <mat-panel-description>
+                どの情報が保険料計算に使われるか
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="info-body">
+              <p class="info-intro">
+                月次保険料・賞与保険料の計算では、従業員台帳の以下の情報が使用されます。
+              </p>
+
+              <h4 style="margin-top: 20px; margin-bottom: 12px; font-size: 1rem; font-weight: 600;">月次保険料計算で使用される情報</h4>
+              <ol class="info-list">
+                <li>
+                  <strong>社会保険対象フラグ（isInsured）</strong><br />
+                  OFF の場合、この従業員は計算対象外になります。
+                </li>
+                <li>
+                  <strong>資格取得日・喪失日</strong><br />
+                  対象年月に健康保険・厚生年金の資格があるかを判定します。資格がない保険種別については、その保険料は0円になります。
+                </li>
+                <li>
+                  <strong>生年月日</strong><br />
+                  対象年月時点で40〜65歳未満かどうかを判定し、介護保険の対象を判定します。
+                </li>
+                <li>
+                  <strong>標準報酬履歴（StandardRewardHistory）</strong><br />
+                  対象年月に適用される履歴（appliedFromYearMonth <= 対象年月 の最新）を使用します。履歴がない場合は、健康保険・厚生年金の保険料は計算されません。
+                </li>
+                <li>
+                  <strong>免除月（月次保険料用）</strong><br />
+                  対象年月が免除月に登録されている場合、月次保険料は0円として扱われます。
+                </li>
+              </ol>
+
+              <h4 style="margin-top: 20px; margin-bottom: 12px; font-size: 1rem; font-weight: 600;">賞与保険料計算で使用される情報</h4>
+              <ol class="info-list">
+                <li>
+                  <strong>社会保険対象フラグ（isInsured）</strong><br />
+                  OFF の場合、この従業員は計算対象外になります。
+                </li>
+                <li>
+                  <strong>資格取得日・喪失日</strong><br />
+                  賞与の支給日が属する年月に健康保険・厚生年金の資格があるかを判定します。資格がない保険種別については、その保険料は0円になります。
+                </li>
+                <li>
+                  <strong>生年月日</strong><br />
+                  賞与の支給日が属する年月時点で40〜65歳未満かどうかを判定し、介護保険の対象を判定します。
+                </li>
+                <li>
+                  <strong>標準報酬履歴（StandardRewardHistory）</strong><br />
+                  賞与の支給日が属する年月に適用される履歴（appliedFromYearMonth <= 対象年月 の最新）を使用します。履歴がない場合は、健康保険・厚生年金の保険料は計算されません。
+                </li>
+                <li>
+                  <strong>免除月（月次保険料用）</strong><br />
+                  賞与の支給日が属する年月が免除月に登録されている場合、システムが警告ダイアログを表示しますが、最終的な判断はユーザーが行います（システムによる自動判定は行いません）。
+                </li>
+              </ol>
+
+              <p class="info-note" style="margin-top: 20px;">
+                <strong>保険料率について</strong><br />
+                保険料率は、保険料率マスタの設定を使用します。対象年月に適用される保険料率が自動的に選択されます。
+              </p>
+            </div>
+          </mat-expansion-panel>
+        </mat-accordion>
+      </mat-card>
 
       <mat-card class="content-card">
         <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
@@ -188,7 +375,7 @@ interface EmployeeWithUpdatedBy extends Employee {
 
             <!-- 3. 標準報酬・等級 -->
             <ng-container matColumnDef="insuranceRewards">
-              <th mat-header-cell *matHeaderCellDef class="col-rewards">標準報酬・等級</th>
+              <th mat-header-cell *matHeaderCellDef class="col-rewards">現在の標準報酬・等級</th>
               <td mat-cell *matCellDef="let row" class="col-rewards cell-padding">
                 <div class="reward-grid">
                   <!-- 報酬月額 -->
@@ -239,7 +426,7 @@ interface EmployeeWithUpdatedBy extends Employee {
                       class="dependents-button small-btn"
                       [class.has-dependents]="((getDependentsCount(row) | async) ?? 0) > 0"
                   type="button"
-                  (click)="openDetailWithFocus(row, 'dependents')"
+                  (click)="openDependents(row)"
                 >
                       <mat-icon class="tiny-icon">group</mat-icon>
                       <span class="dependents-count">{{ (getDependentsCount(row) | async) ?? 0 }}人</span>
@@ -300,6 +487,24 @@ interface EmployeeWithUpdatedBy extends Employee {
                       matTooltip="詳細"
                 >
                   <mat-icon>visibility</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  color="accent"
+                      class="action-btn"
+                  (click)="openStandardRewardHistory(row)"
+                      matTooltip="標準報酬履歴"
+                >
+                  <mat-icon>trending_up</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  color="accent"
+                      class="action-btn"
+                  (click)="openDependents(row)"
+                      matTooltip="扶養家族"
+                >
+                  <mat-icon>family_restroom</mat-icon>
                 </button>
                 <button
                   mat-icon-button
@@ -600,6 +805,51 @@ interface EmployeeWithUpdatedBy extends Employee {
 
       /* 古いスタイルの一部削除・調整 */
       .col-name, .basic-col, .group-end { border: none; }
+
+      /* 説明カードのスタイル */
+      .info-card {
+        padding-top: 16px;
+        padding-bottom: 16px;
+      }
+
+      .info-icon {
+        margin-right: 4px;
+      }
+
+      .info-body {
+        padding: 8px 4px 12px;
+      }
+
+      .info-body h4 {
+        margin-top: 20px;
+        margin-bottom: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+
+      .info-list {
+        margin: 0;
+        padding-left: 1.2rem;
+        font-size: 0.9rem;
+        line-height: 1.6;
+      }
+
+      .info-list li {
+        margin-bottom: 8px;
+      }
+
+      .info-note,
+      .info-intro {
+        margin-top: 8px;
+        font-size: 0.85rem;
+        color: #666;
+        line-height: 1.6;
+      }
+
+      .info-note strong {
+        color: #d32f2f;
+        font-weight: 600;
+      }
     `
   ]
 })
@@ -720,6 +970,22 @@ export class EmployeesPage {
       width: '1200px',
       maxWidth: '95vw',
       data: { employee, focusSection }
+    });
+  }
+
+  openStandardRewardHistory(employee: Employee): void {
+    this.dialog.open(StandardRewardHistoryDialogComponent, {
+      width: '1000px',
+      maxWidth: '95vw',
+      data: { employee }
+    });
+  }
+
+  openDependents(employee: Employee): void {
+    this.dialog.open(DependentsDialogComponent, {
+      width: '800px',
+      maxWidth: '95vw',
+      data: { employee }
     });
   }
 
@@ -846,6 +1112,11 @@ export class EmployeesPage {
     });
 
     dialogRef.afterClosed().subscribe(async (result) => {
+      // 履歴が変更された場合は、保存していなくても一覧を再読み込み
+      if (result?.historyChanged) {
+        this.reload$.next();
+      }
+
       if (!result?.saved) {
         return;
       }
@@ -870,7 +1141,7 @@ export class EmployeesPage {
             this.employeesService.get(officeId, result.employeeId)
           );
           if (employee) {
-            this.openDetailWithFocus(employee, 'dependents');
+            this.openDependents(employee);
           }
         });
       } else {

@@ -33,17 +33,17 @@ export class OfficesService {
   watchOffice(id: string): Observable<Office | null> {
     return this.inCtx(() => {
       const ref = doc(this.getCollectionRef(), id);
-      return from(getDoc(ref)).pipe(
-        map((snapshot) => {
-          if (!snapshot.exists()) {
-            return null;
-          }
-          return {
-            id: snapshot.id,
-            ...(snapshot.data() as any)
-          } as Office;
-        })
-      );
+    return from(getDoc(ref)).pipe(
+      map((snapshot) => {
+        if (!snapshot.exists()) {
+          return null;
+        }
+        return {
+          id: snapshot.id,
+          ...(snapshot.data() as any)
+        } as Office;
+      })
+    );
     });
   }
 
@@ -51,16 +51,16 @@ export class OfficesService {
   listOffices(): Observable<Office[]> {
     return this.inCtx(() => {
       return from(getDocs(this.getCollectionRef())).pipe(
-        map((snapshot) =>
-          snapshot.docs.map(
-            (d) =>
-              ({
-                id: d.id,
-                ...(d.data() as any)
-              } as Office)
-          )
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as Office)
         )
-      );
+      )
+    );
     });
   }
 
@@ -93,8 +93,8 @@ export class OfficesService {
       Object.entries(office).filter(([, value]) => value !== undefined)
     ) as Office;
 
-      await setDoc(ref, payload);
-      return office;
+    await setDoc(ref, payload);
+    return office;
     });
   }
 
@@ -113,7 +113,7 @@ export class OfficesService {
       Object.entries(officeWithUpdated).filter(([, value]) => value !== undefined)
     );
 
-      await setDoc(ref, payload, { merge: true });
+    await setDoc(ref, payload, { merge: true });
     });
   }
 }

@@ -23,120 +23,120 @@ export class OfficeCollectionsService {
 
   listHealthRateTables(officeId: string): Observable<HealthRateTable[]> {
     return this.inCtx(() => {
-      const ref = collection(this.firestore, 'offices', officeId, 'healthRateTables');
-      return from(getDocs(ref)).pipe(
-        map((snapshot) =>
-          snapshot.docs.map(
-            (d) =>
-              ({
-                id: d.id,
-                ...(d.data() as any)
-              } as HealthRateTable)
-          )
+    const ref = collection(this.firestore, 'offices', officeId, 'healthRateTables');
+    return from(getDocs(ref)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as HealthRateTable)
         )
-      );
+      )
+    );
     });
   }
 
   listCareRateTables(officeId: string): Observable<CareRateTable[]> {
     return this.inCtx(() => {
-      const ref = collection(this.firestore, 'offices', officeId, 'careRateTables');
-      return from(getDocs(ref)).pipe(
-        map((snapshot) =>
-          snapshot.docs.map(
-            (d) =>
-              ({
-                id: d.id,
-                ...(d.data() as any)
-              } as CareRateTable)
-          )
+    const ref = collection(this.firestore, 'offices', officeId, 'careRateTables');
+    return from(getDocs(ref)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as CareRateTable)
         )
-      );
+      )
+    );
     });
   }
 
   listPensionRateTables(officeId: string): Observable<PensionRateTable[]> {
     return this.inCtx(() => {
-      const ref = collection(this.firestore, 'offices', officeId, 'pensionRateTables');
-      return from(getDocs(ref)).pipe(
-        map((snapshot) =>
-          snapshot.docs.map(
-            (d) =>
-              ({
-                id: d.id,
-                ...(d.data() as any)
-              } as PensionRateTable)
-          )
+    const ref = collection(this.firestore, 'offices', officeId, 'pensionRateTables');
+    return from(getDocs(ref)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as PensionRateTable)
         )
-      );
+      )
+    );
     });
   }
 
   listMonthlyPremiums(officeId: string): Observable<MonthlyPremium[]> {
     return this.inCtx(() => {
-      const ref = collection(this.firestore, 'offices', officeId, 'monthlyPremiums');
-      return from(getDocs(ref)).pipe(
-        map((snapshot) =>
-          snapshot.docs.map(
-            (d) =>
-              ({
-                id: d.id,
-                ...(d.data() as any)
-              } as MonthlyPremium)
-          )
+    const ref = collection(this.firestore, 'offices', officeId, 'monthlyPremiums');
+    return from(getDocs(ref)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as MonthlyPremium)
         )
-      );
+      )
+    );
     });
   }
 
   listBonusPremiums(officeId: string): Observable<BonusPremium[]> {
     return this.inCtx(() => {
-      const ref = collection(this.firestore, 'offices', officeId, 'bonusPremiums');
-      return from(getDocs(ref)).pipe(
-        map((snapshot) =>
-          snapshot.docs.map(
-            (d) =>
-              ({
-                id: d.id,
-                ...(d.data() as any)
-              } as BonusPremium)
-          )
+    const ref = collection(this.firestore, 'offices', officeId, 'bonusPremiums');
+    return from(getDocs(ref)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as BonusPremium)
         )
-      );
+      )
+    );
     });
   }
 
   listChangeRequests(officeId: string): Observable<ChangeRequest[]> {
     return this.inCtx(() => {
-      const ref = collection(this.firestore, 'offices', officeId, 'changeRequests');
-      return from(getDocs(ref)).pipe(
-        map((snapshot) =>
-          snapshot.docs.map(
-            (d) =>
-              ({
-                id: d.id,
-                ...(d.data() as any)
-              } as ChangeRequest)
-          )
+    const ref = collection(this.firestore, 'offices', officeId, 'changeRequests');
+    return from(getDocs(ref)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as ChangeRequest)
         )
-      );
+      )
+    );
     });
   }
 
   listImportJobs(officeId: string): Observable<ImportJob[]> {
     return this.inCtx(() => {
-      const ref = collection(this.firestore, 'offices', officeId, 'importJobs');
-      return from(getDocs(ref)).pipe(
-        map((snapshot) =>
-          snapshot.docs.map(
-            (d) =>
-              ({
-                id: d.id,
-                ...(d.data() as any)
-              } as ImportJob)
-          )
+    const ref = collection(this.firestore, 'offices', officeId, 'importJobs');
+    return from(getDocs(ref)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map(
+          (d) =>
+            ({
+              id: d.id,
+              ...(d.data() as any)
+            } as ImportJob)
         )
-      );
+      )
+    );
     });
   }
 }

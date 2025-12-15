@@ -35,17 +35,17 @@ export class UsersService {
     }
 
     return this.inCtxAsync(async () => {
-      const usersRef = collection(this.firestore, 'users');
-      const q = query(usersRef, where('officeId', '==', officeId));
-      const snapshot = await getDocs(q);
+    const usersRef = collection(this.firestore, 'users');
+    const q = query(usersRef, where('officeId', '==', officeId));
+    const snapshot = await getDocs(q);
 
-      return snapshot.docs.map(
-        (docSnapshot) =>
-          ({
-            ...docSnapshot.data(),
-            id: docSnapshot.id
-          } as UserProfile)
-      );
+    return snapshot.docs.map(
+      (docSnapshot) =>
+        ({
+          ...docSnapshot.data(),
+          id: docSnapshot.id
+        } as UserProfile)
+    );
     });
   }
 
@@ -54,29 +54,29 @@ export class UsersService {
    */
   async updateUserRole(userId: string, newRole: UserRole): Promise<void> {
     return this.inCtxAsync(async () => {
-      const userDoc = doc(this.firestore, 'users', userId);
-      const updatedAt = new Date().toISOString();
+    const userDoc = doc(this.firestore, 'users', userId);
+    const updatedAt = new Date().toISOString();
 
-      await updateDoc(userDoc, {
-        role: newRole,
-        updatedAt
+    await updateDoc(userDoc, {
+      role: newRole,
+      updatedAt
       });
     });
   }
 
   private getUserDisplayName(userId: string): Observable<string | null> {
     return this.inCtx(() => {
-      const ref = doc(this.firestore, 'users', userId);
-      return from(getDoc(ref)).pipe(
-        map((snapshot) => {
-          if (!snapshot.exists()) {
-            return null;
-          }
-          const data = snapshot.data() as UserProfile;
-          return data.displayName ?? null;
-        }),
-        catchError(() => of(null))
-      );
+    const ref = doc(this.firestore, 'users', userId);
+    return from(getDoc(ref)).pipe(
+      map((snapshot) => {
+        if (!snapshot.exists()) {
+          return null;
+        }
+        const data = snapshot.data() as UserProfile;
+        return data.displayName ?? null;
+      }),
+      catchError(() => of(null))
+    );
     });
   }
 

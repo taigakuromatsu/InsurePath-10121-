@@ -6,7 +6,6 @@ import { InsuranceKind, YearMonthString } from '../../types';
 
 export interface StandardRewardHistoryAddConfirmDialogData {
   insuranceKind: InsuranceKind;
-  decisionYearMonth: YearMonthString;
   appliedFromYearMonth: YearMonthString;
   grade: number | null;
   standardMonthlyReward: number;
@@ -28,10 +27,6 @@ export interface StandardRewardHistoryAddConfirmDialogData {
           <tr>
             <th>保険種別</th>
             <td>{{ data.insuranceKind === 'health' ? '健康保険' : '厚生年金' }}</td>
-          </tr>
-          <tr>
-            <th>決定年月</th>
-            <td>{{ data.decisionYearMonth }}</td>
           </tr>
           <tr>
             <th>適用開始年月</th>

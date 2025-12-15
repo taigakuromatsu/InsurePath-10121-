@@ -15,7 +15,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { combineLatest, firstValueFrom, from, map, of, switchMap } from 'rxjs';
+import { combineLatest, firstValueFrom, from, map, of, switchMap, tap } from 'rxjs';
+import { Auth } from '@angular/fire/auth';
 
 import { BonusPremiumsService } from '../../services/bonus-premiums.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
@@ -37,6 +38,7 @@ import {
   Dependent,
   DocumentRequest,
   MonthlyPremium,
+  Office,
   YearMonthString
 } from '../../types';
 import { DependentsService } from '../../services/dependents.service';
@@ -53,6 +55,7 @@ import {
   getInsuranceQualificationKindLabel,
   getSexLabel,
   getWorkingStatusLabel,
+  getExemptionKindLabel,
   maskMyNumber,
   calculateAge
 } from '../../utils/label-utils';
@@ -124,6 +127,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="label">所属</span>
                 <span class="value">{{ employee.department || '未設定' }}</span>
               </div>
+              <div class="info-item" *ngIf="employee.employeeCodeInOffice">
+                <span class="label">社員番号</span>
+                <span class="value">{{ employee.employeeCodeInOffice }}</span>
+              </div>
               <div class="info-item" *ngIf="employee.birthDate">
                 <span class="label">生年月日</span>
                 <span class="value">
@@ -163,6 +170,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
               <div class="info-item" *ngIf="employee.address">
                 <span class="label">住所</span>
                 <span class="value">{{ employee.address }}</span>
+              </div>
+              <div class="info-item" *ngIf="employee.addressKana">
+                <span class="label">住所カナ</span>
+                <span class="value">{{ employee.addressKana }}</span>
               </div>
               <div class="info-item" *ngIf="employee.phone">
                 <span class="label">電話番号</span>
@@ -359,16 +370,26 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
           </div>
 
           <!-- 5. 就業状態カード -->
-          <div class="info-section mb-4" *ngIf="employee.workingStatus">
+          <div class="info-section mb-4" *ngIf="employee.workingStatus || (employee.premiumExemptionMonths && employee.premiumExemptionMonths.length > 0)">
             <div class="info-section-header">
               <h3 class="mat-h3 flex-row align-center gap-2 m-0">
                 <mat-icon color="primary">event</mat-icon> 就業状態
               </h3>
             </div>
             <div class="info-grid">
-              <div class="info-item">
+              <div class="info-item" *ngIf="employee.workingStatus">
                 <span class="label">現在の就業状態</span>
                 <span class="value">{{ getWorkingStatusLabel(employee.workingStatus) }}</span>
+              </div>
+              <!-- 免除月（産休/育休） -->
+              <div class="info-item full-row" *ngIf="employee.premiumExemptionMonths && employee.premiumExemptionMonths.length > 0">
+                <span class="label">産前産後・育児休業の免除月（月次保険料用）</span>
+                <div class="value exemption-months-list">
+                  <div *ngFor="let exemption of employee.premiumExemptionMonths" class="exemption-month-item">
+                    <span class="exemption-kind">{{ getExemptionKindLabel(exemption.kind) }}</span>
+                    <span class="exemption-yearmonth">{{ exemption.yearMonth }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1281,6 +1302,37 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
         color: #888;
         line-height: 1.2;
       }
+
+      .info-item.full-row {
+        grid-column: 1 / -1;
+      }
+
+      .exemption-months-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .exemption-month-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+      }
+
+      .exemption-kind {
+        font-weight: 500;
+        color: #1976d2;
+      }
+
+      .exemption-yearmonth {
+        color: #666;
+        font-size: 0.9rem;
+      }
     `
   ]
 })
@@ -1297,6 +1349,13 @@ export class MyPage {
   private readonly officesService = inject(OfficesService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly auth = inject(Auth);
+
+  // 自動再計算用のハッシュ管理
+  private readonly lastAutoCalcHashByYearMonth = new Map<YearMonthString, string>();
+  private readonly autoCalcInProgressByYearMonth = new Map<YearMonthString, boolean>();
+  private readonly lastAutoCalcHashByYearMonthForBonus = new Map<YearMonthString, string>();
+  private readonly autoCalcInProgressByYearMonthForBonus = new Map<YearMonthString, boolean>();
 
   readonly premiumDisplayedColumns = [
     'yearMonth',
@@ -1342,13 +1401,33 @@ export class MyPage {
     })
   );
 
-  readonly monthlyPremiums$ = combineLatest([this.currentUser.profile$, this.currentOffice.officeId$]).pipe(
-    switchMap(([profile, officeId]) => {
-      if (!profile?.employeeId || !officeId) {
+  readonly monthlyPremiums$ = combineLatest([
+    this.currentUser.profile$,
+    this.currentOffice.officeId$,
+    this.employee$
+  ]).pipe(
+    switchMap(([profile, officeId, employee]) => {
+      if (!profile?.employeeId || !officeId || !employee) {
         return of([] as MonthlyPremium[]);
       }
 
-      return this.monthlyPremiumsService.listByOfficeAndEmployee(officeId, profile.employeeId);
+      const employeeId = profile.employeeId; // 型チェック用
+
+      // 今月の年月を取得（ローカル時刻で計算、UTC問題を回避）
+      const now = new Date();
+      const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` as YearMonthString;
+
+      // 今月分の自動再計算を実行してから、月次保険料を取得
+      return from(
+        (async () => {
+          await this.ensureMonthlyPremiumCalculated(officeId, currentYearMonth, employee);
+          const premiums = await firstValueFrom(
+            this.monthlyPremiumsService.listByOfficeAndEmployee(officeId, employeeId)
+          );
+          // 未来の月のデータをフィルタリング（現在の年月まで）
+          return premiums.filter((p) => p.yearMonth <= currentYearMonth);
+        })()
+      );
     })
   );
 
@@ -1368,15 +1447,43 @@ export class MyPage {
             return of([]);
           }
 
+          return from(
+            (async () => {
+              const office = await firstValueFrom(this.officesService.watchOffice(officeId));
+              if (!office) {
+                return bonuses;
+              }
+
+              // 各賞与について自動再計算を実行
+              const uniqueYearMonths = new Set<YearMonthString>(
+                bonuses.map((b) => b.payDate.substring(0, 7) as YearMonthString)
+              );
+              for (const yearMonth of uniqueYearMonths) {
+                await this.ensureBonusPremiumCalculated(officeId, yearMonth, employee, office, bonuses);
+              }
+
+              // 再計算後に再度取得（リアルタイムリスナーにより自動更新される）
+              const updatedBonuses = await firstValueFrom(
+                this.bonusPremiumsService.listByOfficeAndEmployee(officeId, profile.employeeId)
+              );
+
+              return updatedBonuses;
+            })()
+          ).pipe(
+            switchMap((updatedBonuses) => {
+              if (updatedBonuses.length === 0) {
+            return of([]);
+          }
+
           return this.officesService.watchOffice(officeId).pipe(
             switchMap((office) => {
               if (!office) {
-                return of(bonuses);
+                    return of(updatedBonuses);
               }
 
               // 各賞与について、介護保険料を計算
               return combineLatest(
-                bonuses.map((bonus) => {
+                    updatedBonuses.map((bonus) => {
                   const yearMonth = bonus.payDate.substring(0, 7) as YearMonthString;
                   return from(this.mastersService.getRatesForYearMonth(office, yearMonth)).pipe(
                     map((rates) => {
@@ -1412,6 +1519,8 @@ export class MyPage {
                         careEmployer,
                         isCareTarget
                       };
+                        })
+                      );
                     })
                   );
                 })
@@ -1677,6 +1786,168 @@ export class MyPage {
   protected readonly getInsuranceLossReasonKindLabel = getInsuranceLossReasonKindLabel;
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
   protected readonly getSexLabel = getSexLabel;
+  protected readonly getExemptionKindLabel = getExemptionKindLabel;
   protected readonly maskMyNumber = maskMyNumber;
   protected readonly calculateAge = calculateAge;
+
+  /**
+   * 指定年月の月次保険料が最新かどうかを確認し、必要に応じて自動再計算を実行
+   */
+  /**
+   * 指定年月の賞与保険料が最新かどうかを確認し、必要に応じて自動再計算を実行
+   */
+  private async ensureBonusPremiumCalculated(
+    officeId: string,
+    yearMonth: YearMonthString,
+    employee: Employee,
+    office: Office,
+    bonusPremiums: BonusPremium[]
+  ): Promise<void> {
+    try {
+      // 料率を取得
+      const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
+      if (rates.healthRate == null || rates.pensionRate == null) {
+        return;
+      }
+
+      // 対象年月に賞与があるかチェック
+      const hasBonusInMonth = bonusPremiums.some((b) => b.payDate.substring(0, 7) === yearMonth);
+      if (!hasBonusInMonth) {
+        return;
+      }
+
+      // 自動再計算の判定（賞与保険料ページと同じロジック）
+      const employeesHash = JSON.stringify({
+        id: employee.id,
+        isInsured: employee.isInsured ?? false,
+        healthQualificationDate: employee.healthQualificationDate ?? null,
+        healthLossDate: employee.healthLossDate ?? null,
+        pensionQualificationDate: employee.pensionQualificationDate ?? null,
+        pensionLossDate: employee.pensionLossDate ?? null,
+        birthDate: employee.birthDate ?? null
+      });
+      const ratesHash = JSON.stringify({
+        healthRate: rates.healthRate,
+        careRate: rates.careRate,
+        pensionRate: rates.pensionRate
+      });
+      const currentHash = `${employeesHash}|${ratesHash}`;
+
+      const lastHash = this.lastAutoCalcHashByYearMonthForBonus.get(yearMonth);
+      const isAutoCalcInProgress = this.autoCalcInProgressByYearMonthForBonus.get(yearMonth) ?? false;
+      const needsAutoCalc = !isAutoCalcInProgress && lastHash !== currentHash;
+
+      // 自動再計算が必要な場合は実行
+      if (needsAutoCalc) {
+        this.autoCalcInProgressByYearMonthForBonus.set(yearMonth, true);
+        try {
+          await this.bonusPremiumsService.recalculateForEmployeeMonth(
+            office,
+            employee,
+            yearMonth
+          );
+
+          // 保存後にハッシュを更新
+          this.lastAutoCalcHashByYearMonthForBonus.set(yearMonth, currentHash);
+        } catch (error) {
+          console.error(`マイページでの賞与保険料自動再計算に失敗 (${yearMonth})`, error);
+        } finally {
+          this.autoCalcInProgressByYearMonthForBonus.set(yearMonth, false);
+        }
+      }
+    } catch (error) {
+      console.error(`マイページでの賞与保険料自動再計算の確認に失敗 (${yearMonth})`, error);
+    }
+  }
+
+  private async ensureMonthlyPremiumCalculated(
+    officeId: string,
+    yearMonth: YearMonthString,
+    employee: Employee
+  ): Promise<void> {
+    try {
+      // 事業所情報を取得（料率取得用）
+      const office = await firstValueFrom(this.currentOffice.office$);
+      if (!office) {
+        return;
+      }
+
+      // 料率を取得
+      const rates = await this.mastersService.getRatesForYearMonth(office, yearMonth);
+      if (rates.healthRate == null || rates.pensionRate == null) {
+        return;
+      }
+
+      // 月次保険料を取得
+      const premiums: MonthlyPremium[] = await firstValueFrom(
+        this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, yearMonth)
+      );
+
+      // 該当従業員の月次保険料を取得
+      const employeePremium = premiums.find((p) => p.employeeId === employee.id);
+
+      // 自動再計算の判定（月次保険料ページと同じロジック）
+      const employeesHash = JSON.stringify([
+        {
+          id: employee.id,
+          isInsured: employee.isInsured ?? false,
+          healthQualificationDate: employee.healthQualificationDate ?? null,
+          healthLossDate: employee.healthLossDate ?? null,
+          pensionQualificationDate: employee.pensionQualificationDate ?? null,
+          pensionLossDate: employee.pensionLossDate ?? null,
+          exemptionKindForYm:
+            employee.premiumExemptionMonths?.find((x) => x.yearMonth === yearMonth)?.kind ?? null,
+          healthStandardMonthly: employee.healthStandardMonthly ?? null,
+          healthGrade: employee.healthGrade ?? null,
+          pensionStandardMonthly: employee.pensionStandardMonthly ?? null,
+          pensionGrade: employee.pensionGrade ?? null,
+          birthDate: employee.birthDate ?? null
+        }
+      ]);
+      const ratesHash = JSON.stringify({
+        healthRate: rates.healthRate,
+        careRate: rates.careRate,
+        pensionRate: rates.pensionRate
+      });
+      const currentHash = `${employeesHash}|${ratesHash}`;
+
+      const lastHash = this.lastAutoCalcHashByYearMonth.get(yearMonth);
+      const isAutoCalcInProgress = this.autoCalcInProgressByYearMonth.get(yearMonth) ?? false;
+      const needsAutoCalc =
+        !isAutoCalcInProgress &&
+        (!employeePremium || lastHash !== currentHash);
+
+      // 自動再計算が必要な場合は実行
+      if (needsAutoCalc) {
+        this.autoCalcInProgressByYearMonth.set(yearMonth, true);
+        try {
+          const currentUser = this.auth.currentUser;
+          if (currentUser) {
+            // 全従業員を取得（saveForMonth に必要）
+            const employees: Employee[] = await firstValueFrom(
+              this.employeesService.list(officeId)
+            );
+
+            const calcDate = new Date().toISOString();
+            await this.monthlyPremiumsService.saveForMonth({
+              officeId,
+              yearMonth,
+              calcDate,
+              employees: employees as Employee[],
+              calculatedByUserId: currentUser.uid
+            });
+
+            // 保存後にハッシュを更新
+            this.lastAutoCalcHashByYearMonth.set(yearMonth, currentHash);
+          }
+        } catch (error) {
+          console.error(`月次保険料の自動再計算に失敗しました (${yearMonth}):`, error);
+        } finally {
+          this.autoCalcInProgressByYearMonth.set(yearMonth, false);
+        }
+      }
+    } catch (error) {
+      console.error(`月次保険料の確認に失敗しました (${yearMonth}):`, error);
+    }
+  }
 }

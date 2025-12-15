@@ -34,7 +34,7 @@ export type StandardRewardAutoInputConfirmResult = 'execute' | 'skip' | 'cancel'
           <span class="value">{{ data.salary | number }} 円</span>
         </div>
         <div class="info-row">
-          <span class="label">標準報酬決定年月:</span>
+          <span class="label">適用開始年月:</span>
           <span class="value">{{ data.decisionYearMonth }}</span>
         </div>
       </div>

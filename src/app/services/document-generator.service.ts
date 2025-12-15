@@ -156,7 +156,7 @@ export class DocumentGeneratorService {
         } else {
           // 対象年月が指定されていない場合は最新履歴を使用
           const sorted = [...filteredHistories].sort(
-            (a, b) => b.decisionYearMonth.localeCompare(a.decisionYearMonth)
+            (a, b) => b.appliedFromYearMonth.localeCompare(a.appliedFromYearMonth)
           );
           return sorted[0]?.standardMonthlyReward ?? null;
         }

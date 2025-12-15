@@ -97,8 +97,8 @@ export class EmployeesService {
       officeId,
       name: employee.name ?? '未入力',
       birthDate: employee.birthDate ?? now.substring(0, 10),
-      hireDate: employee.hireDate ?? now.substring(0, 10),
-      employmentType: employee.employmentType ?? 'regular',
+      hireDate: employee.hireDate ?? null,
+      employmentType: employee.employmentType ?? null,
       // monthlyWage は廃止扱い。nullを書き込み→deleteFieldで削除。
       monthlyWage: null,
       isInsured: employee.isInsured ?? true,

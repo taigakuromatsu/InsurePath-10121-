@@ -19,7 +19,8 @@ export interface StandardRewardCalculationResult {
 }
 
 /**
- * 報酬月額と決定年月から標準報酬を自動計算する共通ヘルパー
+ * 報酬月額と対象年月から標準報酬を自動計算する共通ヘルパー
+ * @param decisionYearMonth マスタを取得するための対象年月（適用開始年月として使用される）
  */
 export async function calculateStandardRewardsFromSalary(
   office: Office,

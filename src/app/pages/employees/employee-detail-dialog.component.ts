@@ -1,4 +1,4 @@
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 import {
   AfterViewInit,
   Component,
@@ -22,23 +22,17 @@ import { firstValueFrom, map, Observable, of, switchMap } from 'rxjs';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 
-import { Dependent, Employee, InsuranceKind, StandardRewardHistory, Sex } from '../../types';
+import { Employee, Sex } from '../../types';
 import {
-  getDependentRelationshipLabel,
   getInsuranceLossReasonKindLabel,
   getInsuranceQualificationKindLabel,
-  getStandardRewardDecisionKindLabel,
   getBankAccountTypeLabel,
   getPayrollPayTypeLabel,
   getPayrollPayCycleLabel,
   getWorkingStatusLabel,
   getExemptionKindLabel
 } from '../../utils/label-utils';
-import { DependentsService } from '../../services/dependents.service';
 import { CurrentUserService } from '../../services/current-user.service';
-import { DependentFormDialogComponent } from './dependent-form-dialog.component';
-import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
-import { StandardRewardHistoryFormDialogComponent } from './standard-reward-history-form-dialog.component';
 import { DocumentGenerationDialogComponent } from '../documents/document-generation-dialog.component';
 import { CurrentOfficeService } from '../../services/current-office.service';
 import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/confirm-dialog.component';
@@ -50,8 +44,6 @@ export type DialogFocusSection =
   | 'health-qualification'
   | 'pension-qualification'
   | 'working-status'
-  | 'dependents'
-  | 'standard-reward-history'
   | 'bankAccount'
   | 'payrollSettings'
   | 'system';
@@ -65,7 +57,6 @@ export interface EmployeeDetailDialogData {
   selector: 'ip-employee-detail-dialog',
   standalone: true,
   imports: [
-    AsyncPipe,
     NgFor,
     NgIf,
     MatDialogModule,
@@ -80,7 +71,9 @@ export interface EmployeeDetailDialogData {
     <h1 mat-dialog-title class="dialog-title">
       <mat-icon color="primary">person</mat-icon>
       <span>従業員詳細</span>
-      <span class="subtitle mat-body-2">{{ data.employee.name }}</span>
+      <span *ngIf="data.employee.name" class="employee-name">
+        （{{ data.employee.name }}）
+      </span>
     </h1>
 
     <div mat-dialog-content class="content" #contentRef>
@@ -319,7 +312,7 @@ export interface EmployeeDetailDialogData {
 
         <!-- 免除月（産休/育休） -->
         <ng-container *ngIf="data.employee.premiumExemptionMonths && data.employee.premiumExemptionMonths.length > 0">
-          <div class="label full-row">免除月（月次保険料用）（産前産後休業・育児休業）</div>
+          <div class="label full-row">産前産後・育児休業の免除月（月次保険料用）</div>
           <div class="value full-row">
             <div class="exemption-months-list">
               <div *ngFor="let exemption of data.employee.premiumExemptionMonths" class="exemption-month-item">
@@ -371,261 +364,6 @@ export interface EmployeeDetailDialogData {
         </div>
       </div>
 
-      <!-- 標準報酬履歴 -->
-      <div class="form-section" id="standard-reward-history" #sectionBlock>
-        <div class="section-title-with-action">
-          <h2 class="mat-h3 section-title">
-            <mat-icon>trending_up</mat-icon>
-            標準報酬履歴
-          </h2>
-          <ng-container *ngIf="canManageStandardRewardHistory$ | async">
-            <button
-              mat-stroked-button
-              color="primary"
-              type="button"
-              (click)="openAddStandardRewardHistory()"
-            >
-              <mat-icon>add</mat-icon>
-              履歴を追加
-            </button>
-          </ng-container>
-        </div>
-
-        <ng-container *ngIf="standardRewardHistories$ | async as histories">
-          <div class="standard-reward-empty" *ngIf="histories.length === 0">
-            <mat-icon>history</mat-icon>
-            <p>標準報酬履歴が登録されていません</p>
-          </div>
-
-          <div class="standard-reward-table" *ngIf="histories.length > 0">
-            <ng-container
-              *ngIf="canManageStandardRewardHistory$ | async as canManageStandardRewardHistory"
-            >
-              <mat-tab-group>
-                <!-- 健康保険のタブ -->
-                <mat-tab label="健康保険" *ngIf="((healthHistories$ | async)?.length ?? 0) > 0">
-                  <table mat-table [dataSource]="(healthHistories$ | async) || []" class="admin-table">
-                    <ng-container matColumnDef="decisionYearMonth">
-                      <th mat-header-cell *matHeaderCellDef>決定年月</th>
-                      <td mat-cell *matCellDef="let history">
-                        {{ history.decisionYearMonth }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="appliedFromYearMonth">
-                      <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
-                      <td mat-cell *matCellDef="let history">
-                        {{ history.appliedFromYearMonth }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="standardMonthlyReward">
-                      <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
-                      <td mat-cell *matCellDef="let history">
-                        {{ history.standardMonthlyReward | number }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="decisionKind">
-                      <th mat-header-cell *matHeaderCellDef>決定区分</th>
-                      <td mat-cell *matCellDef="let history">
-                        {{ getStandardRewardDecisionKindLabel(history.decisionKind) }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="note">
-                      <th mat-header-cell *matHeaderCellDef>メモ</th>
-                      <td mat-cell *matCellDef="let history" class="standard-reward-note">
-                        {{ history.note || '-' }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="actions">
-                      <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
-                      <td mat-cell *matCellDef="let history" class="actions-cell">
-                        <button
-                          mat-icon-button
-                          color="primary"
-                          aria-label="標準報酬履歴を編集"
-                          (click)="openEditStandardRewardHistory(history)"
-                        >
-                          <mat-icon>edit</mat-icon>
-                        </button>
-                        <button
-                          mat-icon-button
-                          color="warn"
-                          aria-label="標準報酬履歴を削除"
-                          (click)="deleteStandardRewardHistory(history)"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </td>
-                    </ng-container>
-
-                    <tr
-                      mat-header-row
-                      *matHeaderRowDef="
-                        canManageStandardRewardHistory
-                          ? displayedStandardRewardColumns
-                          : standardRewardColumnsWithoutActions
-                      "
-                    ></tr>
-                    <tr
-                      mat-row
-                      *matRowDef="
-                        let row;
-                        columns:
-                          canManageStandardRewardHistory
-                            ? displayedStandardRewardColumns
-                            : standardRewardColumnsWithoutActions
-                      "
-                    ></tr>
-                  </table>
-                </mat-tab>
-
-                <!-- 厚生年金のタブ -->
-                <mat-tab label="厚生年金" *ngIf="((pensionHistories$ | async)?.length ?? 0) > 0">
-                  <table mat-table [dataSource]="(pensionHistories$ | async) || []" class="admin-table">
-                    <ng-container matColumnDef="decisionYearMonth">
-                      <th mat-header-cell *matHeaderCellDef>決定年月</th>
-                      <td mat-cell *matCellDef="let history">
-                        {{ history.decisionYearMonth }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="appliedFromYearMonth">
-                      <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
-                      <td mat-cell *matCellDef="let history">
-                        {{ history.appliedFromYearMonth }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="standardMonthlyReward">
-                      <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
-                      <td mat-cell *matCellDef="let history">
-                        {{ history.standardMonthlyReward | number }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="decisionKind">
-                      <th mat-header-cell *matHeaderCellDef>決定区分</th>
-                      <td mat-cell *matCellDef="let history">
-                        {{ getStandardRewardDecisionKindLabel(history.decisionKind) }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="note">
-                      <th mat-header-cell *matHeaderCellDef>メモ</th>
-                      <td mat-cell *matCellDef="let history" class="standard-reward-note">
-                        {{ history.note || '-' }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="actions">
-                      <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
-                      <td mat-cell *matCellDef="let history" class="actions-cell">
-                        <button
-                          mat-icon-button
-                          color="primary"
-                          aria-label="標準報酬履歴を編集"
-                          (click)="openEditStandardRewardHistory(history)"
-                        >
-                          <mat-icon>edit</mat-icon>
-                        </button>
-                        <button
-                          mat-icon-button
-                          color="warn"
-                          aria-label="標準報酬履歴を削除"
-                          (click)="deleteStandardRewardHistory(history)"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </td>
-                    </ng-container>
-
-                    <tr
-                      mat-header-row
-                      *matHeaderRowDef="
-                        canManageStandardRewardHistory
-                          ? displayedStandardRewardColumns
-                          : standardRewardColumnsWithoutActions
-                      "
-                    ></tr>
-                    <tr
-                      mat-row
-                      *matRowDef="
-                        let row;
-                        columns:
-                          canManageStandardRewardHistory
-                            ? displayedStandardRewardColumns
-                            : standardRewardColumnsWithoutActions
-                      "
-                    ></tr>
-                  </table>
-                </mat-tab>
-              </mat-tab-group>
-            </ng-container>
-          </div>
-        </ng-container>
-      </div>
-
-      <!-- 扶養家族 -->
-      <div class="form-section" id="dependents" #sectionBlock>
-        <div class="section-title-with-action">
-          <h2 class="mat-h3 section-title">
-            <mat-icon>family_restroom</mat-icon>
-            扶養家族
-          </h2>
-          <ng-container *ngIf="canManageDependents$ | async">
-            <button mat-stroked-button color="primary" (click)="openAddDependent()">
-              <mat-icon>person_add</mat-icon>
-              扶養家族を追加
-            </button>
-          </ng-container>
-        </div>
-
-        <ng-container *ngIf="dependents$ | async as dependents">
-          <div class="dependents-empty" *ngIf="dependents.length === 0">
-            <mat-icon>group_off</mat-icon>
-            <p>扶養家族が登録されていません</p>
-          </div>
-
-          <div class="dependents-grid" *ngIf="dependents.length > 0">
-            <div class="dependent-card" *ngFor="let dependent of dependents">
-              <div class="dependent-header">
-                <div>
-                  <div class="dependent-name">{{ dependent.name }}</div>
-                  <div class="dependent-relationship">
-                    {{ getDependentRelationshipLabel(dependent.relationship) }}
-                  </div>
-                </div>
-
-                <div class="dependent-actions" *ngIf="canManageDependents$ | async">
-                  <button mat-icon-button color="primary" (click)="openEditDependent(dependent)">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button mat-icon-button color="warn" (click)="confirmDeleteDependent(dependent)">
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </div>
-              </div>
-
-              <div class="dependent-row">
-                <span class="label">生年月日</span>
-                <span class="value">{{ dependent.dateOfBirth || '-' }}</span>
-              </div>
-              <div class="dependent-row">
-                <span class="label">資格取得日</span>
-                <span class="value">{{ dependent.qualificationAcquiredDate || '-' }}</span>
-              </div>
-              <div class="dependent-row">
-                <span class="label">資格喪失日</span>
-                <span class="value">{{ dependent.qualificationLossDate || '-' }}</span>
-              </div>
-            </div>
-          </div>
-        </ng-container>
-      </div>
 
       <!-- システム情報 -->
       <div class="form-section" id="system" #sectionBlock>
@@ -723,9 +461,10 @@ export interface EmployeeDetailDialogData {
         border-bottom: 1px solid #e0e0e0;
       }
 
-      .subtitle {
-        margin-left: auto;
-        color: #666;
+      .dialog-title .employee-name {
+        color: rgba(0, 0, 0, 0.6);
+        font-weight: normal;
+        font-size: 0.9em;
       }
 
       .content {
@@ -939,15 +678,9 @@ export interface EmployeeDetailDialogData {
 export class EmployeeDetailDialogComponent implements AfterViewInit {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly dependentsService = inject(DependentsService);
-  private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly currentOffice = inject(CurrentOfficeService);
 
-  readonly dependents$!: Observable<Dependent[]>;
-  readonly standardRewardHistories$!: Observable<StandardRewardHistory[]>;
-  readonly healthHistories$!: Observable<StandardRewardHistory[]>;
-  readonly pensionHistories$!: Observable<StandardRewardHistory[]>;
 
   readonly sections: Array<{ id: DialogFocusSection; label: string; icon: string }> = [
     { id: 'basic', label: '基本情報', icon: 'person' },
@@ -957,8 +690,6 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
     { id: 'health-qualification', label: '健保資格', icon: 'local_hospital' },
     { id: 'pension-qualification', label: '厚年資格', icon: 'account_balance' },
     { id: 'working-status', label: '就業状態', icon: 'event' },
-    { id: 'standard-reward-history', label: '標準報酬履歴', icon: 'trending_up' },
-    { id: 'dependents', label: '扶養家族', icon: 'family_restroom' },
     { id: 'system', label: 'システム', icon: 'info' }
   ];
 
@@ -969,54 +700,7 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
     ElementRef<HTMLElement>
   >;
 
-  readonly canManageDependents$: Observable<boolean> = this.currentUser.profile$.pipe(
-    map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
-  );
-  readonly canManageStandardRewardHistory$: Observable<boolean> =
-    this.canManageDependents$;
-
-  readonly displayedStandardRewardColumns: Array<
-    keyof Pick<
-      StandardRewardHistory,
-      'decisionYearMonth' | 'appliedFromYearMonth' | 'standardMonthlyReward' | 'decisionKind' | 'note'
-    > | 'actions'
-  > = [
-    'decisionYearMonth',
-    'appliedFromYearMonth',
-    'standardMonthlyReward',
-    'decisionKind',
-    'note',
-    'actions'
-  ];
-  readonly standardRewardColumnsWithoutActions = this.displayedStandardRewardColumns.filter(
-    (column) => column !== 'actions'
-  );
-
-  constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDetailDialogData) {
-    this.dependents$ = this.dependentsService.list(
-      this.data.employee.officeId,
-      this.data.employee.id
-    );
-
-    this.standardRewardHistories$ = this.canManageStandardRewardHistory$.pipe(
-      switchMap((canManage) =>
-        canManage
-          ? this.standardRewardHistoryService.list(
-              this.data.employee.officeId,
-              this.data.employee.id
-            )
-          : of([])
-      )
-    );
-
-    // 健康保険と厚生年金の履歴を分割（パフォーマンス最適化）
-    this.healthHistories$ = this.standardRewardHistories$.pipe(
-      map((histories) => (histories ?? []).filter((h) => h.insuranceKind === 'health'))
-    );
-    this.pensionHistories$ = this.standardRewardHistories$.pipe(
-      map((histories) => (histories ?? []).filter((h) => h.insuranceKind === 'pension'))
-    );
-  }
+  constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDetailDialogData) {}
 
   ngAfterViewInit(): void {
     if (this.data.focusSection) {
@@ -1030,9 +714,6 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
   protected readonly getInsuranceLossReasonKindLabel =
     getInsuranceLossReasonKindLabel;
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
-  protected readonly getDependentRelationshipLabel = getDependentRelationshipLabel;
-  protected readonly getStandardRewardDecisionKindLabel =
-    getStandardRewardDecisionKindLabel;
   protected readonly getBankAccountTypeLabel = getBankAccountTypeLabel;
   protected readonly getPayrollPayTypeLabel = getPayrollPayTypeLabel;
   protected readonly getPayrollPayCycleLabel = getPayrollPayCycleLabel;
@@ -1121,169 +802,4 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
     this.activeSection = sectionId;
   }
 
-  openAddStandardRewardHistory(): void {
-    this.dialog
-      .open(StandardRewardHistoryFormDialogComponent, {
-        width: '520px',
-        data: {
-          officeId: this.data.employee.officeId,
-          employeeId: this.data.employee.id
-        }
-      })
-      .afterClosed()
-      .subscribe((result) => {
-        if (result) {
-          this.saveStandardRewardHistory(result);
-        }
-      });
-  }
-
-  openEditStandardRewardHistory(history: StandardRewardHistory): void {
-    this.dialog
-      .open(StandardRewardHistoryFormDialogComponent, {
-        width: '520px',
-        data: {
-          officeId: this.data.employee.officeId,
-          employeeId: this.data.employee.id,
-          history
-        }
-      })
-      .afterClosed()
-      .subscribe((result) => {
-        if (result) {
-          this.saveStandardRewardHistory({ ...result, id: history.id });
-        }
-      });
-  }
-
-  deleteStandardRewardHistory(history: StandardRewardHistory): void {
-    const confirmed = window.confirm('この標準報酬履歴を削除しますか？');
-    if (!confirmed) return;
-
-    this.standardRewardHistoryService
-      .delete(
-        this.data.employee.officeId,
-        this.data.employee.id,
-        history.id,
-        history.insuranceKind
-      )
-      .then(() =>
-        this.snackBar.open('標準報酬履歴を削除しました', undefined, { duration: 2500 })
-      )
-      .catch(() =>
-        this.snackBar.open('削除に失敗しました。時間をおいて再度お試しください。', undefined, {
-          duration: 3000
-        })
-      );
-  }
-
-  private saveStandardRewardHistory(
-    history: Partial<StandardRewardHistory> & { id?: string }
-  ): void {
-    this.standardRewardHistoryService
-      .save(this.data.employee.officeId, this.data.employee.id, history)
-      .then(() =>
-        this.snackBar.open('標準報酬履歴を保存しました', undefined, { duration: 2500 })
-      )
-      .catch(() =>
-        this.snackBar.open('保存に失敗しました。入力内容をご確認ください。', undefined, {
-          duration: 3000
-        })
-      );
-  }
-
-  /**
-   * 保険種別で履歴をフィルタリング
-   */
-  getHistoriesByKind(histories: StandardRewardHistory[], kind: InsuranceKind): StandardRewardHistory[] {
-    return histories.filter((h) => h.insuranceKind === kind);
-  }
-
-  openAddDependent(): void {
-    this.dialog
-      .open(DependentFormDialogComponent, {
-        width: '1200px',
-        maxWidth: '95vw',
-        data: {
-          officeId: this.data.employee.officeId,
-          employeeId: this.data.employee.id
-        }
-      })
-      .afterClosed()
-      .subscribe((result) => {
-        if (result) {
-          this.saveDependent(result);
-        }
-      });
-  }
-
-  openEditDependent(dependent: Dependent): void {
-    this.dialog
-      .open(DependentFormDialogComponent, {
-        width: '1200px',
-        maxWidth: '95vw',
-        data: {
-          officeId: this.data.employee.officeId,
-          employeeId: this.data.employee.id,
-          dependent
-        }
-      })
-      .afterClosed()
-      .subscribe((result) => {
-        if (result) {
-          this.saveDependent({ ...result, id: dependent.id, createdAt: dependent.createdAt });
-        }
-      });
-  }
-
-  async confirmDeleteDependent(dependent: Dependent): Promise<void> {
-    const dialogRef = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
-      ConfirmDialogComponent,
-      {
-        width: '400px',
-        data: {
-          title: '扶養家族を削除しますか？',
-          message: `扶養家族「${dependent.name}」を削除します。よろしいですか？`,
-          confirmLabel: '削除',
-          cancelLabel: 'キャンセル'
-        }
-      }
-    );
-
-    const result = await firstValueFrom(dialogRef.afterClosed());
-    if (!result) {
-      // キャンセル時は何もしない
-      return;
-    }
-
-    // 削除処理を実行
-    await this.deleteDependent(dependent);
-  }
-
-  private async deleteDependent(dependent: Dependent): Promise<void> {
-    try {
-      await this.dependentsService.delete(
-        this.data.employee.officeId,
-        this.data.employee.id,
-        dependent.id
-      );
-      this.snackBar.open('扶養家族を削除しました', undefined, { duration: 2500 });
-    } catch (error) {
-      console.error(error);
-      this.snackBar.open('削除に失敗しました。時間をおいて再度お試しください。', undefined, {
-        duration: 3000
-      });
-    }
-  }
-
-  private saveDependent(dependent: Partial<Dependent> & { id?: string }): void {
-    this.dependentsService
-      .save(this.data.employee.officeId, this.data.employee.id, dependent)
-      .then(() => this.snackBar.open('扶養家族を保存しました', undefined, { duration: 2500 }))
-      .catch(() =>
-        this.snackBar.open('保存に失敗しました。入力内容をご確認ください。', undefined, {
-          duration: 3000
-        })
-      );
-  }
 }

@@ -19,6 +19,7 @@ import {
   StandardRewardHistoryAddConfirmDialogComponent,
   StandardRewardHistoryAddConfirmDialogData
 } from './standard-reward-history-add-confirm-dialog.component';
+import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/confirm-dialog.component';
 
 import { EmployeesService } from '../../services/employees.service';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
@@ -67,6 +68,9 @@ export interface EmployeeDialogData {
     <h1 mat-dialog-title class="dialog-title">
       <mat-icon color="primary">{{ data.employee ? 'edit' : 'person_add' }}</mat-icon>
       <span>{{ data.employee ? '従業員を編集' : '従業員を追加' }}</span>
+      <span *ngIf="data.employee && form.get('name')?.value" class="employee-name">
+        （{{ form.get('name')?.value }}）
+      </span>
     </h1>
     <form class="dense-form" [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content autocomplete="off">
       <div class="form-section">
@@ -97,7 +101,7 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>入社日</mat-label>
-        <input matInput formControlName="hireDate" type="date" required />
+        <input matInput formControlName="hireDate" type="date" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -275,14 +279,11 @@ export interface EmployeeDialogData {
 
       <!-- 標準報酬セクション -->
       <div class="standard-reward-section">
-        <!-- ヘッダー行：決定年月と自動計算ボタン -->
+        <!-- ヘッダー行：適用開始年月と自動計算ボタン -->
         <div class="standard-reward-header">
           <mat-form-field appearance="outline" class="decision-year-month-field">
-            <mat-label>標準報酬決定年月</mat-label>
+            <mat-label>適用開始年月</mat-label>
             <input matInput type="month" formControlName="decisionYearMonth" />
-            <mat-error *ngIf="form.get('decisionYearMonth')?.hasError('required')">
-              標準報酬決定年月を入力してください
-            </mat-error>
           </mat-form-field>
           <button
             mat-stroked-button
@@ -293,7 +294,7 @@ export interface EmployeeDialogData {
             class="auto-calc-button"
           >
             <mat-icon>auto_fix_high</mat-icon>
-            <span>自動計算</span>
+            <span>報酬月額から概算して標準報酬を自動入力</span>
           </button>
         </div>
 
@@ -551,7 +552,7 @@ export interface EmployeeDialogData {
         </h3>
         <div class="form-grid">
       <mat-form-field appearance="outline">
-        <mat-label>就業状態</mat-label>
+        <mat-label>現在の就業状態</mat-label>
         <mat-select formControlName="workingStatus">
           <mat-option [value]="''">未選択</mat-option>
           <mat-option [value]="'normal'">通常勤務</mat-option>
@@ -563,7 +564,7 @@ export interface EmployeeDialogData {
       <!-- 免除月（産休/育休）セクション -->
       <div class="exemption-months-section full-row">
         <div class="section-header">
-          <h4 class="mat-h4 mb-2">免除月（月次保険料用）（産前産後休業・育児休業）</h4>
+          <h4 class="mat-h4 mb-2">産前産後・育児休業の免除月（月次保険料用）</h4>
           <p class="mat-body-2 hint-text">
             免除月に登録した月は、月次保険料計算で0円として扱われます（制度の詳細判定は行いません）。<br />
             賞与保険料については、システムによる制御は行いません。免除月に該当する従業員の賞与は、賞与登録の際に免除対象かを判断して、免除対象の場合は賞与登録をしないでください。
@@ -580,8 +581,8 @@ export interface EmployeeDialogData {
               <mat-select formControlName="kind">
                 <mat-option value="maternity">産前産後休業</mat-option>
                 <mat-option value="childcare">育児休業</mat-option>
-              </mat-select>
-            </mat-form-field>
+        </mat-select>
+      </mat-form-field>
             <mat-form-field appearance="outline" class="exemption-yearmonth-field">
               <mat-label>対象年月</mat-label>
               <input matInput type="month" formControlName="yearMonth" />
@@ -615,7 +616,7 @@ export interface EmployeeDialogData {
       </div>
     </form>
     <div mat-dialog-actions align="end" class="dialog-actions">
-      <button mat-button mat-dialog-close>
+      <button mat-button (click)="onCancel()">
         <mat-icon>close</mat-icon>
         キャンセル
       </button>
@@ -633,6 +634,12 @@ export interface EmployeeDialogData {
         gap: 8px;
         margin: 0;
         padding: 16px 16px 12px;
+      }
+
+      .dialog-title .employee-name {
+        color: rgba(0, 0, 0, 0.6);
+        font-weight: normal;
+        font-size: 0.9em;
         border-bottom: 1px solid #e0e0e0;
       }
 
@@ -743,13 +750,18 @@ export interface EmployeeDialogData {
       }
 
       .decision-year-month-field {
-        flex: 1;
-        max-width: 240px;
+        flex: 0 0 auto;
+        width: 240px;
+      }
+
+      .decision-year-month-field ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+        margin-top: 0;
       }
 
       .auto-calc-button {
         height: 40px;
         white-space: nowrap;
+        margin-bottom: 16px;
       }
 
       .standard-reward-hint {
@@ -896,6 +908,7 @@ export class EmployeeFormDialogComponent {
   protected maskedMyNumber: string | null = null;
   protected healthCalculationError: string | null = null;
   protected pensionCalculationError: string | null = null;
+  private historyChanged = false;
 
   private autoCalculatedHealthGrade: number | null = null;
   private autoCalculatedHealthStandardMonthly: number | null = null;
@@ -911,9 +924,9 @@ export class EmployeeFormDialogComponent {
     kana: [''],
     birthDate: ['', Validators.required],
     department: [''],
-    hireDate: ['', Validators.required],
+    hireDate: [''],
     retireDate: [''],
-    employmentType: ['', Validators.required],
+    employmentType: [''],
     address: [''],
     phone: [''],
     contactEmail: [''],
@@ -937,7 +950,7 @@ export class EmployeeFormDialogComponent {
     weeklyWorkingDays: [null],
     contractPeriodNote: [''],
     isStudent: [false],
-    decisionYearMonth: [this.getCurrentYearMonth(), Validators.required],
+    decisionYearMonth: [this.getCurrentYearMonth()],
     isInsured: [true],
     healthGrade: [null, [Validators.min(1), Validators.max(100)]],
     healthStandardMonthly: [null, [Validators.min(1)]],
@@ -1376,7 +1389,6 @@ export class EmployeeFormDialogComponent {
       width: '500px',
       data: {
         insuranceKind,
-        decisionYearMonth,
         appliedFromYearMonth: decisionYearMonth,
         grade: grade ?? null,
         standardMonthlyReward: standardMonthly
@@ -1409,30 +1421,37 @@ export class EmployeeFormDialogComponent {
     }
 
     try {
-      // 履歴を追加
-      await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
+      // 履歴を追加（save()が更新後の従業員データを返す）
+      const updatedEmployee = await this.standardRewardHistoryService.save(
+        this.data.officeId,
+        employeeId,
+        {
         insuranceKind,
-        decisionYearMonth,
         appliedFromYearMonth: decisionYearMonth,
         standardMonthlyReward: standardMonthly,
         grade: grade ?? undefined,
         decisionKind: 'other',
         note: '従業員フォームから追加'
-      });
-
-      // 従業員データを再読み込みしてUIを更新
-      const updatedEmployee = await firstValueFrom(
-        this.employeesService.get(this.data.officeId, employeeId)
+        }
       );
+
       if (updatedEmployee) {
-        // フォームの標準報酬表示を更新
-        this.form.patchValue({
+        // 追加した保険種別だけフォームに反映する
+        const patch: any =
+          insuranceKind === 'health'
+            ? {
           healthStandardMonthly: updatedEmployee.healthStandardMonthly ?? null,
-          pensionStandardMonthly: updatedEmployee.pensionStandardMonthly ?? null,
           healthGrade: updatedEmployee.healthGrade ?? null,
-          pensionGrade: updatedEmployee.pensionGrade ?? null
-        } as any);
+              }
+            : {
+                pensionStandardMonthly: updatedEmployee.pensionStandardMonthly ?? null,
+                pensionGrade: updatedEmployee.pensionGrade ?? null,
+              };
+
+        this.form.patchValue(patch, { emitEvent: false });
         this.data.employee = updatedEmployee;
+        // 履歴が変更されたことを記録
+        this.historyChanged = true;
       }
 
       this.snackBar.open('標準報酬履歴を追加しました', undefined, {
@@ -1740,7 +1759,42 @@ export class EmployeeFormDialogComponent {
     // 標準報酬履歴の自動追加は廃止
     // 履歴を追加する場合は「履歴に追加」ボタンを使用すること
     
-    this.dialogRef.close({ saved: true, mode, employeeId: savedId });
+    this.dialogRef.close({ 
+      saved: true, 
+      mode, 
+      employeeId: savedId,
+      historyChanged: this.historyChanged 
+    });
+  }
+
+  async onCancel(): Promise<void> {
+    // 履歴が変更されていたら確認ダイアログを表示
+    if (this.historyChanged) {
+      const dialogRef = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
+        ConfirmDialogComponent,
+        {
+          width: '500px',
+          data: {
+            title: '従業員フォームを閉じますか？',
+            message: '標準報酬履歴の追加は保存済みです。従業員フォームの変更は破棄して閉じますか？',
+            confirmLabel: '閉じる',
+            cancelLabel: 'キャンセル'
+          }
+        }
+      );
+
+      const confirmed = await firstValueFrom(dialogRef.afterClosed());
+      if (!confirmed) {
+        return; // キャンセルされた場合は何もしない
+      }
+    }
+
+    // 履歴が変更されていたら、親画面に通知して閉じる
+    this.dialogRef.close({ 
+      saved: false, 
+      historyChanged: this.historyChanged,
+      employeeId: this.data.employee?.id 
+    });
   }
 
   private async addAutoStandardRewardHistory(
@@ -1775,8 +1829,7 @@ export class EmployeeFormDialogComponent {
     try {
       await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
         insuranceKind,
-        decisionYearMonth,
-        appliedFromYearMonth: decisionYearMonth, // 決定年月を適用開始年月として使用
+        appliedFromYearMonth: decisionYearMonth,
         standardMonthlyReward: newStandardMonthly,
         decisionKind: 'other',
         note:

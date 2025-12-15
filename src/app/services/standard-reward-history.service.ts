@@ -47,11 +47,11 @@ export class StandardRewardHistoryService {
 
   list(officeId: string, employeeId: string): Observable<StandardRewardHistory[]> {
     return this.inCtx(() => {
-      const ref = query(
-        this.collectionPath(officeId, employeeId),
-        orderBy('decisionYearMonth', 'desc')
-      );
-      return collectionData(ref, { idField: 'id' }) as Observable<StandardRewardHistory[]>;
+    const ref = query(
+      this.collectionPath(officeId, employeeId),
+        orderBy('appliedFromYearMonth', 'desc')
+    );
+    return collectionData(ref, { idField: 'id' }) as Observable<StandardRewardHistory[]>;
     });
   }
 
@@ -64,12 +64,12 @@ export class StandardRewardHistoryService {
     insuranceKind: InsuranceKind
   ): Observable<StandardRewardHistory[]> {
     return this.inCtx(() => {
-      const ref = query(
-        this.collectionPath(officeId, employeeId),
-        where('insuranceKind', '==', insuranceKind),
-        orderBy('decisionYearMonth', 'desc')
-      );
-      return collectionData(ref, { idField: 'id' }) as Observable<StandardRewardHistory[]>;
+    const ref = query(
+      this.collectionPath(officeId, employeeId),
+      where('insuranceKind', '==', insuranceKind),
+        orderBy('appliedFromYearMonth', 'desc')
+    );
+    return collectionData(ref, { idField: 'id' }) as Observable<StandardRewardHistory[]>;
     });
   }
 
@@ -82,14 +82,14 @@ export class StandardRewardHistoryService {
     insuranceKind: InsuranceKind
   ): Promise<StandardRewardHistory | null> {
     return this.inCtxAsync(async () => {
-      const ref = query(
-        this.collectionPath(officeId, employeeId),
-        where('insuranceKind', '==', insuranceKind),
-        orderBy('appliedFromYearMonth', 'desc'),
-        limit(1)
-      );
-      const snapshot = await firstValueFrom(collectionData(ref, { idField: 'id' }));
-      return snapshot.length > 0 ? (snapshot[0] as StandardRewardHistory) : null;
+    const ref = query(
+      this.collectionPath(officeId, employeeId),
+      where('insuranceKind', '==', insuranceKind),
+      orderBy('appliedFromYearMonth', 'desc'),
+      limit(1)
+    );
+    const snapshot = await firstValueFrom(collectionData(ref, { idField: 'id' }));
+    return snapshot.length > 0 ? (snapshot[0] as StandardRewardHistory) : null;
     });
   }
 
@@ -97,10 +97,10 @@ export class StandardRewardHistoryService {
     officeId: string,
     employeeId: string,
     history: Partial<StandardRewardHistory> & { id?: string }
-  ): Promise<void> {
+  ): Promise<Employee | null> {
     return this.inCtxAsync(async () => {
-      const historiesRef = this.collectionPath(officeId, employeeId);
-      const ref = history.id ? doc(historiesRef, history.id) : doc(historiesRef);
+    const historiesRef = this.collectionPath(officeId, employeeId);
+    const ref = history.id ? doc(historiesRef, history.id) : doc(historiesRef);
     const now = new Date().toISOString();
     const currentUser = await firstValueFrom(this.currentUserService.profile$);
 
@@ -108,7 +108,6 @@ export class StandardRewardHistoryService {
       id: ref.id,
       employeeId,
       insuranceKind: history.insuranceKind ?? 'health',
-      decisionYearMonth: history.decisionYearMonth ?? '',
       appliedFromYearMonth: history.appliedFromYearMonth ?? '',
       standardMonthlyReward: history.standardMonthlyReward ?? 0,
       decisionKind: history.decisionKind ?? 'other',
@@ -134,28 +133,29 @@ export class StandardRewardHistoryService {
       payload.createdByUserId = history.createdByUserId;
     }
 
-      await setDoc(ref, payload, { merge: true });
+    await setDoc(ref, payload, { merge: true });
 
-      // 保存後にEmployeeを同期
-      const insuranceKind = payload.insuranceKind ?? 'health';
-      await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
+    // 保存後にEmployeeを同期
+    const insuranceKind = payload.insuranceKind ?? 'health';
+    return await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
     });
   }
 
   /**
    * 履歴からEmployeeの標準報酬を同期
    * 履歴が0件の場合は、Employee側の該当フィールドをnullに戻す
+   * @returns 更新後の従業員データ（更新に失敗した場合はnull）
    */
   private async syncEmployeeFromHistory(
     officeId: string,
     employeeId: string,
     insuranceKind: InsuranceKind
-  ): Promise<void> {
+  ): Promise<Employee | null> {
     const latestHistory = await this.getLatestByInsuranceKind(officeId, employeeId, insuranceKind);
 
     const employee = await firstValueFrom(this.employeesService.get(officeId, employeeId));
     if (!employee) {
-      return;
+      return null;
     }
 
     const updatePayload: Partial<Employee> = {};
@@ -185,6 +185,9 @@ export class StandardRewardHistoryService {
     }
 
     await this.employeesService.save(officeId, { ...employee, ...updatePayload });
+    
+    // 更新後の従業員データを返す（save()後の最新データを返すため、更新された値を含む）
+    return { ...employee, ...updatePayload } as Employee;
   }
 
   /**
@@ -198,13 +201,13 @@ export class StandardRewardHistoryService {
     insuranceKind?: InsuranceKind
   ): Promise<void> {
     return this.inCtxAsync(async () => {
-      const ref = doc(this.collectionPath(officeId, employeeId), historyId);
-      await deleteDoc(ref);
+    const ref = doc(this.collectionPath(officeId, employeeId), historyId);
+    await deleteDoc(ref);
 
-      // 保険種別が分かる場合は削除後に同期
-      if (insuranceKind) {
-        await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
-      }
+    // 保険種別が分かる場合は削除後に同期
+    if (insuranceKind) {
+      await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
+    }
     });
   }
 }

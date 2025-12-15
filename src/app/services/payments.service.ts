@@ -94,9 +94,9 @@ export class PaymentsService {
     createdByUserId: string
   ): Promise<string> {
     return this.inCtxAsync(async () => {
-      const collectionRef = this.getCollectionRef(officeId);
-      const docId = dto.targetYearMonth;
-      const docRef = doc(collectionRef, docId);
+    const collectionRef = this.getCollectionRef(officeId);
+    const docId = dto.targetYearMonth;
+    const docRef = doc(collectionRef, docId);
     const now = new Date().toISOString().slice(0, 10);
 
     const allPlannedMissing =
@@ -139,40 +139,40 @@ export class PaymentsService {
       updatedByUserId: createdByUserId
     };
 
-      await setDoc(docRef, payload);
-      return docId;
+    await setDoc(docRef, payload);
+    return docId;
     });
   }
 
   listByOffice(officeId: string, limitCount?: number): Observable<SocialInsurancePayment[]> {
     return this.inCtx(() => {
-      const collectionRef = this.getCollectionRef(officeId);
-      const constraints: QueryConstraint[] = [orderBy('targetYearMonth', 'desc')];
+    const collectionRef = this.getCollectionRef(officeId);
+    const constraints: QueryConstraint[] = [orderBy('targetYearMonth', 'desc')];
 
-      if (limitCount != null) {
-        constraints.push(limit(limitCount));
-      }
+    if (limitCount != null) {
+      constraints.push(limit(limitCount));
+    }
 
-      const q = query(collectionRef, ...constraints);
+    const q = query(collectionRef, ...constraints);
 
-      return collectionData(q, { idField: 'id' }) as Observable<SocialInsurancePayment[]>;
+    return collectionData(q, { idField: 'id' }) as Observable<SocialInsurancePayment[]>;
     });
   }
 
   get(officeId: string, targetYearMonth: YearMonthString): Observable<SocialInsurancePayment | undefined> {
     return this.inCtx(() => {
-      const collectionRef = this.getCollectionRef(officeId);
-      const docRef = doc(collectionRef, targetYearMonth);
+    const collectionRef = this.getCollectionRef(officeId);
+    const docRef = doc(collectionRef, targetYearMonth);
 
-      return docData(docRef, { idField: 'id' }).pipe(
-        map((data) => {
-          // docDataは存在しないドキュメントの場合、undefinedを返す可能性がある
-          if (!data || Object.keys(data).length === 0) {
-            return undefined;
-          }
-          return data as SocialInsurancePayment;
-        })
-      );
+    return docData(docRef, { idField: 'id' }).pipe(
+      map((data) => {
+        // docDataは存在しないドキュメントの場合、undefinedを返す可能性がある
+        if (!data || Object.keys(data).length === 0) {
+          return undefined;
+        }
+        return data as SocialInsurancePayment;
+      })
+    );
     });
   }
 
@@ -200,8 +200,8 @@ export class PaymentsService {
     updatedByUserId: string
   ): Promise<void> {
     return this.inCtxAsync(async () => {
-      const collectionRef = this.getCollectionRef(officeId);
-      const docRef = doc(collectionRef, targetYearMonth);
+    const collectionRef = this.getCollectionRef(officeId);
+    const docRef = doc(collectionRef, targetYearMonth);
     const now = new Date().toISOString().slice(0, 10);
 
     const updateData: Partial<SocialInsurancePayment> = {
@@ -235,15 +235,15 @@ export class PaymentsService {
     if (dto.paymentDate !== undefined) updateData.paymentDate = dto.paymentDate;
     if (dto.memo !== undefined) updateData.memo = dto.memo;
 
-      await updateDoc(docRef, updateData);
+    await updateDoc(docRef, updateData);
     });
   }
 
   async delete(officeId: string, targetYearMonth: YearMonthString): Promise<void> {
     return this.inCtxAsync(async () => {
-      const collectionRef = this.getCollectionRef(officeId);
-      const docRef = doc(collectionRef, targetYearMonth);
-      await deleteDoc(docRef);
+    const collectionRef = this.getCollectionRef(officeId);
+    const docRef = doc(collectionRef, targetYearMonth);
+    await deleteDoc(docRef);
     });
   }
 }

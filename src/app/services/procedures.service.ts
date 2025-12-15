@@ -52,8 +52,8 @@ export class ProceduresService {
     createdByUserId: string
   ): Promise<void> {
     return this.inCtxAsync(async () => {
-      const ref = this.collectionPath(officeId);
-      const docRef = doc(ref);
+    const ref = this.collectionPath(officeId);
+    const docRef = doc(ref);
     const now = new Date().toISOString();
 
     const payload: SocialInsuranceProcedure = {
@@ -83,7 +83,7 @@ export class ProceduresService {
       payload.note = procedure.note;
     }
 
-      await setDoc(docRef, payload);
+    await setDoc(docRef, payload);
     });
   }
 
@@ -95,21 +95,21 @@ export class ProceduresService {
     }
   ): Observable<SocialInsuranceProcedure[]> {
     return this.inCtx(() => {
-      const ref = this.collectionPath(officeId);
-      const constraints: QueryConstraint[] = [];
+    const ref = this.collectionPath(officeId);
+    const constraints: QueryConstraint[] = [];
 
-      if (filters?.status) {
-        constraints.push(where('status', '==', filters.status));
-      }
-      if (filters?.procedureType) {
-        constraints.push(where('procedureType', '==', filters.procedureType));
-      }
+    if (filters?.status) {
+      constraints.push(where('status', '==', filters.status));
+    }
+    if (filters?.procedureType) {
+      constraints.push(where('procedureType', '==', filters.procedureType));
+    }
 
-      constraints.push(orderBy('deadline', 'asc'));
+    constraints.push(orderBy('deadline', 'asc'));
 
-      const q = constraints.length > 0 ? query(ref, ...constraints) : query(ref, orderBy('deadline', 'asc'));
+    const q = constraints.length > 0 ? query(ref, ...constraints) : query(ref, orderBy('deadline', 'asc'));
 
-      return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
     });
   }
 
@@ -118,68 +118,68 @@ export class ProceduresService {
     filter: 'upcoming' | 'overdue' | 'all'
   ): Observable<SocialInsuranceProcedure[]> {
     return this.inCtx(() => {
-      const ref = this.collectionPath(officeId);
-      const now = todayYmd();
-      const sevenDaysLater = addDays(now, 7);
+    const ref = this.collectionPath(officeId);
+    const now = todayYmd();
+    const sevenDaysLater = addDays(now, 7);
 
-      let q: Query;
+    let q: Query;
 
-      if (filter === 'upcoming') {
-        q = query(
-          ref,
-          where('deadline', '>=', now),
-          where('deadline', '<=', sevenDaysLater),
-          where('status', 'in', PENDING_PROCEDURE_STATUSES),
-          orderBy('deadline', 'asc')
-        );
-      } else if (filter === 'overdue') {
-        q = query(
-          ref,
-          where('deadline', '<', now),
-          where('status', 'in', PENDING_PROCEDURE_STATUSES),
-          orderBy('deadline', 'asc')
-        );
-      } else {
-        q = query(ref, orderBy('deadline', 'asc'));
-      }
+    if (filter === 'upcoming') {
+      q = query(
+        ref,
+        where('deadline', '>=', now),
+        where('deadline', '<=', sevenDaysLater),
+        where('status', 'in', PENDING_PROCEDURE_STATUSES),
+        orderBy('deadline', 'asc')
+      );
+    } else if (filter === 'overdue') {
+      q = query(
+        ref,
+        where('deadline', '<', now),
+        where('status', 'in', PENDING_PROCEDURE_STATUSES),
+        orderBy('deadline', 'asc')
+      );
+    } else {
+      q = query(ref, orderBy('deadline', 'asc'));
+    }
 
-      return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
     });
   }
 
   listThisWeekDeadlines(officeId: string): Observable<SocialInsuranceProcedure[]> {
     return this.inCtx(() => {
-      const ref = this.collectionPath(officeId);
-      const thisWeekMonday = getThisWeekMonday();
-      const thisWeekSunday = getSundayOfWeek(thisWeekMonday);
+    const ref = this.collectionPath(officeId);
+    const thisWeekMonday = getThisWeekMonday();
+    const thisWeekSunday = getSundayOfWeek(thisWeekMonday);
 
-      const q = query(
-        ref,
-        where('deadline', '>=', thisWeekMonday),
-        where('deadline', '<=', thisWeekSunday),
-        where('status', 'in', PENDING_PROCEDURE_STATUSES),
-        orderBy('deadline', 'asc')
-      );
+    const q = query(
+      ref,
+      where('deadline', '>=', thisWeekMonday),
+      where('deadline', '<=', thisWeekSunday),
+      where('status', 'in', PENDING_PROCEDURE_STATUSES),
+      orderBy('deadline', 'asc')
+    );
 
-      return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
     });
   }
 
   listNextWeekDeadlines(officeId: string): Observable<SocialInsuranceProcedure[]> {
     return this.inCtx(() => {
-      const ref = this.collectionPath(officeId);
-      const nextWeekMonday = getNextWeekMonday();
-      const nextWeekSunday = getSundayOfWeek(nextWeekMonday);
+    const ref = this.collectionPath(officeId);
+    const nextWeekMonday = getNextWeekMonday();
+    const nextWeekSunday = getSundayOfWeek(nextWeekMonday);
 
-      const q = query(
-        ref,
-        where('deadline', '>=', nextWeekMonday),
-        where('deadline', '<=', nextWeekSunday),
-        where('status', 'in', PENDING_PROCEDURE_STATUSES),
-        orderBy('deadline', 'asc')
-      );
+    const q = query(
+      ref,
+      where('deadline', '>=', nextWeekMonday),
+      where('deadline', '<=', nextWeekSunday),
+      where('status', 'in', PENDING_PROCEDURE_STATUSES),
+      orderBy('deadline', 'asc')
+    );
 
-      return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
+    return collectionData(q, { idField: 'id' }) as Observable<SocialInsuranceProcedure[]>;
     });
   }
 
@@ -198,25 +198,25 @@ export class ProceduresService {
     updatedByUserId: string
   ): Promise<void> {
     return this.inCtxAsync(async () => {
-      const ref = this.collectionPath(officeId);
-      const docRef = doc(ref, procedureId);
-      const now = new Date().toISOString();
+    const ref = this.collectionPath(officeId);
+    const docRef = doc(ref, procedureId);
+    const now = new Date().toISOString();
 
-      const payload: Partial<SocialInsuranceProcedure> = {
-        ...updates,
-        updatedAt: now,
-        updatedByUserId
-      };
+    const payload: Partial<SocialInsuranceProcedure> = {
+      ...updates,
+      updatedAt: now,
+      updatedByUserId
+    };
 
-      await updateDoc(docRef, payload);
+    await updateDoc(docRef, payload);
     });
   }
 
   async delete(officeId: string, procedureId: string): Promise<void> {
     return this.inCtxAsync(async () => {
-      const ref = this.collectionPath(officeId);
-      const docRef = doc(ref, procedureId);
-      await deleteDoc(docRef);
+    const ref = this.collectionPath(officeId);
+    const docRef = doc(ref, procedureId);
+    await deleteDoc(docRef);
     });
   }
 }

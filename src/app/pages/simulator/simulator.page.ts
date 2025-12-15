@@ -70,10 +70,10 @@ import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>標準報酬決定年月</mat-label>
+                <mat-label>適用開始年月</mat-label>
                 <input matInput type="month" formControlName="decisionYearMonth" required />
                 <mat-error *ngIf="form.get('decisionYearMonth')?.hasError('required')">
-                  標準報酬決定年月を入力してください
+                  適用開始年月を入力してください
                 </mat-error>
               </mat-form-field>
 

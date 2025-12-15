@@ -50,7 +50,7 @@ export interface PaymentFormDialogData {
         <div class="section-title">予定額（会社負担）</div>
         <div class="field-help">
           給与・賞与から計算した、会社が負担する予定の保険料を入力してください。<br />
-          月次保険料ページと賞与保険料ページのサマリーから値を参照できます。
+          月次保険料ページと賞与保険料ページのサマリーから値を参照してください。
         </div>
 
         <mat-form-field appearance="outline">
