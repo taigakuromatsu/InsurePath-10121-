@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { NgFor } from '@angular/common';
 
 import { CareRateTable, Office } from '../../types';
@@ -30,6 +31,7 @@ export interface CareMasterDialogData {
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
+    MatTooltipModule,
     NgFor
   ],
   template: `
@@ -67,9 +69,10 @@ export interface CareMasterDialogData {
         </div>
         
         <div class="flex-row justify-end mb-2">
-          <button mat-stroked-button color="primary" type="button" (click)="loadPreset()">
+          <button mat-stroked-button color="primary" type="button" (click)="loadPreset()"
+                  matTooltip="適用開始年月から現在の協会けんぽの料率を読み込む">
             <mat-icon>download</mat-icon>
-            現在の料率を読み込む
+            料率読み込み
           </button>
         </div>
 
@@ -77,7 +80,11 @@ export interface CareMasterDialogData {
           <p>
             <strong>設定ヒント:</strong><br>
             例）2025年3月分から改定される場合：「適用開始年」= 2025、「適用開始月」= 3。<br>
-            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。
+            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。<br><br>
+            <strong>料率読み込みについて:</strong><br>
+            2023年3月改定分・2024年3月改定分・2025年3月改定分のプリセットが設定済みです。<br>
+            2023年3月〜2025年3月の期間は該当する改定分のプリセットが読み込めます。<br>
+            2023年3月より前の期間は正しく読み込めないためユーザーが入力して設定してください。2025年3月より後の期間は2025年3月改定分が読み込まれます。
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "kensyu10121-InsurePath",
+    "site": "kensyu10121-insurepath",
     "public": "dist/third-management-app/browser",
     "ignore": [
       "firebase.json",

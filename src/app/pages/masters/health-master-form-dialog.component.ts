@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { HealthRateTable, Office, StandardRewardBand } from '../../types';
 import { CloudMasterService } from '../../services/cloud-master.service';
@@ -32,6 +33,7 @@ export interface HealthMasterDialogData {
     MatButtonModule,
     MatIconModule,
     MatCheckboxModule,
+    MatTooltipModule,
     NgIf,
     NgFor
   ],
@@ -75,7 +77,11 @@ export interface HealthMasterDialogData {
           <p>
             <strong>設定ヒント:</strong><br>
             例）2025年3月分から改定される場合：「適用開始年」= 2025、「適用開始月」= 3。<br>
-            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。
+            その前の月（〜2月分）は、前回登録した料率が自動的に使われます。<br><br>
+            <strong>料率読み込みについて:</strong><br>
+            2023年3月改定分・2024年3月改定分・2025年3月改定分のプリセットが設定済みです。<br>
+            2023年3月〜2025年3月の期間は該当する改定分のプリセットが読み込めます。<br>
+            2023年3月より前の期間は正しく読み込めないためユーザーが入力して設定してください。2025年3月より後の期間は2025年3月改定分が読み込まれます。
           </p>
         </div>
       </div>
@@ -122,9 +128,10 @@ export interface HealthMasterDialogData {
             <mat-icon color="primary">list</mat-icon> 標準報酬等級表（{{ bands.length }}件）
           </h3>
           <div class="flex-row gap-2">
-            <button mat-stroked-button color="primary" type="button" (click)="loadPreset()">
+            <button mat-stroked-button color="primary" type="button" (click)="loadPreset()"
+                    [matTooltip]="form.get('planType')?.value === 'kyokai' ? '適用開始年月と都道府県から現在の協会けんぽの料率を読み込む' : '適用開始年月から現在の料率を読み込む'">
               <mat-icon>download</mat-icon>
-              {{ form.get('planType')?.value === 'kyokai' ? '協会けんぽプリセット' : '標準プリセット' }}
+              料率読み込み
             </button>
             <button mat-flat-button color="primary" type="button" (click)="addBand()">
             <mat-icon>add</mat-icon>
