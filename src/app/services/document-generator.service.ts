@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
+import { firstValueFrom } from 'rxjs';
 
 import { BonusPremium, Employee, InsuranceKind, Office, StandardRewardHistory, YearMonthString } from '../types';
 import { pdfVfsJp } from '../utils/pdf-vfs-fonts-jp';
@@ -13,6 +14,11 @@ import {
   detectCommonPayDate,
   MonthlyBonusPaymentTemplateInput
 } from '../utils/document-templates/monthly-bonus-payment';
+import { buildQualificationAcquisitionBatchDefinition, QualificationAcquisitionPdfRow } from '../utils/document-templates/qualification-acquisition-batch';
+import { buildQualificationLossBatchDefinition, QualificationLossPdfRow } from '../utils/document-templates/qualification-loss-batch';
+import { DependentsService } from './dependents.service';
+import { StandardRewardHistoryService } from './standard-reward-history.service';
+import { formatCurrency, formatJapaneseEraDate, formatQualificationKind, formatLossReason, formatSexLabel } from '../utils/document-helpers';
 
 export type DocumentType =
   | 'qualification_acquisition'
@@ -57,6 +63,8 @@ export type DocumentPayload =
 
 @Injectable({ providedIn: 'root' })
 export class DocumentGeneratorService {
+  private readonly dependentsService = inject(DependentsService);
+  private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
   private initialized = false;
 
   private ensureFonts(): void {
@@ -257,5 +265,268 @@ export class DocumentGeneratorService {
     const employeeName = 'employee' in document.payload ? document.payload.employee?.name : '';
     const suffix = employeeName ? `-${employeeName}` : '';
     return `${baseName}${suffix}.pdf`;
+  }
+
+  /**
+   * 資格取得届・資格喪失届のバッチ生成
+   * @param office 事業所
+   * @param employees 対象従業員リスト
+   * @param type 資格取得届または資格喪失届
+   * @param action PDFアクション
+   */
+  async generateQualificationBatch(
+    office: Office,
+    employees: Employee[],
+    type: 'qualification_acquisition' | 'qualification_loss',
+    action: DocumentAction
+  ): Promise<void> {
+    this.ensureFonts();
+
+    if (type === 'qualification_acquisition') {
+      const rows = await this.buildQualificationAcquisitionRows(office, employees);
+      const definition = buildQualificationAcquisitionBatchDefinition(office, rows);
+      const pdf = pdfMake.createPdf(definition);
+      const fileName = `資格取得届_n${employees.length}.pdf`;
+
+      switch (action) {
+        case 'download':
+          pdf.download(fileName);
+          break;
+        case 'print':
+          pdf.print();
+          break;
+        case 'open':
+        default:
+          pdf.open();
+          break;
+      }
+    } else {
+      const rows = await this.buildQualificationLossRows(office, employees);
+      const definition = buildQualificationLossBatchDefinition(office, rows);
+      const pdf = pdfMake.createPdf(definition);
+      const fileName = `資格喪失届_n${employees.length}.pdf`;
+
+      switch (action) {
+        case 'download':
+          pdf.download(fileName);
+          break;
+        case 'print':
+          pdf.print();
+          break;
+        case 'open':
+        default:
+          pdf.open();
+          break;
+      }
+    }
+  }
+
+  /**
+   * 資格取得届のPDF行データを構築
+   */
+  private async buildQualificationAcquisitionRows(
+    office: Office,
+    employees: Employee[]
+  ): Promise<QualificationAcquisitionPdfRow[]> {
+    const rows: QualificationAcquisitionPdfRow[] = [];
+
+    // 扶養家族の有無を並列取得
+    const dependentsMap = new Map<string, boolean>();
+    await Promise.all(
+      employees.map(async (emp) => {
+        try {
+          const hasDeps = await this.dependentsService.hasAny(office.id, emp.id);
+          dependentsMap.set(emp.id, hasDeps);
+        } catch (error) {
+          console.error(`扶養家族の取得に失敗しました (employeeId: ${emp.id}):`, error);
+          dependentsMap.set(emp.id, false);
+        }
+      })
+    );
+
+    // 標準報酬履歴を取得（各従業員ごと）
+    const historiesMap = new Map<string, StandardRewardHistory[]>();
+    await Promise.all(
+      employees.map(async (emp) => {
+        try {
+          const histories = await firstValueFrom(this.standardRewardHistoryService.list(office.id, emp.id));
+          historiesMap.set(emp.id, histories || []);
+        } catch (error) {
+          console.error(`標準報酬履歴の取得に失敗しました (employeeId: ${emp.id}):`, error);
+          historiesMap.set(emp.id, []);
+        }
+      })
+    );
+
+    for (const employee of employees) {
+      // (1) 被保険者整理番号: 被保険者番号が入力されている場合のみ記載（空なら空欄）
+      const insuredNumber = employee.healthInsuredSymbol && employee.healthInsuredNumber
+        ? `${employee.healthInsuredSymbol} ${employee.healthInsuredNumber}`
+        : '';
+
+      // (2) 氏名（フリガナ）
+      const name = employee.name || '';
+      const kana = employee.kana || '';
+
+      // (3) 生年月日（元号）・(4) 種別
+      const birthDate = employee.birthDate ? formatJapaneseEraDate(employee.birthDate) : '';
+      const sex = formatSexLabel(employee.sex);
+
+      // (5) 取得区分（健保/厚年 一律）
+      // 健保/厚年で別フィールドしか無い場合は、健保を優先（既存単票テンプレが参照している側）
+      const qualificationKind = formatQualificationKind(
+        employee.healthQualificationKind || employee.pensionQualificationKind
+      );
+
+      // (6) 個人番号（なければ基礎年金番号）
+      const myNumberOrPensionNumber = employee.myNumber || employee.pensionNumber || '';
+
+      // (7) 取得年月日（健保/厚年 両方記載・和暦）
+      const healthQualificationDate = employee.healthQualificationDate
+        ? formatJapaneseEraDate(employee.healthQualificationDate)
+        : '';
+      const pensionQualificationDate = employee.pensionQualificationDate
+        ? formatJapaneseEraDate(employee.pensionQualificationDate)
+        : '';
+
+      // (8) 扶養者: 「有」or「無」
+      const hasDependents = dependentsMap.get(employee.id) ? '有' : '無';
+
+      // (9) 報酬月額: 通貨（数値）として表示
+      const histories = historiesMap.get(employee.id) || [];
+      const standardMonthlyReward = this.resolveStandardMonthlyReward(
+        histories,
+        employee.payrollSettings?.insurableMonthlyWage ?? undefined,
+        'health',
+        employee.healthQualificationDate ? employee.healthQualificationDate.substring(0, 7) as YearMonthString : undefined,
+        employee
+      );
+      const monthlyWage = standardMonthlyReward !== null ? formatCurrency(standardMonthlyReward) : '';
+
+      // (10) 備考: 70歳以上被用者の場合のみ記載
+      // 判定基準日は「今日（生成日）」とする
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      let note = '';
+      if (employee.birthDate) {
+        const age = this.calculateAge(employee.birthDate, todayStr);
+        if (age !== null && age >= 70) {
+          note = '70歳以上被用者';
+        }
+      }
+
+      // (11) 住所: 〒+住所、住所カナがあれば追加
+      const addressParts: string[] = [];
+      if (employee.postalCode || employee.address) {
+        const postalPart = employee.postalCode ? `〒${employee.postalCode}` : '';
+        const addrPart = employee.address || '';
+        addressParts.push([postalPart, addrPart].filter(Boolean).join(' '));
+      }
+      if (employee.addressKana) {
+        addressParts.push(employee.addressKana);
+      }
+      const address = addressParts.join('\n');
+
+      rows.push({
+        insuredNumber,
+        name,
+        kana,
+        birthDate,
+        sex,
+        qualificationKind,
+        myNumberOrPensionNumber,
+        healthQualificationDate,
+        pensionQualificationDate,
+        hasDependents,
+        monthlyWage,
+        note,
+        address
+      });
+    }
+
+    return rows;
+  }
+
+  /**
+   * 資格喪失届のPDF行データを構築
+   */
+  private async buildQualificationLossRows(
+    office: Office,
+    employees: Employee[]
+  ): Promise<QualificationLossPdfRow[]> {
+    const rows: QualificationLossPdfRow[] = [];
+
+    for (const employee of employees) {
+      // (1) 被保険者整理番号: 被保険者番号が入力されている場合のみ記載（空なら空欄）
+      const insuredNumber = employee.healthInsuredSymbol && employee.healthInsuredNumber
+        ? `${employee.healthInsuredSymbol} ${employee.healthInsuredNumber}`
+        : '';
+
+      // (2) 氏名（フリガナ）
+      const name = employee.name || '';
+      const kana = employee.kana || '';
+
+      // (3) 生年月日（元号）・(4) 種別
+      const birthDate = employee.birthDate ? formatJapaneseEraDate(employee.birthDate) : '';
+      const sex = formatSexLabel(employee.sex);
+
+      // (5) 喪失年月日（健保/厚年 両方記載・和暦）
+      const healthLossDate = employee.healthLossDate
+        ? formatJapaneseEraDate(employee.healthLossDate)
+        : '';
+      const pensionLossDate = employee.pensionLossDate
+        ? formatJapaneseEraDate(employee.pensionLossDate)
+        : '';
+
+      // (6) 喪失原因（健保/厚年 それぞれの喪失理由区分から読み取って記載）
+      const healthLossReason = formatLossReason(employee.healthLossReasonKind);
+      const pensionLossReason = formatLossReason(employee.pensionLossReasonKind);
+      const retireDate = employee.retireDate ? formatJapaneseEraDate(employee.retireDate) : '';
+
+      rows.push({
+        insuredNumber,
+        name,
+        kana,
+        birthDate,
+        sex,
+        healthLossDate,
+        pensionLossDate,
+        healthLossReason,
+        pensionLossReason,
+        retireDate
+      });
+    }
+
+    return rows;
+  }
+
+  /**
+   * 年齢を計算（YYYY-MM-DD形式の日付文字列から）
+   */
+  private calculateAge(birthDate: string, referenceDate: string): number | null {
+    if (!birthDate || !referenceDate) {
+      return null;
+    }
+
+    const [by, bm, bd] = birthDate.split('-').map(n => parseInt(n, 10));
+    const [ry, rm, rd] = referenceDate.split('-').map(n => parseInt(n, 10));
+
+    if (!by || !bm || !bd || !ry || !rm || !rd) {
+      return null;
+    }
+
+    const birth = new Date(by, bm - 1, bd);
+    const reference = new Date(ry, rm - 1, rd);
+
+    if (isNaN(birth.getTime()) || isNaN(reference.getTime())) {
+      return null;
+    }
+
+    let age = reference.getFullYear() - birth.getFullYear();
+    const monthDiff = reference.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && reference.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
   }
 }

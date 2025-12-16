@@ -6,6 +6,9 @@ import {
   deleteField,
   doc,
   Firestore,
+  getDocs,
+  limit,
+  query,
   setDoc
 } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
@@ -105,6 +108,26 @@ export class DependentsService {
     return this.inCtxAsync(async () => {
     const ref = doc(this.collectionPath(officeId, employeeId), dependentId);
     return deleteDoc(ref);
+    });
+  }
+
+  /**
+   * 扶養家族が1件以上存在するかどうかを判定（最小読み取り: limit(1) + getDocs）
+   * @param officeId 事業所ID
+   * @param employeeId 従業員ID
+   * @returns 扶養家族が1件以上存在する場合はtrue、存在しない場合はfalse
+   */
+  async hasAny(officeId: string, employeeId: string): Promise<boolean> {
+    return this.inCtxAsync(async () => {
+      try {
+        const ref = this.collectionPath(officeId, employeeId);
+        const snap = await getDocs(query(ref, limit(1)));
+        return !snap.empty;
+      } catch (error) {
+        // エラー時はfalseを返す（PDF生成を止めないため）
+        console.error('扶養家族の取得に失敗しました:', error);
+        return false;
+      }
     });
   }
 }

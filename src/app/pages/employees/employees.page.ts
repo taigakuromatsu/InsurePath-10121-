@@ -56,6 +56,10 @@ import {
   InviteEmployeeDialogData,
   InviteEmployeeDialogResult
 } from './invite-employee-dialog.component';
+import {
+  DocumentGenerationDialogComponent,
+  DocumentGenerationDialogData
+} from '../documents/document-generation-dialog.component';
 
 interface EmployeeWithUpdatedBy extends Employee {
   updatedByDisplayName: string | null;
@@ -335,6 +339,24 @@ interface EmployeeWithUpdatedBy extends Employee {
             >
               <mat-icon>download</mat-icon>
               CSVエクスポート
+            </button>
+            <button
+              mat-stroked-button
+              color="accent"
+              (click)="openQualificationAcquisitionDialog()"
+              [disabled]="!(officeId$ | async) || !(employees$ | async)?.length"
+            >
+              <mat-icon>picture_as_pdf</mat-icon>
+              資格取得届PDF
+            </button>
+            <button
+              mat-stroked-button
+              color="accent"
+              (click)="openQualificationLossDialog()"
+              [disabled]="!(officeId$ | async) || !(employees$ | async)?.length"
+            >
+              <mat-icon>picture_as_pdf</mat-icon>
+              資格喪失届PDF
             </button>
             <button
               mat-flat-button
@@ -953,6 +975,7 @@ export class EmployeesPage {
   private readonly currentUser = inject(CurrentUserService);
   private readonly csvExportService = inject(CsvExportService);
   private readonly usersService = inject(UsersService);
+  private readonly currentOfficeService = inject(CurrentOfficeService);
   protected readonly getWorkingStatusLabel = getWorkingStatusLabel;
   protected readonly getPortalStatusLabel = getPortalStatusLabel;
   protected readonly getPortalStatusColor = getPortalStatusColor;
@@ -1446,6 +1469,72 @@ export class EmployeesPage {
         duration: 4000
       });
     }
+  }
+
+  /**
+   * 資格取得届PDF生成ダイアログを開く
+   */
+  async openQualificationAcquisitionDialog(): Promise<void> {
+    const officeId = await firstValueFrom(this.officeId$);
+    if (!officeId) {
+      return;
+    }
+
+    const office = await firstValueFrom(this.currentOfficeService.office$);
+    if (!office) {
+      this.snackBar.open('事業所情報が取得できませんでした', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const employees = await firstValueFrom(this.employees$);
+    if (!employees || employees.length === 0) {
+      this.snackBar.open('従業員が登録されていません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    this.dialog.open(DocumentGenerationDialogComponent, {
+      width: '600px',
+      maxWidth: '95vw',
+      data: {
+        office,
+        employees,
+        defaultType: 'qualification_acquisition',
+        disableBonus: true
+      } satisfies DocumentGenerationDialogData
+    });
+  }
+
+  /**
+   * 資格喪失届PDF生成ダイアログを開く
+   */
+  async openQualificationLossDialog(): Promise<void> {
+    const officeId = await firstValueFrom(this.officeId$);
+    if (!officeId) {
+      return;
+    }
+
+    const office = await firstValueFrom(this.currentOfficeService.office$);
+    if (!office) {
+      this.snackBar.open('事業所情報が取得できませんでした', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const employees = await firstValueFrom(this.employees$);
+    if (!employees || employees.length === 0) {
+      this.snackBar.open('従業員が登録されていません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    this.dialog.open(DocumentGenerationDialogComponent, {
+      width: '600px',
+      maxWidth: '95vw',
+      data: {
+        office,
+        employees,
+        defaultType: 'qualification_loss',
+        disableBonus: true
+      } satisfies DocumentGenerationDialogData
+    });
   }
 }
 
