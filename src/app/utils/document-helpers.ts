@@ -115,4 +115,4 @@ export function formatJapaneseEraDate(value?: string | null): string {
 }
 
 export const DOCUMENT_DISCLAIMER =
-  '本システムで生成される帳票は参考様式です。提出前に最新様式と内容を確認の上、必要に応じて手書き修正してください。';
+  '届書の様式に合わせて届出記入の際に必要な情報のみ抽出してまとめています';

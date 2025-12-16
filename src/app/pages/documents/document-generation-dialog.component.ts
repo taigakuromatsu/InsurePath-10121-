@@ -74,18 +74,29 @@ interface DocumentViewModel {
         本システムで生成されるPDFは入力補助用の参考様式です。届け出作成時の補助資料としてご利用ください。
       </p>
 
+      <!-- defaultTypeが指定されている場合は読み取り専用表示 -->
+      <ng-container *ngIf="data.defaultType; else selectType">
+        <div class="readonly-field">
+          <div class="label">PDF種類</div>
+          <div class="value">{{ getDocumentTypeLabel(data.defaultType) }}</div>
+        </div>
+      </ng-container>
+
+      <!-- defaultTypeが指定されていない場合は選択可能 -->
+      <ng-template #selectType>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>PDF種類</mat-label>
         <mat-select [formControl]="typeControl">
-          <mat-option 
-            *ngFor="let type of documentTypes" 
-            [value]="type.value"
-            [disabled]="data.disableBonus && type.value === 'monthly_bonus_payment'"
-          >
-            {{ type.label }}
-          </mat-option>
+            <mat-option 
+              *ngFor="let type of documentTypes" 
+              [value]="type.value"
+              [disabled]="data.disableBonus && type.value === 'monthly_bonus_payment'"
+            >
+              {{ type.label }}
+            </mat-option>
         </mat-select>
       </mat-form-field>
+      </ng-template>
 
       <!-- 資格取得/喪失届の複数選択UI -->
       <ng-container *ngIf="(viewModel$ | async)?.type === 'qualification_acquisition' || (viewModel$ | async)?.type === 'qualification_loss'">
@@ -115,7 +126,8 @@ interface DocumentViewModel {
 
       <ng-container *ngIf="(viewModel$ | async) as vm">
         <ng-container *ngIf="(validation$ | async) as validation">
-          <ng-container *ngIf="vm.type !== 'monthly_bonus_payment'">
+          <!-- 単票生成の場合のみ日付入力を表示 -->
+          <ng-container *ngIf="data.employee && vm.type !== 'monthly_bonus_payment'">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>対象基準日</mat-label>
               <input matInput type="date" [formControl]="referenceDateControl" />
@@ -341,8 +353,8 @@ export class DocumentGenerationDialogComponent {
   readonly data = inject<DocumentGenerationDialogData>(MAT_DIALOG_DATA);
 
   readonly documentTypes: Array<{ value: DocumentType; label: string }> = [
-    { value: 'qualification_acquisition', label: '資格取得届' },
-    { value: 'qualification_loss', label: '資格喪失届' },
+    { value: 'qualification_acquisition', label: '資格取得届用補助PDF' },
+    { value: 'qualification_loss', label: '資格喪失届用補助PDF' },
     { value: 'monthly_bonus_payment', label: '賞与支払届用補助PDF（月次まとめ）' }
   ];
 
@@ -357,7 +369,7 @@ export class DocumentGenerationDialogComponent {
 
   private readonly histories$ = this.data.employee
     ? this.standardRewardHistoryService
-        .list(this.data.office.id, this.data.employee.id)
+    .list(this.data.office.id, this.data.employee.id)
         .pipe(startWith([]))
     : of([]);
 
@@ -382,11 +394,11 @@ export class DocumentGenerationDialogComponent {
       
       return this.data.employee
         ? this.generator.resolveStandardMonthlyReward(
-            histories,
-            this.data.employee.payrollSettings?.insurableMonthlyWage ?? undefined,
-            insuranceKind,
-            targetYearMonth as any,
-            this.data.employee
+        histories,
+        this.data.employee.payrollSettings?.insurableMonthlyWage ?? undefined,
+        insuranceKind,
+        targetYearMonth as any,
+        this.data.employee
           )
         : null;
     })
@@ -412,6 +424,21 @@ export class DocumentGenerationDialogComponent {
   readonly validation$ = this.viewModel$.pipe(map((vm) => this.buildValidation(vm)));
 
   constructor() {}
+
+  /**
+   * DocumentTypeからラベルを取得
+   */
+  getDocumentTypeLabel(type: DocumentType): string {
+    const found = this.documentTypes.find(t => t.value === type);
+    return found?.label ?? type;
+  }
+
+  /**
+   * バッチ生成モードかどうかを判定
+   */
+  private isBatchMode(): boolean {
+    return !!(this.data.employees && this.data.employees.length > 0) && !this.data.employee;
+  }
 
   canGenerate(vm: DocumentViewModel, validation: DocumentValidationResult): boolean {
     if (validation.criticalMissing.length > 0) return false;
@@ -460,18 +487,18 @@ export class DocumentGenerationDialogComponent {
             );
           } else if (this.data.employee) {
             // 単票生成の場合
-            this.generator.generate(
-              {
-                type: 'qualification_acquisition',
-                payload: {
-                  office: this.data.office,
-                  employee: this.data.employee,
-                  referenceDate: vm.referenceDate,
-                  standardMonthlyReward: vm.standardMonthlyReward
-                }
-              },
-              action
-            );
+          this.generator.generate(
+            {
+              type: 'qualification_acquisition',
+              payload: {
+                office: this.data.office,
+                employee: this.data.employee,
+                referenceDate: vm.referenceDate,
+                standardMonthlyReward: vm.standardMonthlyReward
+              }
+            },
+            action
+          );
           }
           break;
         }
@@ -492,18 +519,18 @@ export class DocumentGenerationDialogComponent {
             );
           } else if (this.data.employee) {
             // 単票生成の場合
-            this.generator.generate(
-              {
-                type: 'qualification_loss',
-                payload: {
-                  office: this.data.office,
-                  employee: this.data.employee,
-                  lossDate: vm.referenceDate,
-                  standardMonthlyReward: vm.standardMonthlyReward
-                }
-              },
-              action
-            );
+          this.generator.generate(
+            {
+              type: 'qualification_loss',
+              payload: {
+                office: this.data.office,
+                employee: this.data.employee,
+                lossDate: vm.referenceDate,
+                standardMonthlyReward: vm.standardMonthlyReward
+              }
+            },
+            action
+          );
           }
           break;
         }
@@ -548,18 +575,20 @@ export class DocumentGenerationDialogComponent {
     if (!this.data.office.name) {
       criticalMissing.push('事業所名');
     }
-    
-    // バッチ生成の場合は従業員の検証をスキップ
-    if (this.data.employee) {
-      if (!this.data.employee.name) {
-        criticalMissing.push('被保険者氏名');
-      }
-      if (!this.data.employee.birthDate) {
-        criticalMissing.push('生年月日');
+
+    // 単票生成の場合のみ従業員の検証を実行
+    const singleMode = !!this.data.employee;
+    if (singleMode) {
+      if (!this.data.employee!.name) {
+      criticalMissing.push('被保険者氏名');
+    }
+      if (!this.data.employee!.birthDate) {
+      criticalMissing.push('生年月日');
       }
     }
 
-    if (vm.type === 'qualification_acquisition') {
+    // 単票生成の場合のみ、資格取得日・標準報酬月額・資格喪失日を要求
+    if (vm.type === 'qualification_acquisition' && singleMode) {
       if (!vm.referenceDate) {
         requiredMissing.push('資格取得日');
       }
@@ -571,11 +600,11 @@ export class DocumentGenerationDialogComponent {
       }
     }
 
-    if (vm.type === 'qualification_loss') {
+    if (vm.type === 'qualification_loss' && singleMode) {
       if (!vm.referenceDate) {
         requiredMissing.push('資格喪失日');
       }
-      if (this.data.employee && !this.data.employee.retireDate) {
+      if (!this.data.employee!.retireDate) {
         optionalMissing.push('退職日');
       }
     }

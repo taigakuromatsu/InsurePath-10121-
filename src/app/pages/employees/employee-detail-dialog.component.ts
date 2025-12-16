@@ -11,14 +11,11 @@ import {
 } from '@angular/core';
 import {
   MAT_DIALOG_DATA,
-  MatDialog,
   MatDialogModule
 } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DecimalPipe } from '@angular/common'; // ★ number パイプ用
-import { firstValueFrom, map, Observable, of, switchMap } from 'rxjs';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 
@@ -33,9 +30,6 @@ import {
   getExemptionKindLabel
 } from '../../utils/label-utils';
 import { CurrentUserService } from '../../services/current-user.service';
-import { DocumentGenerationDialogComponent } from '../documents/document-generation-dialog.component';
-import { CurrentOfficeService } from '../../services/current-office.service';
-import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/confirm-dialog.component';
 
 export type DialogFocusSection =
   | 'basic'
@@ -64,7 +58,6 @@ export interface EmployeeDetailDialogData {
     MatIconModule,
     MatTableModule,
     MatTabsModule,
-    MatSnackBarModule,
     DecimalPipe // ★ 追加済み
   ],
   template: `
@@ -388,24 +381,6 @@ export interface EmployeeDetailDialogData {
     </div>
 
     <div mat-dialog-actions align="end" class="dialog-actions">
-      <button
-        mat-stroked-button
-        color="primary"
-        type="button"
-        (click)="openDocumentDialog('qualification_acquisition')"
-      >
-        <mat-icon>picture_as_pdf</mat-icon>
-        資格取得届PDF
-      </button>
-      <button
-        mat-stroked-button
-        color="primary"
-        type="button"
-        (click)="openDocumentDialog('qualification_loss')"
-      >
-        <mat-icon>picture_as_pdf</mat-icon>
-        資格喪失届PDF
-      </button>
       <button mat-button mat-dialog-close>
         <mat-icon>close</mat-icon>
         閉じる
@@ -676,10 +651,7 @@ export interface EmployeeDetailDialogData {
   ]
 })
 export class EmployeeDetailDialogComponent implements AfterViewInit {
-  private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
   private readonly currentUser = inject(CurrentUserService);
-  private readonly currentOffice = inject(CurrentOfficeService);
 
 
   readonly sections: Array<{ id: DialogFocusSection; label: string; icon: string }> = [
@@ -750,25 +722,6 @@ export class EmployeeDetailDialogComponent implements AfterViewInit {
         return '-';
     }
   };
-
-  async openDocumentDialog(
-    type: 'qualification_acquisition' | 'qualification_loss'
-  ): Promise<void> {
-    const office = await firstValueFrom(this.currentOffice.office$);
-    if (!office) {
-      this.snackBar.open('事業所情報が取得できませんでした。', undefined, { duration: 3000 });
-      return;
-    }
-
-    this.dialog.open(DocumentGenerationDialogComponent, {
-      width: '720px',
-      data: {
-        office,
-        employee: this.data.employee,
-        defaultType: type
-      }
-    });
-  }
 
   scrollToSection(sectionId: DialogFocusSection): void {
     const container = this.contentRef?.nativeElement;

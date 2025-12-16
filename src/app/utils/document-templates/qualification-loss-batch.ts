@@ -1,11 +1,6 @@
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
-import { Employee, Office } from '../../types';
-import {
-  DOCUMENT_DISCLAIMER,
-  formatJapaneseEraDate,
-  formatLossReason,
-  formatSexLabel
-} from '../document-helpers';
+import { Office } from '../../types';
+import { DOCUMENT_DISCLAIMER } from '../document-helpers';
 
 /**
  * 資格喪失届PDF行データ
@@ -19,10 +14,12 @@ export interface QualificationLossPdfRow {
   // (3) 生年月日（元号）・(4) 種別
   birthDate: string; // 和暦表記
   sex: string; // 男/女
-  // (5) 喪失年月日（健保/厚年 両方記載・和暦）
+  // (5) 個人番号（基礎年金番号）
+  myNumberOrPensionNumber: string;
+  // (6) 喪失年月日（健保/厚年 両方記載・和暦）
   healthLossDate: string; // 和暦表記、空欄可
   pensionLossDate: string; // 和暦表記、空欄可
-  // (6) 喪失原因（健保/厚年 それぞれの喪失理由区分から読み取って記載）
+  // (7) 喪失原因（健保/厚年 それぞれの喪失理由区分から読み取って記載）
   healthLossReason: string; // 喪失原因ラベル、空欄可
   pensionLossReason: string; // 喪失原因ラベル、空欄可
   retireDate: string; // 退職の場合のみ追記（和暦表記、空欄可）
@@ -59,6 +56,7 @@ function padRowsTo4(rows: QualificationLossPdfRow[]): QualificationLossPdfRow[] 
       kana: '',
       birthDate: '',
       sex: '',
+      myNumberOrPensionNumber: '',
       healthLossDate: '',
       pensionLossDate: '',
       healthLossReason: '',
@@ -108,14 +106,14 @@ export function buildQualificationLossBatchDefinition(
     // ページタイトル（1ページ目のみ）
     if (pageIndex === 0) {
       content.push(
-        { text: '資格喪失届（参考様式）', style: 'title', alignment: 'center' },
-        { text: DOCUMENT_DISCLAIMER, style: 'disclaimer', margin: [0, 6, 0, 10] }
+        { text: '資格喪失届用入力補助', style: 'title', alignment: 'center' },
+        { text: DOCUMENT_DISCLAIMER, style: 'disclaimer', alignment: 'center', margin: [0, 6, 0, 10] }
       );
     } else {
       // 2ページ目以降は改ページ
       content.push({ text: '', pageBreak: 'before' });
       content.push(
-        { text: '資格喪失届（参考様式）', style: 'title', alignment: 'center', margin: [0, 0, 0, 10] }
+        { text: '資格喪失届用入力補助', style: 'title', alignment: 'center', margin: [0, 0, 0, 10] }
       );
     }
 
@@ -132,6 +130,7 @@ export function buildQualificationLossBatchDefinition(
         { text: '被保険者整理番号', style: 'tableHeader', alignment: 'center' },
         { text: '氏名\n（フリガナ）', style: 'tableHeader', alignment: 'center' },
         { text: '生年月日\n（元号）・種別', style: 'tableHeader', alignment: 'center' },
+        { text: '個人番号\n（基礎年金番号）', style: 'tableHeader', alignment: 'center' },
         { text: '喪失年月日\n（健保/厚年）', style: 'tableHeader', alignment: 'center' },
         { text: '喪失原因\n（健保/厚年）', style: 'tableHeader', alignment: 'left' }
       ]
@@ -140,40 +139,30 @@ export function buildQualificationLossBatchDefinition(
     // データ行
     paddedRows.forEach(row => {
       // 喪失年月日（健保/厚年）
-      const lossDateText = [
-        row.healthLossDate ? `健保: ${row.healthLossDate}` : '健保: ',
-        row.pensionLossDate ? `厚年: ${row.pensionLossDate}` : '厚年: '
-      ]
-        .filter(line => line.trim() !== '健保: ' && line.trim() !== '厚年: ')
-        .join('\n') || '';
+      const lossDateLines: string[] = [];
+      if (row.healthLossDate) {
+        lossDateLines.push(`健保: ${row.healthLossDate}`);
+      }
+      if (row.pensionLossDate) {
+        lossDateLines.push(`厚年: ${row.pensionLossDate}`);
+      }
+      const lossDateText = lossDateLines.join('\n');
 
       // 喪失原因（健保/厚年）
-      const lossReasonParts: string[] = [];
+      const lossReasonLines: string[] = [];
       if (row.healthLossReason) {
-        let healthReasonText = `健保: ${row.healthLossReason}`;
-        // 退職の場合のみ退社日を追記
-        if (row.retireDate && row.healthLossReason.includes('退職')) {
-          healthReasonText += `（退社日: ${row.retireDate}）`;
-        }
-        lossReasonParts.push(healthReasonText);
-      } else {
-        lossReasonParts.push('健保: ');
+        const healthReasonText = row.retireDate && row.healthLossReason.includes('退職')
+          ? `健保: ${row.healthLossReason}（退社日: ${row.retireDate}）`
+          : `健保: ${row.healthLossReason}`;
+        lossReasonLines.push(healthReasonText);
       }
-      
       if (row.pensionLossReason) {
-        let pensionReasonText = `厚年: ${row.pensionLossReason}`;
-        // 退職の場合のみ退社日を追記
-        if (row.retireDate && row.pensionLossReason.includes('退職')) {
-          pensionReasonText += `（退社日: ${row.retireDate}）`;
-        }
-        lossReasonParts.push(pensionReasonText);
-      } else {
-        lossReasonParts.push('厚年: ');
+        const pensionReasonText = row.retireDate && row.pensionLossReason.includes('退職')
+          ? `厚年: ${row.pensionLossReason}（退社日: ${row.retireDate}）`
+          : `厚年: ${row.pensionLossReason}`;
+        lossReasonLines.push(pensionReasonText);
       }
-
-      const lossReasonText = lossReasonParts
-        .filter(line => line.trim() !== '健保: ' && line.trim() !== '厚年: ')
-        .join('\n') || '';
+      const lossReasonText = lossReasonLines.join('\n');
 
       tableBody.push([
         { text: row.insuredNumber || '', style: 'tableCell', alignment: 'center' },
@@ -192,6 +181,7 @@ export function buildQualificationLossBatchDefinition(
           style: 'tableCell', 
           alignment: 'center' 
         },
+        { text: row.myNumberOrPensionNumber || '', style: 'tableCell', alignment: 'center' },
         { text: lossDateText || '', style: 'tableCell', alignment: 'center' },
         { text: lossReasonText || '', style: 'tableCell', alignment: 'left' }
       ]);
@@ -200,7 +190,8 @@ export function buildQualificationLossBatchDefinition(
     content.push({
       table: {
         headerRows: 1,
-        widths: [70, 80, 70, 90, '*'],
+        // A4縦に収まるように調整（固定幅合計=約400pt、残りが喪失原因へ）
+        widths: [42, 60, 52, 65, 60, '*'],
         body: tableBody
       },
       layout: {
@@ -208,10 +199,11 @@ export function buildQualificationLossBatchDefinition(
         vLineWidth: (i: number, node: any) => (i === 0 || i === node.table.widths.length) ? 0.8 : 0.5,
         hLineColor: () => '#000000',
         vLineColor: () => '#000000',
-        paddingLeft: () => 4,
-        paddingRight: () => 4,
-        paddingTop: () => 4,
-        paddingBottom: () => 4
+        // パディングも少し減らす（横幅を実質稼ぐ）
+        paddingLeft: () => 2,
+        paddingRight: () => 2,
+        paddingTop: () => 3,
+        paddingBottom: () => 3
       },
       margin: [0, 0, 0, 10]
     });
@@ -220,7 +212,7 @@ export function buildQualificationLossBatchDefinition(
   return {
     info: { title: '資格喪失届（複数人まとめ）' },
     pageSize: 'A4',
-    pageOrientation: 'landscape', // 横向きで4人分を収める
+    pageOrientation: 'portrait', // A4縦向き
     defaultStyle: {
       font: 'NotoSansJP',
       fontSize: 9
@@ -230,17 +222,17 @@ export function buildQualificationLossBatchDefinition(
       title: { fontSize: 14, bold: true },
       disclaimer: { fontSize: 9, color: '#666' },
       tableHeader: { 
-        fontSize: 8, 
+        fontSize: 7, 
         bold: true, 
         fillColor: '#f0f0f0',
         margin: [2, 2, 2, 2]
       },
       tableCell: { 
-        fontSize: 8,
+        fontSize: 7,
         margin: [2, 2, 2, 2]
       }
     },
-    pageMargins: [40, 50, 40, 50]
+    pageMargins: [25, 50, 25, 50]
   };
 }
 

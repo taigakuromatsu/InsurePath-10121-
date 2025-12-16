@@ -244,7 +244,7 @@ export function createMonthlyBonusPaymentDocument(
       content.push(
         { text: '被保険者賞与支払届', style: 'title', alignment: 'center' },
         { text: '（参考様式）', style: 'subtitle', alignment: 'center' },
-        { text: DOCUMENT_DISCLAIMER, style: 'disclaimer', margin: [0, 6, 0, 10] }
+        { text: DOCUMENT_DISCLAIMER, style: 'disclaimer', alignment: 'center', margin: [0, 6, 0, 10] }
       );
     } else {
       // 2ページ目以降は改ページ

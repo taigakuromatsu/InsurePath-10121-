@@ -372,11 +372,19 @@ export class DocumentGeneratorService {
       const birthDate = employee.birthDate ? formatJapaneseEraDate(employee.birthDate) : '';
       const sex = formatSexLabel(employee.sex);
 
-      // (5) 取得区分（健保/厚年 一律）
-      // 健保/厚年で別フィールドしか無い場合は、健保を優先（既存単票テンプレが参照している側）
-      const qualificationKind = formatQualificationKind(
-        employee.healthQualificationKind || employee.pensionQualificationKind
-      );
+      // (5) 取得区分（健保・厚年（健康・新規採用、厚年・適用拡大）形式）
+      const healthKind = formatQualificationKind(employee.healthQualificationKind);
+      const pensionKind = formatQualificationKind(employee.pensionQualificationKind);
+      const kindParts: string[] = [];
+      if (healthKind) {
+        kindParts.push(`健康・${healthKind}`);
+      }
+      if (pensionKind) {
+        kindParts.push(`厚年・${pensionKind}`);
+      }
+      const qualificationKind = kindParts.length > 0
+        ? `健保・厚年（${kindParts.join('、')}）`
+        : '健保・厚年';
 
       // (6) 個人番号（なければ基礎年金番号）
       const myNumberOrPensionNumber = employee.myNumber || employee.pensionNumber || '';
@@ -393,23 +401,17 @@ export class DocumentGeneratorService {
       const hasDependents = dependentsMap.get(employee.id) ? '有' : '無';
 
       // (9) 報酬月額: 通貨（数値）として表示
-      const histories = historiesMap.get(employee.id) || [];
-      const standardMonthlyReward = this.resolveStandardMonthlyReward(
-        histories,
-        employee.payrollSettings?.insurableMonthlyWage ?? undefined,
-        'health',
-        employee.healthQualificationDate ? employee.healthQualificationDate.substring(0, 7) as YearMonthString : undefined,
-        employee
-      );
-      const monthlyWage = standardMonthlyReward !== null ? formatCurrency(standardMonthlyReward) : '';
+      // payrollSettings?.insurableMonthlyWage を使用（標準報酬月額ではない）
+      const monthlyWage = employee.payrollSettings?.insurableMonthlyWage !== undefined && employee.payrollSettings?.insurableMonthlyWage !== null
+        ? formatCurrency(employee.payrollSettings.insurableMonthlyWage)
+        : '';
 
       // (10) 備考: 70歳以上被用者の場合のみ記載
-      // 判定基準日は「今日（生成日）」とする
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      // 判定基準日は「資格取得日」とする（過去の届出作成時の正確性のため）
+      const referenceDateForAge = employee.healthQualificationDate || employee.pensionQualificationDate || null;
       let note = '';
-      if (employee.birthDate) {
-        const age = this.calculateAge(employee.birthDate, todayStr);
+      if (employee.birthDate && referenceDateForAge) {
+        const age = this.calculateAge(employee.birthDate, referenceDateForAge);
         if (age !== null && age >= 70) {
           note = '70歳以上被用者';
         }
@@ -470,7 +472,10 @@ export class DocumentGeneratorService {
       const birthDate = employee.birthDate ? formatJapaneseEraDate(employee.birthDate) : '';
       const sex = formatSexLabel(employee.sex);
 
-      // (5) 喪失年月日（健保/厚年 両方記載・和暦）
+      // (5) 個人番号（基礎年金番号）
+      const myNumberOrPensionNumber = employee.myNumber || employee.pensionNumber || '';
+
+      // (6) 喪失年月日（健保/厚年 両方記載・和暦）
       const healthLossDate = employee.healthLossDate
         ? formatJapaneseEraDate(employee.healthLossDate)
         : '';
@@ -478,7 +483,7 @@ export class DocumentGeneratorService {
         ? formatJapaneseEraDate(employee.pensionLossDate)
         : '';
 
-      // (6) 喪失原因（健保/厚年 それぞれの喪失理由区分から読み取って記載）
+      // (7) 喪失原因（健保/厚年 それぞれの喪失理由区分から読み取って記載）
       const healthLossReason = formatLossReason(employee.healthLossReasonKind);
       const pensionLossReason = formatLossReason(employee.pensionLossReasonKind);
       const retireDate = employee.retireDate ? formatJapaneseEraDate(employee.retireDate) : '';
@@ -489,6 +494,7 @@ export class DocumentGeneratorService {
         kana,
         birthDate,
         sex,
+        myNumberOrPensionNumber,
         healthLossDate,
         pensionLossDate,
         healthLossReason,

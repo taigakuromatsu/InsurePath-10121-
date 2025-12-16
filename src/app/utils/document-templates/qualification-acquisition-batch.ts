@@ -1,12 +1,6 @@
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
-import { Employee, Office } from '../../types';
-import {
-  DOCUMENT_DISCLAIMER,
-  formatCurrency,
-  formatJapaneseEraDate,
-  formatQualificationKind,
-  formatSexLabel
-} from '../document-helpers';
+import { Office } from '../../types';
+import { DOCUMENT_DISCLAIMER } from '../document-helpers';
 
 /**
  * 資格取得届PDF行データ
@@ -120,14 +114,14 @@ export function buildQualificationAcquisitionBatchDefinition(
     // ページタイトル（1ページ目のみ）
     if (pageIndex === 0) {
       content.push(
-        { text: '資格取得届（参考様式）', style: 'title', alignment: 'center' },
-        { text: DOCUMENT_DISCLAIMER, style: 'disclaimer', margin: [0, 6, 0, 10] }
+        { text: '資格取得届用入力補助', style: 'title', alignment: 'center' },
+        { text: DOCUMENT_DISCLAIMER, style: 'disclaimer', alignment: 'center', margin: [0, 6, 0, 10] }
       );
     } else {
       // 2ページ目以降は改ページ
       content.push({ text: '', pageBreak: 'before' });
       content.push(
-        { text: '資格取得届（参考様式）', style: 'title', alignment: 'center', margin: [0, 0, 0, 10] }
+        { text: '資格取得届用入力補助', style: 'title', alignment: 'center', margin: [0, 0, 0, 10] }
       );
     }
 
@@ -157,12 +151,14 @@ export function buildQualificationAcquisitionBatchDefinition(
     // データ行
     paddedRows.forEach(row => {
       // 取得年月日（健保/厚年）
-      const qualificationDateText = [
-        row.healthQualificationDate ? `健保: ${row.healthQualificationDate}` : '健保: ',
-        row.pensionQualificationDate ? `厚年: ${row.pensionQualificationDate}` : '厚年: '
-      ]
-        .filter(line => line.trim() !== '健保: ' && line.trim() !== '厚年: ')
-        .join('\n') || '';
+      const qualificationDateLines: string[] = [];
+      if (row.healthQualificationDate) {
+        qualificationDateLines.push(`健保: ${row.healthQualificationDate}`);
+      }
+      if (row.pensionQualificationDate) {
+        qualificationDateLines.push(`厚年: ${row.pensionQualificationDate}`);
+      }
+      const qualificationDateText = qualificationDateLines.join('\n');
 
       tableBody.push([
         { text: row.insuredNumber || '', style: 'tableCell', alignment: 'center' },
@@ -194,7 +190,8 @@ export function buildQualificationAcquisitionBatchDefinition(
     content.push({
       table: {
         headerRows: 1,
-        widths: [60, 70, 60, 50, 80, 70, 40, 60, 50, '*'],
+        // A4縦に収まるように調整（固定幅合計=439pt、残りが住所へ）
+        widths: [42, 60, 52, 40, 65, 60, 30, 50, 40, '*'],
         body: tableBody
       },
       layout: {
@@ -202,10 +199,11 @@ export function buildQualificationAcquisitionBatchDefinition(
         vLineWidth: (i: number, node: any) => (i === 0 || i === node.table.widths.length) ? 0.8 : 0.5,
         hLineColor: () => '#000000',
         vLineColor: () => '#000000',
-        paddingLeft: () => 4,
-        paddingRight: () => 4,
-        paddingTop: () => 4,
-        paddingBottom: () => 4
+        // パディングも少し減らす（横幅を実質稼ぐ）
+        paddingLeft: () => 2,
+        paddingRight: () => 2,
+        paddingTop: () => 3,
+        paddingBottom: () => 3
       },
       margin: [0, 0, 0, 10]
     });
@@ -214,7 +212,7 @@ export function buildQualificationAcquisitionBatchDefinition(
   return {
     info: { title: '資格取得届（複数人まとめ）' },
     pageSize: 'A4',
-    pageOrientation: 'landscape', // 横向きで4人分を収める
+    pageOrientation: 'portrait', // A4縦向き
     defaultStyle: {
       font: 'NotoSansJP',
       fontSize: 9
@@ -224,17 +222,17 @@ export function buildQualificationAcquisitionBatchDefinition(
       title: { fontSize: 14, bold: true },
       disclaimer: { fontSize: 9, color: '#666' },
       tableHeader: { 
-        fontSize: 8, 
+        fontSize: 7, 
         bold: true, 
         fillColor: '#f0f0f0',
         margin: [2, 2, 2, 2]
       },
       tableCell: { 
-        fontSize: 8,
+        fontSize: 7,
         margin: [2, 2, 2, 2]
       }
     },
-    pageMargins: [40, 50, 40, 50]
+    pageMargins: [25, 50, 25, 50]
   };
 }
 

@@ -289,6 +289,7 @@ interface EmployeeWithUpdatedBy extends Employee {
       </mat-card>
 
       <mat-card class="content-card">
+        <div class="card-header-wrapper">
         <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
           <div>
             <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
@@ -340,34 +341,36 @@ interface EmployeeWithUpdatedBy extends Employee {
               <mat-icon>download</mat-icon>
               CSVエクスポート
             </button>
-            <button
-              mat-stroked-button
-              color="accent"
-              (click)="openQualificationAcquisitionDialog()"
-              [disabled]="!(officeId$ | async) || !(employees$ | async)?.length"
-            >
-              <mat-icon>picture_as_pdf</mat-icon>
-              資格取得届PDF
-            </button>
-            <button
-              mat-stroked-button
-              color="accent"
-              (click)="openQualificationLossDialog()"
-              [disabled]="!(officeId$ | async) || !(employees$ | async)?.length"
-            >
-              <mat-icon>picture_as_pdf</mat-icon>
-              資格喪失届PDF
-            </button>
+              <button
+                mat-stroked-button
+                color="accent"
+                (click)="openQualificationAcquisitionDialog()"
+                [disabled]="!(officeId$ | async) || !(filteredEmployees$ | async)?.length"
+              >
+                <mat-icon>picture_as_pdf</mat-icon>
+                資格取得届用補助PDF
+              </button>
+              <button
+                mat-stroked-button
+                color="accent"
+                (click)="openQualificationLossDialog()"
+                [disabled]="!(officeId$ | async) || !(filteredEmployees$ | async)?.length"
+              >
+                <mat-icon>picture_as_pdf</mat-icon>
+                資格喪失届用補助PDF
+              </button>
+            </div>
+          </div>
             <button
               mat-flat-button
               color="primary"
+            class="add-employee-button"
               (click)="openDialog()"
               [disabled]="!(officeId$ | async)"
             >
               <mat-icon>person_add</mat-icon>
               従業員を追加
             </button>
-          </div>
         </div>
 
         <ng-container *ngIf="officeId$ | async as officeId; else emptyOffice">
@@ -630,6 +633,17 @@ interface EmployeeWithUpdatedBy extends Employee {
         border-radius: 8px;
         border: 1px solid #e0e0e0;
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      }
+
+      .card-header-wrapper {
+        position: relative;
+      }
+
+      .add-employee-button {
+        position: absolute;
+        top: 0;
+        right: 0;
+        z-index: 10;
       }
 
       /* ユーティリティ */
@@ -1486,7 +1500,7 @@ export class EmployeesPage {
       return;
     }
 
-    const employees = await firstValueFrom(this.employees$);
+    const employees = await firstValueFrom(this.filteredEmployees$);
     if (!employees || employees.length === 0) {
       this.snackBar.open('従業員が登録されていません', '閉じる', { duration: 3000 });
       return;
@@ -1519,7 +1533,7 @@ export class EmployeesPage {
       return;
     }
 
-    const employees = await firstValueFrom(this.employees$);
+    const employees = await firstValueFrom(this.filteredEmployees$);
     if (!employees || employees.length === 0) {
       this.snackBar.open('従業員が登録されていません', '閉じる', { duration: 3000 });
       return;
