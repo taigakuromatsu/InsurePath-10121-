@@ -168,9 +168,7 @@ export interface HealthMasterDialogData {
               <div class="col col-separator">~</div>
               <div class="col col-currency">
                 <mat-form-field appearance="outline" class="no-subscript">
-                  <input matInput type="number" formControlName="upperLimit" placeholder="上限" 
-                         [disabled]="isUnlimitedUpperLimit(i)" 
-                         [value]="getUpperLimitDisplayValue(i)" />
+                  <input matInput type="number" formControlName="upperLimit" placeholder="上限" />
                   <mat-hint *ngIf="isUnlimitedUpperLimit(i)" class="unlimited-hint">上限なし</mat-hint>
           </mat-form-field>
               </div>
@@ -343,7 +341,7 @@ export class HealthMasterFormDialogComponent {
       grade: [band?.grade ?? null, Validators.required],
       lowerLimit: [band?.lowerLimit ?? null, Validators.required],
       upperLimit: [
-        isUnlimited ? Infinity : upperLimit, 
+        isUnlimited ? null : upperLimit, 
         // 上限なしの場合は必須チェックをスキップ（unlimitedUpperLimitの値に応じて動的に変更）
         (control: AbstractControl) => {
           const parent = control.parent;
@@ -356,22 +354,17 @@ export class HealthMasterFormDialogComponent {
       unlimitedUpperLimit: [isUnlimited]
     });
     this.bands.push(group);
+    
+    // 上限なしの場合はupperLimitコントロールをdisable
+    const upperLimitCtrl = group.get('upperLimit');
+    if (isUnlimited && upperLimitCtrl) {
+      upperLimitCtrl.disable({ emitEvent: false });
+    }
   }
   
   isUnlimitedUpperLimit(index: number): boolean {
     const band = this.bands.at(index);
     return band?.get('unlimitedUpperLimit')?.value === true;
-  }
-  
-  getUpperLimitDisplayValue(index: number): string | number {
-    const band = this.bands.at(index);
-    const upperLimit = band?.get('upperLimit')?.value;
-    const isUnlimited = band?.get('unlimitedUpperLimit')?.value === true;
-    
-    if (isUnlimited || upperLimit === Infinity || (typeof upperLimit === 'number' && upperLimit >= 999999999)) {
-      return '';
-    }
-    return upperLimit ?? '';
   }
   
   isMaxGrade(index: number): boolean {
@@ -392,19 +385,18 @@ export class HealthMasterFormDialogComponent {
   
   onUnlimitedChange(index: number, event: any): void {
     const band = this.bands.at(index);
+    const upperLimitCtrl = band?.get('upperLimit');
     const isUnlimited = event.checked;
+    
     if (isUnlimited) {
-      band?.patchValue({ upperLimit: Infinity });
-      // バリデーションを更新
-      band?.get('upperLimit')?.updateValueAndValidity();
+      // 上限なしON: 値をnullに設定してdisable
+      upperLimitCtrl?.setValue(null, { emitEvent: false });
+      upperLimitCtrl?.disable({ emitEvent: false });
+      upperLimitCtrl?.updateValueAndValidity({ emitEvent: false });
     } else {
-      // 上限なしを解除する場合、デフォルト値を設定（必要に応じて調整）
-      const currentValue = band?.get('upperLimit')?.value;
-      if (currentValue === Infinity || currentValue >= 999999999) {
-        band?.patchValue({ upperLimit: null });
-      }
-      // バリデーションを更新
-      band?.get('upperLimit')?.updateValueAndValidity();
+      // 上限なしOFF: enableしてバリデーションを有効化
+      upperLimitCtrl?.enable({ emitEvent: false });
+      upperLimitCtrl?.updateValueAndValidity({ emitEvent: false });
     }
   }
 
@@ -540,12 +532,12 @@ export class HealthMasterFormDialogComponent {
       if (!confirmed) {
         return;
       }
+      // getRawValue()を使用してdisabledコントロールの値も取得
       // Infinityを大きな値に変換（FirestoreではInfinityを保存できないため）
-      const processedBands = (this.bands.value as any[]).map(band => ({
+      const rawBands = this.bands.getRawValue() as any[];
+      const processedBands = rawBands.map(band => ({
         ...band,
-        upperLimit: band.upperLimit === Infinity || band.upperLimit >= 999999999 
-          ? 999999999 
-          : band.upperLimit
+        upperLimit: band.unlimitedUpperLimit ? 999999999 : band.upperLimit
       })) as StandardRewardBand[];
       
       const payload: Partial<HealthRateTable> = {
@@ -567,12 +559,12 @@ export class HealthMasterFormDialogComponent {
       return;
     }
 
+    // getRawValue()を使用してdisabledコントロールの値も取得
     // Infinityを大きな値に変換（FirestoreではInfinityを保存できないため）
-    const processedBands = (this.bands.value as any[]).map(band => ({
+    const rawBands = this.bands.getRawValue() as any[];
+    const processedBands = rawBands.map(band => ({
       ...band,
-      upperLimit: band.upperLimit === Infinity || band.upperLimit >= 999999999 
-        ? 999999999 
-        : band.upperLimit
+      upperLimit: band.unlimitedUpperLimit ? 999999999 : band.upperLimit
     })) as StandardRewardBand[];
     
     const payload: Partial<HealthRateTable> = {

@@ -117,9 +117,7 @@ export interface CloudHealthMasterDialogData {
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>上限</mat-label>
-              <input matInput type="number" formControlName="upperLimit" 
-                     [disabled]="isUnlimitedUpperLimit(i)" 
-                     [value]="getUpperLimitDisplayValue(i)" />
+              <input matInput type="number" formControlName="upperLimit" />
               <mat-hint *ngIf="isUnlimitedUpperLimit(i)" class="unlimited-hint">上限なし</mat-hint>
             </mat-form-field>
             <div class="unlimited-checkbox" *ngIf="isMaxGrade(i)">
@@ -421,7 +419,7 @@ export class CloudHealthMasterFormDialogComponent {
       grade: [band?.grade ?? null, Validators.required],
       lowerLimit: [band?.lowerLimit ?? null, Validators.required],
       upperLimit: [
-        isUnlimited ? Infinity : upperLimit, 
+        isUnlimited ? null : upperLimit, 
         (control: AbstractControl) => {
           const parent = control.parent;
           if (!parent) return null;
@@ -433,22 +431,17 @@ export class CloudHealthMasterFormDialogComponent {
       unlimitedUpperLimit: [isUnlimited]
     });
     this.bands.push(group);
+    
+    // 上限なしの場合はupperLimitコントロールをdisable
+    const upperLimitCtrl = group.get('upperLimit');
+    if (isUnlimited && upperLimitCtrl) {
+      upperLimitCtrl.disable({ emitEvent: false });
+    }
   }
   
   isUnlimitedUpperLimit(index: number): boolean {
     const band = this.bands.at(index);
     return band?.get('unlimitedUpperLimit')?.value === true;
-  }
-  
-  getUpperLimitDisplayValue(index: number): string | number {
-    const band = this.bands.at(index);
-    const upperLimit = band?.get('upperLimit')?.value;
-    const isUnlimited = band?.get('unlimitedUpperLimit')?.value === true;
-    
-    if (isUnlimited || upperLimit === Infinity || (typeof upperLimit === 'number' && upperLimit >= 999999999)) {
-      return '';
-    }
-    return upperLimit ?? '';
   }
   
   isMaxGrade(index: number): boolean {
@@ -468,16 +461,18 @@ export class CloudHealthMasterFormDialogComponent {
   
   onUnlimitedChange(index: number, event: any): void {
     const band = this.bands.at(index);
+    const upperLimitCtrl = band?.get('upperLimit');
     const isUnlimited = event.checked;
+    
     if (isUnlimited) {
-      band?.patchValue({ upperLimit: Infinity });
-      band?.get('upperLimit')?.updateValueAndValidity();
+      // 上限なしON: 値をnullに設定してdisable
+      upperLimitCtrl?.setValue(null, { emitEvent: false });
+      upperLimitCtrl?.disable({ emitEvent: false });
+      upperLimitCtrl?.updateValueAndValidity({ emitEvent: false });
     } else {
-      const currentValue = band?.get('upperLimit')?.value;
-      if (currentValue === Infinity || currentValue >= 999999999) {
-        band?.patchValue({ upperLimit: null });
-      }
-      band?.get('upperLimit')?.updateValueAndValidity();
+      // 上限なしOFF: enableしてバリデーションを有効化
+      upperLimitCtrl?.enable({ emitEvent: false });
+      upperLimitCtrl?.updateValueAndValidity({ emitEvent: false });
     }
   }
 
@@ -499,12 +494,12 @@ export class CloudHealthMasterFormDialogComponent {
     const effectiveMonth = this.form.value.effectiveMonth!;
     const effectiveYearMonth = effectiveYear * 100 + effectiveMonth;
 
+    // getRawValue()を使用してdisabledコントロールの値も取得
     // Infinityを大きな値に変換（FirestoreではInfinityを保存できないため）
-    const processedBands = (this.bands.value as any[]).map(band => ({
+    const rawBands = this.bands.getRawValue() as any[];
+    const processedBands = rawBands.map(band => ({
       ...band,
-      upperLimit: band.upperLimit === Infinity || band.upperLimit >= 999999999 
-        ? 999999999 
-        : band.upperLimit
+      upperLimit: band.unlimitedUpperLimit ? 999999999 : band.upperLimit
     })) as StandardRewardBand[];
     
     const payload: Partial<CloudHealthRateTable> = {
