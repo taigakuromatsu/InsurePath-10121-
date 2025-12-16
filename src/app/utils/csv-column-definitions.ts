@@ -845,13 +845,9 @@ export const EMPLOYEE_CSV_COLUMNS_V2: CsvColumnDefinition[] = [
     header: '保険料免除月',
     getter: (emp) => formatPremiumExemptionMonths(emp.premiumExemptionMonths),
     setter: (emp, val) => {
-      try {
-        const parsed = parsePremiumExemptionMonths(val);
-        if (parsed !== undefined) {
-          emp.premiumExemptionMonths = parsed as PremiumExemptionMonth[];
-        }
-      } catch (error) {
-        // エラーは後でバリデーションで検出
+      const parsed = parsePremiumExemptionMonths(val);
+      if (parsed !== undefined) {
+        emp.premiumExemptionMonths = parsed as PremiumExemptionMonth[];
       }
     }
   },
