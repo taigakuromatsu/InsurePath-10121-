@@ -15,17 +15,17 @@ export interface StandardRewardAutoInputConfirmDialogData {
   pensionError?: string | null;
 }
 
-export type StandardRewardAutoInputConfirmResult = 'execute' | 'skip' | 'cancel';
+export type StandardRewardAutoInputConfirmResult = 'add' | 'cancel';
 
 @Component({
   selector: 'ip-standard-reward-auto-input-confirm-dialog',
   standalone: true,
   imports: [MatDialogModule, MatButtonModule, MatIconModule, DecimalPipe, NgIf],
   template: `
-    <h1 mat-dialog-title>標準報酬の自動入力</h1>
+    <h1 mat-dialog-title>標準報酬履歴の自動追加</h1>
     <div mat-dialog-content>
       <p class="message">
-        報酬月額に基づいて、健康保険と厚生年金の標準報酬・等級をマスタから自動入力します。
+        報酬月額に基づいて、健康保険と厚生年金の標準報酬・等級をマスタから自動計算し、履歴に追加します。
       </p>
 
       <div class="info-section">
@@ -40,7 +40,7 @@ export type StandardRewardAutoInputConfirmResult = 'execute' | 'skip' | 'cancel'
       </div>
 
       <div class="result-section">
-        <h3 class="section-title">自動入力される予定の値</h3>
+        <h3 class="section-title">履歴に追加される予定の値</h3>
 
         <div class="insurance-group">
           <h4 class="insurance-title">健康保険</h4>
@@ -60,7 +60,7 @@ export type StandardRewardAutoInputConfirmResult = 'execute' | 'skip' | 'cancel'
               <span class="value">{{ data.healthStandardMonthly | number }} 円</span>
             </div>
             <div class="info-row" *ngIf="data.healthGrade == null && data.healthStandardMonthly == null">
-              <span class="value">自動入力できませんでした</span>
+              <span class="value">履歴に追加できませんでした</span>
             </div>
           </ng-template>
         </div>
@@ -83,7 +83,7 @@ export type StandardRewardAutoInputConfirmResult = 'execute' | 'skip' | 'cancel'
               <span class="value">{{ data.pensionStandardMonthly | number }} 円</span>
             </div>
             <div class="info-row" *ngIf="data.pensionGrade == null && data.pensionStandardMonthly == null">
-              <span class="value">自動入力できませんでした</span>
+              <span class="value">履歴に追加できませんでした</span>
             </div>
           </ng-template>
         </div>
@@ -91,8 +91,14 @@ export type StandardRewardAutoInputConfirmResult = 'execute' | 'skip' | 'cancel'
     </div>
     <div mat-dialog-actions align="end">
       <button mat-stroked-button (click)="onCancel()">キャンセル</button>
-      <button mat-stroked-button color="primary" (click)="onSkip()">自動入力をスキップ</button>
-      <button mat-flat-button color="primary" (click)="onExecute()">自動入力する</button>
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="onAdd()"
+        [disabled]="!canAddHistory"
+      >
+        この内容で履歴を追加
+      </button>
     </div>
   `,
   styles: [
@@ -212,16 +218,24 @@ export class StandardRewardAutoInputConfirmDialogComponent {
     @Inject(MAT_DIALOG_DATA) public readonly data: StandardRewardAutoInputConfirmDialogData
   ) {}
 
+  get canAddHistory(): boolean {
+    // どちらか一方でもエラーがある場合は追加不可
+    if (this.data.healthError || this.data.pensionError) {
+      return false;
+    }
+    // どちらか一方でも値がある場合は追加可能
+    return (
+      (this.data.healthStandardMonthly != null && this.data.healthGrade != null) ||
+      (this.data.pensionStandardMonthly != null && this.data.pensionGrade != null)
+    );
+  }
+
   onCancel(): void {
     this.dialogRef.close('cancel');
   }
 
-  onSkip(): void {
-    this.dialogRef.close('skip');
-  }
-
-  onExecute(): void {
-    this.dialogRef.close('execute');
+  onAdd(): void {
+    this.dialogRef.close('add');
   }
 }
 

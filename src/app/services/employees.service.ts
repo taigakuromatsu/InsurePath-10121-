@@ -28,21 +28,43 @@ export class EmployeesService {
   }
 
   /**
-   * 第一階層の undefined を除去したオブジェクトを返す（null / undefined はそのまま返す）
+   * Firestore merge用の値に変換（再帰的）
+   * - undefined: 除去（変更なし）
+   * - null: deleteField()（削除）
+   * - オブジェクト: 再帰的に変換
+   * - 空オブジェクト: undefined（no-op）
    */
-  private cleanNestedObject<T extends Record<string, any> | null | undefined>(value: T): T {
-    if (value === null || value === undefined) {
-      return value;
+  private toFirestoreMergeValue(value: any): any {
+    if (value === undefined) return undefined;
+    if (value === null) return deleteField();
+
+    // deleteField()を配列内に入れるのは事故りやすいので配列はそのまま扱う
+    if (Array.isArray(value)) return value;
+
+    if (typeof value === 'object') {
+      const out: any = {};
+      for (const [k, v] of Object.entries(value)) {
+        const mv = this.toFirestoreMergeValue(v);
+        if (mv !== undefined) out[k] = mv;
+      }
+      // 空オブジェクトは「no-op」にしたいのでundefined扱い
+      return Object.keys(out).length > 0 ? out : undefined;
     }
 
-    const cleaned: any = {};
-    for (const [key, v] of Object.entries(value)) {
-      if (v === undefined) {
-        continue;
-      }
-      cleaned[key] = v;
+    return value;
+  }
+
+  /**
+   * payloadをFirestore merge用に変換
+   * undefinedのキーは除去、nullはdeleteField()に変換
+   */
+  private buildMergePayload(payload: Record<string, any>): Record<string, any> {
+    const out: any = {};
+    for (const [k, v] of Object.entries(payload)) {
+      const mv = this.toFirestoreMergeValue(v);
+      if (mv !== undefined) out[k] = mv;
     }
-    return cleaned as T;
+    return out;
   }
 
   private collectionPath(officeId: string) {
@@ -100,23 +122,32 @@ export class EmployeesService {
     const employeesRef = this.collectionPath(officeId);
     const ref = employee.id ? doc(employeesRef, employee.id) : doc(employeesRef);
     const now = new Date().toISOString();
+    const isUpdate = !!employee.id;
 
-    // 必須系＋よく使う基本項目だけをまずセット
-    // nullも書き込み対象として扱うため、型をanyに拡張
     const payload: any = {
       id: ref.id,
       officeId,
-      name: employee.name ?? '未入力',
-      birthDate: employee.birthDate ?? now.substring(0, 10),
-      hireDate: employee.hireDate ?? null,
-      employmentType: employee.employmentType ?? null,
-      // monthlyWage は廃止扱い。nullを書き込み→deleteFieldで削除。
-      monthlyWage: null,
-      isInsured: employee.isInsured ?? true,
-      isStudent: employee.isStudent ?? false,
-      createdAt: employee.createdAt ?? now,
       updatedAt: now
     };
+
+    // create: デフォルト値を使用
+    if (!isUpdate) {
+      payload.name = employee.name ?? '未入力';
+      payload.birthDate = employee.birthDate ?? now.substring(0, 10);
+      payload.hireDate = employee.hireDate ?? null;
+      payload.employmentType = employee.employmentType ?? null;
+      payload.isInsured = employee.isInsured ?? true;
+      payload.isStudent = employee.isStudent ?? false;
+      payload.createdAt = employee.createdAt ?? now;
+    } else {
+      // update: 渡された項目だけをpayloadに入れる（デフォルト値なし）
+      if (employee.name !== undefined) payload.name = employee.name;
+      if (employee.birthDate !== undefined) payload.birthDate = employee.birthDate;
+      if (employee.hireDate !== undefined) payload.hireDate = employee.hireDate;
+      if (employee.employmentType !== undefined) payload.employmentType = employee.employmentType;
+      if (employee.isInsured !== undefined) payload.isInsured = employee.isInsured;
+      if (employee.isStudent !== undefined) payload.isStudent = employee.isStudent;
+    }
 
     // --- ここから下は「値が入っているものだけ追加する」 ---
     // nullも書き込み対象として扱う（空文字でクリアするため）
@@ -152,44 +183,50 @@ export class EmployeesService {
       payload.addressKana = employee.addressKana;
     }
 
-    if (employee.weeklyWorkingHours != null) {
-      payload.weeklyWorkingHours = Number(employee.weeklyWorkingHours);
+    if (employee.weeklyWorkingHours !== undefined) {
+      payload.weeklyWorkingHours =
+        employee.weeklyWorkingHours === null ? null : Number(employee.weeklyWorkingHours);
     }
-    if (employee.weeklyWorkingDays != null) {
-      payload.weeklyWorkingDays = Number(employee.weeklyWorkingDays);
+    if (employee.weeklyWorkingDays !== undefined) {
+      payload.weeklyWorkingDays =
+        employee.weeklyWorkingDays === null ? null : Number(employee.weeklyWorkingDays);
     }
 
-    if (employee.healthInsuredSymbol != null) {
-      payload.healthInsuredSymbol = employee.healthInsuredSymbol;
+    if (employee.healthInsuredSymbol !== undefined) {
+      payload.healthInsuredSymbol = employee.healthInsuredSymbol; // nullなら削除へ
     }
-    if (employee.healthInsuredNumber != null) {
-      payload.healthInsuredNumber = employee.healthInsuredNumber;
+    if (employee.healthInsuredNumber !== undefined) {
+      payload.healthInsuredNumber = employee.healthInsuredNumber; // nullなら削除へ
     }
-    if (employee.pensionNumber != null) {
-      payload.pensionNumber = employee.pensionNumber;
+    if (employee.pensionNumber !== undefined) {
+      payload.pensionNumber = employee.pensionNumber; // nullなら削除へ
     }
     if (employee.myNumber !== undefined) {
       payload.myNumber = employee.myNumber;
     }
 
-    if (employee.healthGrade != null) {
-      payload.healthGrade = Number(employee.healthGrade);
+    if (employee.healthGrade !== undefined) {
+      payload.healthGrade =
+        employee.healthGrade === null ? null : Number(employee.healthGrade);
     }
-    if (employee.healthStandardMonthly != null) {
-      payload.healthStandardMonthly = Number(employee.healthStandardMonthly);
+    if (employee.healthStandardMonthly !== undefined) {
+      payload.healthStandardMonthly =
+        employee.healthStandardMonthly === null ? null : Number(employee.healthStandardMonthly);
     }
-    if (employee.healthGradeSource != null) {
-      payload.healthGradeSource = employee.healthGradeSource;
+    if (employee.healthGradeSource !== undefined) {
+      payload.healthGradeSource = employee.healthGradeSource; // nullなら削除へ
     }
 
-    if (employee.pensionGrade != null) {
-      payload.pensionGrade = Number(employee.pensionGrade);
+    if (employee.pensionGrade !== undefined) {
+      payload.pensionGrade =
+        employee.pensionGrade === null ? null : Number(employee.pensionGrade);
     }
-    if (employee.pensionStandardMonthly != null) {
-      payload.pensionStandardMonthly = Number(employee.pensionStandardMonthly);
+    if (employee.pensionStandardMonthly !== undefined) {
+      payload.pensionStandardMonthly =
+        employee.pensionStandardMonthly === null ? null : Number(employee.pensionStandardMonthly);
     }
-    if (employee.pensionGradeSource != null) {
-      payload.pensionGradeSource = employee.pensionGradeSource;
+    if (employee.pensionGradeSource !== undefined) {
+      payload.pensionGradeSource = employee.pensionGradeSource; // nullなら削除へ
     }
 
     // 健康保険の資格情報
@@ -230,41 +267,47 @@ export class EmployeesService {
     if (employee.workingStatusNote !== undefined) {
       payload.workingStatusNote = employee.workingStatusNote;
     }
+    // portal
     if (employee.portal !== undefined) {
-      payload.portal =
-        employee.portal === null ? null : this.cleanNestedObject(employee.portal);
+      payload.portal = employee.portal;
     }
+
+    // bankAccount: 指定されたキーだけpayloadに入れる
     if (employee.bankAccount !== undefined) {
-      payload.bankAccount =
-        employee.bankAccount === null
-          ? null
-          : this.cleanNestedObject(employee.bankAccount);
+      if (employee.bankAccount === null) {
+        payload.bankAccount = null;
+      } else {
+        const ba: any = {};
+        if (employee.bankAccount.bankName !== undefined) ba.bankName = employee.bankAccount.bankName;
+        if (employee.bankAccount.bankCode !== undefined) ba.bankCode = employee.bankAccount.bankCode;
+        if (employee.bankAccount.branchName !== undefined) ba.branchName = employee.bankAccount.branchName;
+        if (employee.bankAccount.branchCode !== undefined) ba.branchCode = employee.bankAccount.branchCode;
+        if (employee.bankAccount.accountType !== undefined) ba.accountType = employee.bankAccount.accountType;
+        if (employee.bankAccount.accountNumber !== undefined) ba.accountNumber = employee.bankAccount.accountNumber;
+        if (employee.bankAccount.accountHolderName !== undefined) ba.accountHolderName = employee.bankAccount.accountHolderName;
+        if (employee.bankAccount.accountHolderKana !== undefined) ba.accountHolderKana = employee.bankAccount.accountHolderKana;
+        if (employee.bankAccount.isMain !== undefined) ba.isMain = employee.bankAccount.isMain;
+        payload.bankAccount = ba;
+      }
     }
+
+    // payrollSettings: 指定されたキーだけpayloadに入れる（?? nullをやめる）
     if (employee.payrollSettings !== undefined) {
       if (employee.payrollSettings === null) {
         payload.payrollSettings = null;
       } else {
-        payload.payrollSettings = this.cleanNestedObject({
-          payType: employee.payrollSettings.payType,
-          payCycle: employee.payrollSettings.payCycle,
-          insurableMonthlyWage:
-            employee.payrollSettings.insurableMonthlyWage ?? null,
-          note: employee.payrollSettings.note ?? null
-        });
+        const ps: any = {};
+        if (employee.payrollSettings.payType !== undefined) ps.payType = employee.payrollSettings.payType;
+        if (employee.payrollSettings.payCycle !== undefined) ps.payCycle = employee.payrollSettings.payCycle;
+        if (employee.payrollSettings.insurableMonthlyWage !== undefined) ps.insurableMonthlyWage = employee.payrollSettings.insurableMonthlyWage;
+        if (employee.payrollSettings.note !== undefined) ps.note = employee.payrollSettings.note;
+        payload.payrollSettings = ps;
       }
     }
 
-    // null を deleteField() に変換して、空で保存された項目を Firestore から削除
-    const processedPayload: any = {};
-    for (const [key, value] of Object.entries(payload)) {
-      if (value === null) {
-        processedPayload[key] = deleteField();
-      } else {
-        processedPayload[key] = value;
-      }
-    }
-
-    await setDoc(ref, processedPayload, { merge: true });
+    // Firestore merge用に変換（null => deleteField()、undefined => 除去）
+    const mergePayload = this.buildMergePayload(payload);
+    await setDoc(ref, mergePayload, { merge: true });
     return ref.id;
     });
   }
@@ -287,15 +330,17 @@ export class EmployeesService {
     const now = new Date().toISOString();
 
     const payload: any = {
-      portal: this.cleanNestedObject(portal),
+      portal,
       updatedAt: now
     };
 
-    if (updatedByUserId) {
+    if (updatedByUserId !== undefined) {
       payload.updatedByUserId = updatedByUserId;
     }
 
-    await setDoc(ref, payload, { merge: true });
+    // Firestore merge用に変換
+    const mergePayload = this.buildMergePayload(payload);
+    await setDoc(ref, mergePayload, { merge: true });
     });
   }
 }

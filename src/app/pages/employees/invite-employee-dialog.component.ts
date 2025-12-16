@@ -49,7 +49,7 @@ export interface InviteEmployeeDialogResult {
           <div>
             <p class="muted">{{ error() }}</p>
             <p class="muted" *ngIf="!data.employee.contactEmail">
-              従業員の連絡先メール（contactEmail）が未登録です。登録してから再度お試しください。
+              従業員のメールアドレス（contactEmail）が未登録です。登録してから再度お試しください。
             </p>
           </div>
         </div>
@@ -136,7 +136,7 @@ export class InviteEmployeeDialogComponent {
     const email = this.data.employee.contactEmail;
     if (!email) {
       this.loading.set(false);
-      this.error.set('連絡先メールが登録されていないため招待を発行できません。');
+      this.error.set('メールアドレスが登録されていないため招待を発行できません。');
       return;
     }
 

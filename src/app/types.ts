@@ -399,13 +399,6 @@ export interface Employee {
   /** 従業員ポータル連携状態（Phase1では表示専用） */
   portal?: EmployeePortal | null;
 
-  /**
-   * @deprecated 旧設計の名残。計算には使わない。
-   * Firestore ルール・CSV・フォーム UI からも事実上排除する。
-   * Phase1 では optional に変更し、Phase2 以降で完全に排除する。
-   */
-  monthlyWage?: number;
-
   createdAt?: IsoDateString;
   updatedAt?: IsoDateString;
   updatedByUserId?: string;

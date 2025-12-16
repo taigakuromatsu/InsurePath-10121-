@@ -132,7 +132,7 @@ interface EmployeeWithUpdatedBy extends Employee {
                   介護保険の対象判定（40〜65歳未満）に使用されます。また、年齢計算にも使用されます。
                 </li>
                 <li>
-                  <strong>所属・入社日・退社日・住所・電話番号・連絡先メール・社員番号・性別・郵便番号・住所カナ・マイナンバー</strong><br />
+                  <strong>所属・入社日・退社日・住所・電話番号・メールアドレス・社員番号・性別・郵便番号・住所カナ・マイナンバー</strong><br />
                   管理用の情報です。保険料計算には直接使用されません。
                 </li>
               </ul>
@@ -408,7 +408,7 @@ interface EmployeeWithUpdatedBy extends Employee {
                   <!-- 報酬月額 -->
                   <div class="reward-item wage-item">
                     <span class="reward-label">報酬月額</span>
-                    <span class="reward-value">{{ (row.payrollSettings?.insurableMonthlyWage ?? row.monthlyWage) | number }}</span>
+                    <span class="reward-value">{{ row.payrollSettings?.insurableMonthlyWage | number }}</span>
                   </div>
                   
                   <!-- 健保 -->

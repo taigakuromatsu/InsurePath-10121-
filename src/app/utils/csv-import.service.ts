@@ -1,9 +1,16 @@
 import { Injectable } from '@angular/core';
 
-import { Employee, EmploymentType, InsuranceQualificationKind, InsuranceLossReasonKind, WorkingStatus } from '../types';
+import { Employee } from '../types';
+import {
+  EMPLOYEE_CSV_COLUMNS_V2,
+  findColumnDefinitionByHeader,
+  getEmployeeCsvHeadersV2,
+  CsvColumnDefinition
+} from './csv-column-definitions';
 
 export interface CsvParseResult<T> {
   data: T[];
+  rowIndexes: number[]; // 元CSVの行番号（コメント行を考慮）
   errors: CsvParseError[];
 }
 
@@ -19,138 +26,64 @@ export interface ValidationError {
   field: string;
 }
 
+/**
+ * 深いネストのundefinedを除去するヘルパー
+ */
+function deepRemoveUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      continue;
+    }
+    if (value === null) {
+      result[key] = null;
+    } else if (Array.isArray(value)) {
+      result[key] = value;
+    } else if (typeof value === 'object') {
+      const cleaned = deepRemoveUndefined(value);
+      if (Object.keys(cleaned).length > 0) {
+        result[key] = cleaned;
+      }
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CsvImportService {
-  private readonly headerMapping: Record<string, keyof Partial<Employee>> = {
-    ID: 'id',
-    氏名: 'name',
-    フリガナ: 'kana',
-    生年月日: 'birthDate',
-    所属: 'department',
-    住所: 'address',
-    電話番号: 'phone',
-    メールアドレス: 'contactEmail',
-    入社日: 'hireDate',
-    退職日: 'retireDate',
-    雇用形態: 'employmentType',
-    所定労働時間: 'weeklyWorkingHours',
-    所定労働日数: 'weeklyWorkingDays',
-    学生: 'isStudent',
-    標準報酬月額: 'monthlyWage',
-    社会保険加入: 'isInsured',
-    健康保険等級: 'healthGrade',
-    健康保険標準報酬月額: 'healthStandardMonthly',
-    厚生年金等級: 'pensionGrade',
-    厚生年金標準報酬月額: 'pensionStandardMonthly',
-    就業状態: 'workingStatus',
-    作成日時: 'createdAt',
-    更新日時: 'updatedAt',
-    被保険者記号: 'healthInsuredSymbol',
-    被保険者番号: 'healthInsuredNumber',
-    厚生年金番号: 'pensionNumber',
-    '資格取得日（健保）': 'healthQualificationDate',
-    '資格取得区分（健保）': 'healthQualificationKind',
-    '資格喪失日（健保）': 'healthLossDate',
-    '資格喪失理由（健保）': 'healthLossReasonKind',
-    '資格取得日（年金）': 'pensionQualificationDate',
-    '資格取得区分（年金）': 'pensionQualificationKind',
-    '資格喪失日（年金）': 'pensionLossDate',
-    '資格喪失理由（年金）': 'pensionLossReasonKind',
-    雇用契約期間の見込み: 'contractPeriodNote',
-    就業状態メモ: 'workingStatusNote'
-  };
-
-  private readonly requiredFields: (keyof Partial<Employee>)[] = [
-    'name',
-    'birthDate',
-    'hireDate',
-    'employmentType',
-    'monthlyWage'
-  ];
-
-  private readonly numericFields = new Set<keyof Partial<Employee>>([
-    'monthlyWage',
-    'weeklyWorkingHours',
-    'weeklyWorkingDays',
-    'healthGrade',
-    'healthStandardMonthly',
-    'pensionGrade',
-    'pensionStandardMonthly'
-  ]);
-
-  private readonly booleanFields = new Set<keyof Partial<Employee>>([
-    'isStudent',
-    'isInsured'
-  ]);
-
-  private readonly dateFields = new Set<keyof Partial<Employee>>([
-    'birthDate',
-    'hireDate',
-    'retireDate',
-    'healthQualificationDate',
-    'healthLossDate',
-    'pensionQualificationDate',
-    'pensionLossDate'
-  ]);
-
   /**
-   * 従業員CSVのヘッダとEmployeeプロパティキーの対応を取得する
-   * headerMapping のエントリを順序通りに配列として返す
-   * エクスポート機能で使用する
-   */
-  getEmployeeHeaderMapping(): { header: string; key: keyof Partial<Employee> }[] {
-    return Object.entries(this.headerMapping).map(([header, key]) => ({
-      header,
-      key
-    }));
-  }
-
-  /**
-   * 従業員CSVのヘッダ行を取得する
-   * headerMapping のキーを順序通りに配列として返す
-   * テンプレート出力やエクスポート機能で使用する
-   */
-  getEmployeeCsvHeaders(): string[] {
-    return this.getEmployeeHeaderMapping().map((c) => c.header);
-  }
-
-  /**
-   * コメント行かどうかを判定する
+   * コメント行かどうかを判定する（BOM除去対応）
    * 最初のセルが # で始まる行をコメント行とみなす
    */
   private isCommentLine(values: string[]): boolean {
-    const firstCell = (values[0] ?? '').trim();
+    const firstCell = (values[0] ?? '').replace(/^\uFEFF/, '').trim();
     return firstCell.startsWith('#');
   }
 
   /**
-   * 雇用形態の値を正規化する
-   * 日本語入力（正社員、契約社員など）を内部コードに変換
+   * 従業員CSVのヘッダとEmployeeプロパティキーの対応を取得する（後方互換用）
+   * v2列定義から生成
    */
-  private normalizeEmploymentType(raw: unknown): EmploymentType | string | undefined {
-    if (raw == null) return undefined;
-    const s = String(raw).trim();
-    if (!s) return undefined;
-
-    const normalized = s.toLowerCase().replace(/\s+/g, '');
-    
-    const employmentTypeMap: Record<string, EmploymentType> = {
-      'regular': 'regular',
-      '正社員': 'regular',
-      'contract': 'contract',
-      '契約社員': 'contract',
-      '契約': 'contract',
-      'part': 'part',
-      'パート': 'part',
-      'アルバイト': 'アルバイト',
-      'アルバイトスタッフ': 'アルバイト',
-      'other': 'other',
-      'その他': 'other'
-    };
-
-    return employmentTypeMap[normalized] ?? s;
+  getEmployeeHeaderMapping(): { header: string; key: keyof Partial<Employee> }[] {
+    return EMPLOYEE_CSV_COLUMNS_V2.map((col) => ({
+      header: col.header,
+      key: col.header as keyof Partial<Employee> // 簡易的なマッピング
+    }));
   }
 
+  /**
+   * 従業員CSVのヘッダ行を取得する（後方互換用）
+   * v2列定義から生成
+   */
+  getEmployeeCsvHeaders(): string[] {
+    return getEmployeeCsvHeadersV2();
+  }
+
+  /**
+   * v2列定義を使用してCSVをパース
+   */
   async parseEmployeesCsv(file: File): Promise<CsvParseResult<Partial<Employee>>> {
     const text = await file.text();
     const allLines = text
@@ -159,7 +92,11 @@ export class CsvImportService {
       .filter((line) => line.trim() !== '');
 
     if (!allLines.length) {
-      return { data: [], errors: [{ rowIndex: 1, message: 'CSVにデータがありません' }] };
+      return {
+        data: [],
+        rowIndexes: [],
+        errors: [{ rowIndex: 1, message: 'CSVにデータがありません' }]
+      };
     }
 
     // コメント行をスキップしてヘッダ行を探す
@@ -175,33 +112,49 @@ export class CsvImportService {
     }
 
     if (headerLineIndex === -1) {
-      return { data: [], errors: [{ rowIndex: 1, message: 'CSVにヘッダ行が見つかりません' }] };
+      return {
+        data: [],
+        rowIndexes: [],
+        errors: [{ rowIndex: 1, message: 'CSVにヘッダ行が見つかりません' }]
+      };
     }
 
     const headers = this.parseCsvLine(allLines[headerLineIndex]);
     const errors: CsvParseError[] = [];
 
-    const headerIndexes = new Map<number, keyof Partial<Employee>>();
+    // ヘッダから列定義をマッピング
+    const columnMap = new Map<number, CsvColumnDefinition>();
     headers.forEach((header, index) => {
-      const field = this.headerMapping[header.trim()];
-      if (field) {
-        headerIndexes.set(index, field);
+      const colDef = findColumnDefinitionByHeader(header.trim());
+      if (colDef) {
+        columnMap.set(index, colDef);
       } else {
-        errors.push({ rowIndex: headerLineNumber, column: header, message: `認識できないヘッダ: ${header}` });
+        errors.push({
+          rowIndex: headerLineNumber,
+          column: header,
+          message: `認識できないヘッダ: ${header}`
+        });
       }
     });
 
-    const missingHeaders = this.requiredFields.filter(
-      (field) => !Array.from(headerIndexes.values()).includes(field)
-    );
-    missingHeaders.forEach((field) =>
-      errors.push({ rowIndex: headerLineNumber, message: `必須ヘッダが不足しています: ${field}` })
-    );
-
     const data: Partial<Employee>[] = [];
+    const rowIndexes: number[] = [];
+
+    // ネストオブジェクトのヘッダセット
+    const BANK_HEADERS = new Set([
+      '金融機関名',
+      '金融機関コード',
+      '支店名',
+      '支店コード',
+      '口座種別',
+      '口座番号',
+      '名義',
+      '名義カナ',
+      '主口座フラグ'
+    ]);
+    const PAYROLL_HEADERS = new Set(['報酬月額', '支給形態', '支給サイクル', '給与メモ']);
 
     // ヘッダ行以降のデータ行を処理（コメント行はスキップ）
-    let dataRowCount = 0;
     for (let i = headerLineIndex + 1; i < allLines.length; i++) {
       const line = allLines[i];
       const values = this.parseCsvLine(line);
@@ -212,69 +165,144 @@ export class CsvImportService {
         continue;
       }
 
-      dataRowCount++;
       const record: Partial<Employee> = {};
 
-      headerIndexes.forEach((field, colIndex) => {
-        const raw = values[colIndex] ?? '';
-        const trimmed = raw.trim();
+      // 全列__CLEAR__判定用のカウンター
+      let bankSeen = 0;
+      let bankClear = 0;
+      let payrollSeen = 0;
+      let payrollClear = 0;
 
-        if (trimmed === '') {
-          return;
+      // 各列を処理
+      columnMap.forEach((colDef, colIndex) => {
+        const raw = (values[colIndex] ?? '').trim();
+
+        // 全列__CLEAR__判定のためのカウント
+        if (BANK_HEADERS.has(colDef.header)) {
+          bankSeen++;
+          if (raw === '__CLEAR__') {
+            bankClear++;
+          }
+        }
+        if (PAYROLL_HEADERS.has(colDef.header)) {
+          payrollSeen++;
+          if (raw === '__CLEAR__') {
+            payrollClear++;
+          }
         }
 
-        if (this.booleanFields.has(field)) {
-          const normalized = trimmed.toLowerCase();
-          record[field] = (['true', '1', 'yes', 'y', 'はい'] as string[]).includes(normalized)
-            ? (true as any)
-            : (['false', '0', 'no', 'n', 'いいえ'] as string[]).includes(normalized)
-              ? (false as any)
-              : (trimmed as any);
-          return;
+        try {
+          colDef.setter(record, raw);
+        } catch (error) {
+          errors.push({
+            rowIndex: actualRowNumber,
+            column: colDef.header,
+            message: `${colDef.header}の処理中にエラーが発生しました: ${error}`
+          });
         }
-
-        if (this.numericFields.has(field)) {
-          const num = Number(trimmed);
-          record[field] = Number.isNaN(num) ? (trimmed as any) : (num as any);
-          return;
-        }
-
-        // employmentTypeの正規化
-        if (field === 'employmentType') {
-          record[field] = this.normalizeEmploymentType(trimmed) as any;
-          return;
-        }
-
-        record[field] = trimmed as any;
       });
 
-      data.push(record);
+      // undefinedを除去（merge動作のため）
+      const cleaned = deepRemoveUndefined(record);
+
+      // 全列__CLEAR__のときだけオブジェクトごと消す
+      if (bankSeen > 0 && bankClear === bankSeen) {
+        (cleaned as any).bankAccount = null;
+      }
+      if (payrollSeen > 0 && payrollClear === payrollSeen) {
+        (cleaned as any).payrollSettings = null;
+      }
+
+      if (Object.keys(cleaned).length > 0) {
+        data.push(cleaned);
+        rowIndexes.push(actualRowNumber);
+      }
     }
 
-    return { data, errors };
+    // テンプレート未編集時のエラー追加
+    if (data.length === 0 && errors.length === 0) {
+      errors.push({
+        rowIndex: headerLineNumber,
+        message: 'データ行がありません（テンプレを編集してからインポートしてください）'
+      });
+    }
+
+    return { data, rowIndexes, errors };
   }
 
+  /**
+   * 従業員データをバリデーション（create/patchで分ける）
+   */
   validateEmployee(employee: Partial<Employee>, rowIndex: number): ValidationError[] {
     const errors: ValidationError[] = [];
+    const isUpdate = !!employee.id;
 
-    this.requiredFields.forEach((field) => {
-      const value = employee[field];
-      if (value === undefined || value === null || value === '') {
-        errors.push({ rowIndex, field, message: `${field} は必須です` });
+    const isEmpty = (v: any): boolean =>
+      v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
+
+    // update時: 必須項目が__CLEAR__で消されていないかチェック
+    const forbidClearRequiredOnUpdate = (field: keyof Partial<Employee>, label: string): void => {
+      const v = employee[field];
+      if (isUpdate && v !== undefined && isEmpty(v)) {
+        errors.push({
+          rowIndex,
+          field: field as string,
+          message: `${label}は更新で空にできません（空欄は変更なし、消す操作は禁止）`
+        });
       }
-    });
+    };
 
+    // create: 必須項目チェック
+    if (!isUpdate) {
+      if (isEmpty(employee.name)) {
+        errors.push({ rowIndex, field: 'name', message: '氏名は必須です' });
+      }
+      if (isEmpty(employee.kana)) {
+        errors.push({ rowIndex, field: 'kana', message: 'フリガナは必須です' });
+      }
+      if (isEmpty(employee.birthDate)) {
+        errors.push({ rowIndex, field: 'birthDate', message: '生年月日は必須です' });
+      }
+      if (isEmpty(employee.hireDate)) {
+        errors.push({ rowIndex, field: 'hireDate', message: '入社日は必須です' });
+      }
+      if (isEmpty(employee.employmentType)) {
+        errors.push({ rowIndex, field: 'employmentType', message: '雇用形態は必須です' });
+      }
+    } else {
+      // update: この行で触っている場合だけチェック
+      forbidClearRequiredOnUpdate('name', '氏名');
+      forbidClearRequiredOnUpdate('kana', 'フリガナ');
+      forbidClearRequiredOnUpdate('birthDate', '生年月日');
+      forbidClearRequiredOnUpdate('hireDate', '入社日');
+      forbidClearRequiredOnUpdate('employmentType', '雇用形態');
+    }
+
+    // 日付フォーマットチェック
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    this.dateFields.forEach((field) => {
+    const dateFields: (keyof Partial<Employee>)[] = [
+      'birthDate',
+      'hireDate',
+      'retireDate',
+      'healthQualificationDate',
+      'healthLossDate',
+      'pensionQualificationDate',
+      'pensionLossDate'
+    ];
+    dateFields.forEach((field) => {
       const value = employee[field];
-      if (value === undefined || value === null || value === '') {
-        return;
-      }
-      if (typeof value !== 'string' || !datePattern.test(value)) {
-        errors.push({ rowIndex, field, message: `${field} は YYYY-MM-DD 形式で入力してください` });
+      if (value !== undefined && value !== null && value !== '') {
+        if (typeof value !== 'string' || !datePattern.test(value)) {
+          errors.push({
+            rowIndex,
+            field: field as string,
+            message: `${field} は YYYY-MM-DD 形式で入力してください`
+          });
+        }
       }
     });
 
+    // 雇用形態の値チェック
     const employmentType = employee.employmentType;
     const allowedEmploymentTypes: Employee['employmentType'][] = [
       'regular',
@@ -292,16 +320,93 @@ export class CsvImportService {
       });
     }
 
-    if (employee.monthlyWage !== undefined && employee.monthlyWage !== null) {
-      const wage = Number(employee.monthlyWage);
-      if (Number.isNaN(wage)) {
-        errors.push({ rowIndex, field: 'monthlyWage', message: '標準報酬月額は数値で入力してください' });
+    // ネスト必須チェック: bankAccount（createのときだけ）
+    if (!isUpdate) {
+      const bankAccount = employee.bankAccount as any;
+      if (bankAccount && typeof bankAccount === 'object') {
+        const hasAnyBankField = [
+          bankAccount.bankName,
+          bankAccount.bankCode,
+          bankAccount.branchName,
+          bankAccount.branchCode,
+          bankAccount.accountType,
+          bankAccount.accountNumber,
+          bankAccount.accountHolderName,
+          bankAccount.accountHolderKana
+        ].some((v) => v !== undefined && v !== null && v !== '');
+
+        if (hasAnyBankField) {
+          const requiredFields = [
+            { key: 'bankName', label: '金融機関名' },
+            { key: 'branchName', label: '支店名' },
+            { key: 'accountType', label: '口座種別' },
+            { key: 'accountNumber', label: '口座番号' },
+            { key: 'accountHolderName', label: '名義' }
+          ];
+
+          for (const field of requiredFields) {
+            if (!bankAccount[field.key] || bankAccount[field.key].trim() === '') {
+              errors.push({
+                rowIndex,
+                field: `bankAccount.${field.key}`,
+                message: `給与振込口座情報を入力する場合、${field.label}は必須です`
+              });
+            }
+          }
+        }
+      }
+
+      // ネスト必須チェック: payrollSettings（createのときだけ）
+      const payrollSettings = employee.payrollSettings as any;
+      if (payrollSettings && typeof payrollSettings === 'object') {
+        const hasAnyPayrollField = [
+          payrollSettings.payType,
+          payrollSettings.payCycle,
+          payrollSettings.insurableMonthlyWage,
+          payrollSettings.note
+        ].some((v) => v !== undefined && v !== null && v !== '');
+
+        if (hasAnyPayrollField) {
+          if (!payrollSettings.payType) {
+            errors.push({
+              rowIndex,
+              field: 'payrollSettings.payType',
+              message: '給与基本情報を入力する場合、支給形態は必須です'
+            });
+          }
+          if (!payrollSettings.payCycle) {
+            errors.push({
+              rowIndex,
+              field: 'payrollSettings.payCycle',
+              message: '給与基本情報を入力する場合、支給サイクルは必須です'
+            });
+          }
+        }
+      }
+    }
+
+    // 免除月の重複チェック
+    if (employee.premiumExemptionMonths && Array.isArray(employee.premiumExemptionMonths)) {
+      const yearMonthSet = new Set<string>();
+      for (const month of employee.premiumExemptionMonths) {
+        if (yearMonthSet.has(month.yearMonth)) {
+          errors.push({
+            rowIndex,
+            field: 'premiumExemptionMonths',
+            message: `重複した対象年月: ${month.yearMonth}`
+          });
+          break;
+        }
+        yearMonthSet.add(month.yearMonth);
       }
     }
 
     return errors;
   }
 
+  /**
+   * CSV行をパース（クォート対応）
+   */
   private parseCsvLine(line: string): string[] {
     const result: string[] = [];
     let current = '';

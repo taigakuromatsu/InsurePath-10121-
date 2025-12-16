@@ -122,7 +122,7 @@ export interface EmployeeDetailDialogData {
         <div class="label">電話番号</div>
         <div class="value">{{ data.employee.phone || '-' }}</div>
 
-        <div class="label">連絡先メール</div>
+        <div class="label">メールアドレス</div>
         <div class="value">{{ data.employee.contactEmail || '-' }}</div>
 
         <div class="label">社員番号</div>

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 
 import { BonusPremium, Employee, MonthlyPremium } from '../types';
 import { CsvImportService } from './csv-import.service';
+import { EMPLOYEE_CSV_COLUMNS_V2, getEmployeeCsvHeadersV2 } from './csv-column-definitions';
 
 interface CsvColumn<T> {
   label: string;
@@ -13,8 +14,7 @@ interface CsvColumn<T> {
 export class CsvExportService {
   private readonly csvImportService = inject(CsvImportService);
   /**
-   * 従業員一覧をCSV形式でエクスポートする
-   * ヘッダと順序は CsvImportService の headerMapping に準拠し、
+   * 従業員一覧をCSV形式でエクスポートする（v2列定義準拠）
    * テンプレートCSVと完全に同じフォーマットで出力する
    */
   exportEmployees(employees: Employee[], fileName = '従業員一覧'): void {
@@ -22,11 +22,13 @@ export class CsvExportService {
       return;
     }
 
-    // CsvImportService 側から「ヘッダと key の一覧」を取得
-    const columns = this.csvImportService.getEmployeeHeaderMapping();
+    // v2列定義を使用
+    const columns = EMPLOYEE_CSV_COLUMNS_V2;
 
-    // ヘッダ行
-    const headers = columns.map((c) => c.header);
+    // ヘッダ行（「標準報酬月額」はエクスポートしない）
+    const headers = columns
+      .filter((col) => col.header !== '標準報酬月額') // deprecated項目はエクスポートしない
+      .map((col) => col.header);
     const rows: string[][] = [];
     rows.push(headers.map((h) => this.escapeCsvValue(h)));
 
@@ -34,13 +36,19 @@ export class CsvExportService {
     for (const emp of employees) {
       const row: string[] = [];
       for (const col of columns) {
-        const key = col.key;
-        const raw = (emp as any)[key];
+        // 「標準報酬月額」はエクスポートしない
+        if (col.header === '標準報酬月額') {
+          continue;
+        }
+
+        const raw = col.getter(emp);
         let text = '';
 
         if (raw !== undefined && raw !== null) {
           if (typeof raw === 'boolean') {
             text = raw ? 'true' : 'false';
+          } else if (typeof raw === 'number') {
+            text = String(raw);
           } else {
             text = String(raw);
           }
@@ -201,23 +209,61 @@ export class CsvExportService {
   }
 
   /**
-   * 従業員CSVインポート用のテンプレート（ヘッダのみ）を出力
-   * CsvImportService の headerMapping からヘッダを取得して出力する
-   * これにより、ヘッダ定義の二重管理を避け、インポートとテンプレートの整合性を保つ
+   * 従業員CSVインポート用のテンプレート（ヘッダのみ）を出力（v2列定義準拠）
    * ヘッダの前にコメント行を追加して、入力ルールを説明する
    */
   exportEmployeesTemplate(): void {
-    const headers = this.csvImportService.getEmployeeCsvHeaders();
+    const headers = getEmployeeCsvHeadersV2().filter((h) => h !== '標準報酬月額'); // deprecated項目は除外
     const lines: string[] = [];
 
     // コメント行を追加
-    lines.push('# 従業員インポート用テンプレート（InsurePath）');
-    lines.push('# 雇用形態: regular(正社員) / contract(契約社員) / part(パート) / アルバイト / other(その他)');
-    lines.push('# 資格取得区分: new_hire(新規採用) / expansion(適用拡大) / hours_change(所定労働時間変更) / other(その他)');
-    lines.push('# 資格喪失理由: retirement(退職) / death(死亡) / age_75(75歳到達) / disability(障害認定) / social_security_agreement(社会保障協定)');
-    lines.push('# 就業状態: normal(通常勤務) / maternity_leave(産前産後休業) / childcare_leave(育児休業)');
-    lines.push('# ※日付は YYYY-MM-DD 形式で入力してください（例: 2024-04-01）');
-    lines.push('# ※学生・社会保険加入は true / false（小文字）で入力してください');
+    lines.push('# ========================================');
+    lines.push('# 従業員インポート用テンプレート（InsurePath v2）');
+    lines.push('# ========================================');
+    lines.push('');
+    lines.push('# 【新規作成と更新の違い】');
+    lines.push('# ・新規作成: ID列を空欄にしてください。必須項目（氏名/フリガナ/生年月日/入社日/雇用形態）を入力してください。');
+    lines.push('# ・更新: ID列に既存の従業員IDを入力してください。変更したい項目だけを入力します。');
+    lines.push('');
+    lines.push('# 【セルの入力ルール】');
+    lines.push('# ・空欄: 変更しません（更新インポート時のみ有効。新規作成時は必須項目を入力してください）');
+    lines.push('# ・値あり: その値に更新します');
+    lines.push('# ・__CLEAR__: その項目を削除します（Firestoreからフィールドを削除）');
+    lines.push('# ・注意: 必須項目（氏名/フリガナ/生年月日/入社日/雇用形態）は更新時でも__CLEAR__できません');
+    lines.push('');
+    lines.push('# 【ネストオブジェクトの削除（口座情報・給与情報）】');
+    lines.push('# ・口座情報を削除: 金融機関名/支店名/口座種別/口座番号/名義のすべての列に__CLEAR__を入力');
+    lines.push('# ・給与情報を削除: 支給形態/支給サイクルの両方の列に__CLEAR__を入力');
+    lines.push('');
+    lines.push('# 【必須項目】');
+    lines.push('# 氏名 / フリガナ / 生年月日 / 入社日 / 雇用形態');
+    lines.push('');
+    lines.push('# 【選択肢の入力値】');
+    lines.push('# ・雇用形態: regular(正社員) / contract(契約社員) / part(パート) / アルバイト / other(その他)');
+    lines.push('# ・性別: male(男) / female(女) / other(その他)');
+    lines.push('# ・資格取得区分: new_hire(新規採用) / expansion(適用拡大) / hours_change(所定労働時間変更) / other(その他)');
+    lines.push('# ・資格喪失理由: retirement(退職) / death(死亡) / age_75(75歳到達) / disability(障害認定) / social_security_agreement(社会保障協定)');
+    lines.push('# ・就業状態: normal(通常勤務) / maternity_leave(産前産後休業) / childcare_leave(育児休業)');
+    lines.push('# ・支給形態: monthly(月給) / daily(日給) / hourly(時給) / annual(年俸) / other(その他)');
+    lines.push('# ・支給サイクル: monthly(月次) / twice_per_month(月2回) / weekly(週次) / other(その他)');
+    lines.push('# ・口座種別: ordinary(普通) / checking(当座) / savings(貯蓄) / other(その他)');
+    lines.push('');
+    lines.push('# 【データ形式】');
+    lines.push('# ・日付: YYYY-MM-DD 形式（例: 2024-04-01）');
+    lines.push('# ・年月: YYYY-MM 形式（例: 2025-01）');
+    lines.push('# ・数値: 整数または小数（例: 40.0, 1000000）');
+    lines.push('#    - 所定労働時間、所定労働日数、報酬月額、等級、標準報酬月額などは数値で入力');
+    lines.push('# ・真偽値: true / false（小文字）');
+    lines.push('#    - 学生、社会保険加入、主口座フラグに使用');
+    lines.push('# ・保険料免除月: maternity:2025-01,2025-02;childcare:2025-04');
+    lines.push('#    - 形式: kind:YYYY-MM,YYYY-MM;kind:YYYY-MM');
+    lines.push('#    - kindはmaternity（産前産後）またはchildcare（育児）');
+    lines.push('');
+    lines.push('# 【標準報酬関連の注意】');
+    lines.push('# ・健康保険等級/健康保険標準報酬月額: 健康保険・介護保険用');
+    lines.push('# ・厚生年金等級/厚生年金標準報酬月額: 厚生年金用');
+    lines.push('# ・健康保険と厚生年金で等級や標準報酬月額が異なる場合は、それぞれ別に入力してください');
+    lines.push('# ・報酬月額: 給与設定の報酬月額（支給形態/支給サイクルとセットで入力）');
 
     // ヘッダ行を追加
     const headerLine = headers.map((h) => this.escapeCsvValue(h)).join(',');

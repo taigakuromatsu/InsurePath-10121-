@@ -36,7 +36,7 @@ import { Employee } from '../../types';
            <mat-option value="postalCode">郵便番号</mat-option>
            <mat-option value="address">住所</mat-option>
            <mat-option value="phone">電話番号</mat-option>
-           <mat-option value="contactEmail">連絡先メール</mat-option>
+           <mat-option value="contactEmail">メールアドレス</mat-option>
            <mat-option value="kana">カナ</mat-option>
          </mat-select>
        </mat-form-field>

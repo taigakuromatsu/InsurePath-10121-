@@ -14,6 +14,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AsyncPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { combineLatest, defer, firstValueFrom, map, Observable, of, startWith, switchMap } from 'rxjs';
 
@@ -41,6 +42,7 @@ export interface StandardRewardHistoryFormDialogData {
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
     NgIf,
     NgFor,
     AsyncPipe,
@@ -103,10 +105,16 @@ export interface StandardRewardHistoryFormDialogData {
         </mat-hint>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="full-width">
+      <mat-form-field appearance="outline" class="full-width readonly-field">
         <mat-label>等級（任意）</mat-label>
-        <input matInput type="number" formControlName="grade" />
-        <mat-hint>標準報酬月額を選択すると自動的に設定されます</mat-hint>
+        <input
+          matInput
+          type="number"
+          formControlName="grade"
+          readonly
+          [matTooltip]="'標準報酬月額を選択すると自動的に設定されます'"
+          matTooltipPosition="above"
+        />
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
@@ -177,6 +185,19 @@ export interface StandardRewardHistoryFormDialogData {
 
       .inline-spinner {
         margin-right: 8px;
+      }
+
+      .readonly-field .mat-mdc-text-field-wrapper {
+        background-color: #f5f5f5;
+      }
+
+      .readonly-field .mat-mdc-form-field-focus-overlay {
+        background-color: #f5f5f5;
+      }
+
+      .readonly-field input[readonly] {
+        background-color: #f5f5f5;
+        cursor: default;
       }
     `
   ]

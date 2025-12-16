@@ -324,7 +324,7 @@ export class DocumentGenerationDialogComponent {
       
       return this.generator.resolveStandardMonthlyReward(
         histories,
-        this.data.employee.monthlyWage,
+        this.data.employee.payrollSettings?.insurableMonthlyWage ?? undefined,
         insuranceKind,
         targetYearMonth as any,
         this.data.employee

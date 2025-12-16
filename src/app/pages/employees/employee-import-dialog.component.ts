@@ -97,10 +97,16 @@ interface PreviewColumn {
         <div class="import-rules">
           <h4>主な入力ルール</h4>
           <ul>
-            <li>必須項目: 氏名 / 生年月日 / 入社日 / 雇用形態 / 標準報酬月額</li>
+            <li>必須項目: 氏名 / フリガナ / 生年月日 / 入社日 / 雇用形態</li>
             <li>雇用形態: regular(正社員) / contract(契約社員) / part(パート) / アルバイト / other(その他)</li>
-            <li>学生・社会保険加入: true / false（小文字）</li>
+            <li>給与区分: monthly(月給) / daily(日給) / hourly(時給) / annual(年俸) / other(その他)</li>
+            <li>給与サイクル: monthly(月次) / twice_per_month(月2回) / weekly(週次) / other(その他)</li>
+            <li>口座種別: ordinary(普通) / checking(当座) / savings(貯蓄) / other(その他)</li>
+            <li>保険料免除月: maternity:2025-01,2025-02;childcare:2025-04（形式: kind:YYYY-MM,YYYY-MM;kind:YYYY-MM）</li>
+            <li>学生・社会保険加入・主口座フラグ: true / false（小文字）</li>
             <li>日付: YYYY-MM-DD 形式（例: 2024-04-01）</li>
+            <li>年月: YYYY-MM 形式（例: 2025-01）</li>
+            <li>空欄は変更しません（更新インポート時のみ）。明示的に削除する場合は "__CLEAR__" を入力</li>
             <li>CSVテンプレートのヘッダ名は変更しないでください</li>
             <li># で始まる行はコメント行として無視されます</li>
           </ul>
@@ -406,22 +412,12 @@ export class EmployeeImportDialogComponent {
   private readonly csvImportService = inject(CsvImportService);
   private readonly csvExportService = inject(CsvExportService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly numericFields = new Set<keyof Partial<Employee>>([
-    'monthlyWage',
-    'weeklyWorkingHours',
-    'weeklyWorkingDays',
-    'healthGrade',
-    'healthStandardMonthly',
-    'pensionGrade',
-    'pensionStandardMonthly'
-  ]);
-
   protected readonly previewColumns: PreviewColumn[] = [
     { key: 'name', label: '氏名' },
     { key: 'birthDate', label: '生年月日' },
     { key: 'department', label: '所属' },
     { key: 'employmentType', label: '雇用形態' },
-    { key: 'monthlyWage', label: '標準報酬月額' },
+    { key: 'payrollSettings', label: '報酬月額' },
     { key: 'isInsured', label: '社会保険加入' }
   ];
 
@@ -429,6 +425,7 @@ export class EmployeeImportDialogComponent {
 
   protected selectedFileName = '';
   protected parsedData: Partial<Employee>[] = [];
+  protected rowIndexes: number[] = []; // 元CSVの行番号
   protected previewRows: PreviewRow[] = [];
   protected parseErrors: CsvParseError[] = [];
   protected validationErrors: ValidationError[] = [];
@@ -450,7 +447,10 @@ export class EmployeeImportDialogComponent {
 
   get validRowCount(): number {
     const invalidRows = new Set(this.combinedErrors.map((e) => e.rowIndex));
-    return this.parsedData.filter((_, index) => !invalidRows.has(index + 2)).length;
+    return this.parsedData.filter((_, index) => {
+      const rowIndex = this.rowIndexes[index];
+      return rowIndex && !invalidRows.has(rowIndex);
+    }).length;
   }
 
   get hasAnyErrors(): boolean {
@@ -469,14 +469,16 @@ export class EmployeeImportDialogComponent {
     this.selectedFileName = file.name;
     const parseResult = await this.csvImportService.parseEmployeesCsv(file);
     this.parsedData = parseResult.data;
+    this.rowIndexes = parseResult.rowIndexes;
     this.parseErrors = parseResult.errors;
 
-    this.validationErrors = this.parsedData.flatMap((employee, index) =>
-      this.csvImportService.validateEmployee(employee, index + 2)
-    );
+    this.validationErrors = this.parsedData.flatMap((employee, index) => {
+      const rowIndex = this.rowIndexes[index];
+      return this.csvImportService.validateEmployee(employee, rowIndex);
+    });
 
     this.previewRows = this.parsedData
-      .map((employee, index) => ({ rowIndex: index + 2, employee }))
+      .map((employee, index) => ({ rowIndex: this.rowIndexes[index], employee }))
       .slice(0, 10);
   }
 
@@ -496,12 +498,31 @@ export class EmployeeImportDialogComponent {
   }
 
   getCellValue(row: Partial<Employee>, key: keyof Partial<Employee>): string {
+    // ネストされたオブジェクトの処理
+    if (key === 'payrollSettings') {
+      const payroll = row.payrollSettings;
+      if (payroll?.insurableMonthlyWage) {
+        return String(payroll.insurableMonthlyWage);
+      }
+      return '';
+    }
+    if (key === 'bankAccount') {
+      const bank = row.bankAccount;
+      if (bank?.bankName) {
+        return bank.bankName;
+      }
+      return '';
+    }
+
     const value = row[key];
     if (value === undefined || value === null) {
       return '';
     }
     if (typeof value === 'boolean') {
       return value ? 'true' : 'false';
+    }
+    if (Array.isArray(value)) {
+      return value.map((v) => String(v)).join(', ');
     }
     return String(value);
   }
@@ -513,7 +534,7 @@ export class EmployeeImportDialogComponent {
 
     const invalidRows = new Set(this.combinedErrors.map((e) => e.rowIndex));
     const targets = this.parsedData
-      .map((employee, index) => ({ employee, rowIndex: index + 2 }))
+      .map((employee, index) => ({ employee, rowIndex: this.rowIndexes[index] }))
       .filter((row) => !invalidRows.has(row.rowIndex));
 
     const confirmed = window.confirm(
@@ -559,30 +580,41 @@ export class EmployeeImportDialogComponent {
     this.dialogRef.close(this.importResult);
   }
 
+  /**
+   * 深いネストのundefinedを除去するヘルパー
+   */
+  private deepRemoveUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
+    const result: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === undefined) {
+        continue;
+      }
+      if (value === null) {
+        result[key] = null;
+      } else if (Array.isArray(value)) {
+        result[key] = value;
+      } else if (typeof value === 'object') {
+        const cleaned = this.deepRemoveUndefined(value);
+        if (Object.keys(cleaned).length > 0) {
+          result[key] = cleaned;
+        }
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
   private normalizeEmployee(employee: Partial<Employee>): Partial<Employee> & { id?: string } {
-    const payload: Partial<Employee> = {};
-
-    Object.entries(employee).forEach(([key, value]) => {
-      if (value === undefined || value === null || value === '') {
-        return;
-      }
-
-      const typedKey = key as keyof Partial<Employee>;
-      if (this.numericFields.has(typedKey)) {
-        const num = Number(value);
-        payload[typedKey] = Number.isNaN(num) ? (value as any) : (num as any);
-        return;
-      }
-
-      payload[typedKey] = value as any;
-    });
-
-    return payload;
+    // undefinedを除去（merge動作のため）
+    const cleaned = this.deepRemoveUndefined(employee);
+    return cleaned as Partial<Employee> & { id?: string };
   }
 
   private resetState(): void {
     this.selectedFileName = '';
     this.parsedData = [];
+    this.rowIndexes = [];
     this.previewRows = [];
     this.parseErrors = [];
     this.validationErrors = [];

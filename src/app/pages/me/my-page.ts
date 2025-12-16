@@ -180,7 +180,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
                 <span class="value">{{ employee.phone }}</span>
               </div>
               <div class="info-item" *ngIf="employee.contactEmail">
-                <span class="label">連絡先メール</span>
+                <span class="label">メールアドレス</span>
                 <span class="value">{{ employee.contactEmail }}</span>
               </div>
               <div
@@ -1663,7 +1663,7 @@ export class MyPage {
       case 'phone':
         return '電話番号';
       case 'contactEmail':
-        return '連絡先メール';
+        return 'メールアドレス';
       case 'kana':
         return 'カナ';
       case 'other':

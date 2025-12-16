@@ -421,7 +421,7 @@ export class RequestsPage {
       case 'phone':
         return '電話番号';
       case 'contactEmail':
-        return '連絡先メール';
+        return 'メールアドレス';
       case 'kana':
         return 'カナ';
       case 'other':
