@@ -103,8 +103,11 @@ export class CurrentUserService {
       }
 
       return snapshot.docs[0]?.id ?? null;
-    } catch (error) {
-      console.error('従業員レコードの検索に失敗しました', error);
+    } catch (error: any) {
+      // 権限エラーの場合はログを出さない（事業所作成直後など、employeeIdが未設定の管理者が検索する際に発生する想定）
+      if (error?.code !== 'permission-denied') {
+        console.error('従業員レコードの検索に失敗しました', error);
+      }
       return null;
     }
     });
