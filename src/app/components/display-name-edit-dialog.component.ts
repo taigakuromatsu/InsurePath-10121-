@@ -33,10 +33,10 @@ export interface DisplayNameEditDialogData {
         <mat-label>ディスプレイネーム</mat-label>
         <input matInput formControlName="displayName" required maxlength="120" />
         <mat-hint>1文字以上120文字以内で入力してください</mat-hint>
-        <mat-error *ngIf="form.controls.displayName.hasError('required')">
+        <mat-error *ngIf="form.controls['displayName'].hasError('required')">
           ディスプレイネームを入力してください
         </mat-error>
-        <mat-error *ngIf="form.controls.displayName.hasError('maxlength')">
+        <mat-error *ngIf="form.controls['displayName'].hasError('maxlength')">
           120文字以内で入力してください
         </mat-error>
       </mat-form-field>
