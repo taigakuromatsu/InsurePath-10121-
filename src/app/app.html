@@ -22,17 +22,21 @@
 
     <mat-sidenav-content>
       <mat-toolbar color="primary" class="top-toolbar">
-        <span class="app-name">InsurePath</span>
+        <div class="user-meta" *ngIf="office$ | async as office">
+          <mat-icon aria-hidden="true">apartment</mat-icon>
+          <span>{{ office?.name }}</span>
+        </div>
         <span class="spacer"></span>
         <ng-container *ngIf="userProfile$ | async as user">
-          <div class="user-meta" *ngIf="office$ | async as office">
-            <mat-icon aria-hidden="true">apartment</mat-icon>
-            <span>{{ office?.name }}</span>
-          </div>
+          <div class="user-chip-container">
           <button mat-button class="user-chip" disableRipple>
             <mat-icon aria-hidden="true">account_circle</mat-icon>
             {{ user.displayName }} ({{ user.role }})
           </button>
+            <button mat-icon-button class="edit-display-name-btn" (click)="openDisplayNameEditDialog()" matTooltip="ディスプレイネームを編集">
+              <mat-icon aria-hidden="true">edit</mat-icon>
+            </button>
+          </div>
         </ng-container>
         <button mat-stroked-button color="accent" (click)="signOut()">
           <mat-icon aria-hidden="true">logout</mat-icon>

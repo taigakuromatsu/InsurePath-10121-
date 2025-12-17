@@ -108,7 +108,7 @@ export interface DependentFormDialogData {
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>生年月日 *</mat-label>
-        <input matInput formControlName="dateOfBirth" type="date" required />
+        <input matInput formControlName="dateOfBirth" type="date" min="1900-01-01" max="2100-12-31" required />
         <mat-error *ngIf="form.controls.dateOfBirth.hasError('required')">
           生年月日を入力してください
         </mat-error>
@@ -119,7 +119,7 @@ export interface DependentFormDialogData {
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>資格取得日（任意）</mat-label>
-        <input matInput formControlName="qualificationAcquiredDate" type="date" />
+        <input matInput formControlName="qualificationAcquiredDate" type="date" min="1900-01-01" max="2100-12-31" />
         <mat-error *ngIf="form.controls.qualificationAcquiredDate.hasError('pattern')">
           YYYY-MM-DD 形式で入力してください
         </mat-error>
@@ -127,7 +127,7 @@ export interface DependentFormDialogData {
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>資格喪失日（任意）</mat-label>
-        <input matInput formControlName="qualificationLossDate" type="date" />
+        <input matInput formControlName="qualificationLossDate" type="date" min="1900-01-01" max="2100-12-31" />
         <mat-error *ngIf="form.controls.qualificationLossDate.hasError('pattern')">
           YYYY-MM-DD 形式で入力してください
         </mat-error>

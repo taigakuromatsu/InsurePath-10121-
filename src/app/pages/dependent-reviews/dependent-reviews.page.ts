@@ -51,24 +51,85 @@ interface DependentWithReview extends Dependent {
     <div class="page-container">
       <header class="page-header">
         <div>
-            <h1>扶養状況確認・年次見直し</h1>
-          <p class="mb-0" style="color: var(--mat-sys-on-surface-variant)">
-            被扶養者の年次見直しや「被扶養者状況リスト」への回答作業を支援します。
+          <h1>被扶養者状況確認・年次見直し</h1>
+          <p class="page-description">
+            健康保険組合等から送付される「被扶養者状況リスト」への回答作業を支援します。
+            特定の基準年月日時点で扶養に入っている被扶養者を抽出し、各被扶養者の扶養状況を確認・記録できます。
+          </p>
+          <p class="page-note">
+            <mat-icon class="info-icon">info</mat-icon>
+            <strong>注意：</strong>被扶養者資格の最終的な認定（継続・喪失）は事業所および健康保険組合等の判断となります。
+            本システムは確認結果の記録・参照を支援する役割にとどめます。
           </p>
         </div>
       </header>
 
+      <!-- ワークフローガイド -->
+      <mat-card class="workflow-guide-card">
+        <div class="workflow-header">
+          <mat-icon color="primary">help_outline</mat-icon>
+          <h2 class="mat-h2 mb-0">使い方ガイド</h2>
+        </div>
+        <div class="workflow-steps">
+          <div class="workflow-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <h3 class="step-title">確認実施記録を作成</h3>
+              <p class="step-description">
+                健康保険組合から送付された「被扶養者状況リスト」に対応する確認実施記録を作成します。
+                基準年月日（例：2025年4月1日現在）と実施日を設定してください。
+              </p>
+            </div>
+          </div>
+          <div class="workflow-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <h3 class="step-title">基準年月日時点の被扶養者を抽出</h3>
+              <p class="step-description">
+                基準年月日を選択して「抽出」ボタンをクリックすると、その時点で扶養に入っている被扶養者の一覧が表示されます。
+                この一覧は健康保険組合に提出する「被扶養者状況リスト」の対象者です。
+              </p>
+            </div>
+          </div>
+          <div class="workflow-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <h3 class="step-title">各被扶養者の確認結果を記録</h3>
+              <p class="step-description">
+                抽出された被扶養者ごとに、確認区分（継続／削除予定／要確認）を設定します。
+                必要に応じて備考欄に所得状況や就労状況などのメモを記録できます。
+              </p>
+            </div>
+          </div>
+          <div class="workflow-step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+              <h3 class="step-title">確認結果を確認・管理</h3>
+              <p class="step-description">
+                「確認結果一覧」で、記録した確認結果を一覧表示・検索できます。
+                確認実施記録を選択すると、特定の確認実施記録に紐づく確認結果のみを表示できます。
+              </p>
+            </div>
+          </div>
+        </div>
+      </mat-card>
+
       <mat-card class="content-card">
         <div class="flex-row justify-between align-center mb-4">
-          <div>
+          <div class="section-header">
             <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
               <mat-icon color="primary">search</mat-icon> 基準年月日時点での被扶養者抽出
             </h2>
+            <p class="section-description">
+              健康保険組合から指定された基準年月日（例：2025年4月1日現在）を選択し、
+              その時点で扶養に入っている被扶養者の一覧を抽出します。
+              抽出された一覧は「被扶養者状況リスト」への回答作業に使用します。
+            </p>
           </div>
           <div class="extraction-controls flex-row gap-3 align-center flex-wrap">
             <mat-form-field appearance="outline" class="dense-form-field">
               <mat-label>基準年月日</mat-label>
-              <input matInput type="date" [value]="referenceDate" (change)="referenceDate = $any($event.target).value" />
+              <input matInput type="date" [value]="referenceDate" (change)="referenceDate = $any($event.target).value" min="1900-01-01" max="2100-12-31" />
             </mat-form-field>
             <button mat-flat-button color="primary" (click)="extractDependents()">
               <mat-icon>search</mat-icon>
@@ -78,6 +139,11 @@ interface DependentWithReview extends Dependent {
         </div>
 
         <div *ngIf="extractedDependents$ | async as dependents; else noExtraction">
+          <div class="table-hint" *ngIf="dependents && dependents.length > 0">
+            <mat-icon>lightbulb_outline</mat-icon>
+            <span>各被扶養者の「確認区分」ボタンをクリックして、継続・削除予定・要確認のいずれかを選択してください。
+            詳細な情報を記録する場合は、各行の編集ボタン（<mat-icon class="inline-icon">edit</mat-icon>）をクリックしてください。</span>
+          </div>
           <div class="table-container" *ngIf="dependents && dependents.length > 0; else empty">
             <table mat-table [dataSource]="dependents" class="admin-table">
               <!-- 行番号列 -->
@@ -190,12 +256,20 @@ interface DependentWithReview extends Dependent {
       </mat-card>
 
       <mat-card class="content-card">
+        <div class="section-header mb-4">
+          <h2 class="mat-h2 mb-2 flex-row align-center gap-2">
+            <mat-icon color="primary">list</mat-icon> 確認結果一覧
+          </h2>
+          <p class="section-description">
+            記録した被扶養者の確認結果を一覧表示・管理します。
+            確認実施記録を選択すると、特定の確認実施記録に紐づく確認結果のみを表示できます。
+          </p>
+        </div>
         <div class="flex-row justify-between align-center mb-4 flex-wrap gap-2">
           <div class="flex-row gap-2 align-center flex-wrap">
-            <h2 class="mat-h2 mb-0">確認結果一覧</h2>
             <div class="session-controls">
               <mat-form-field appearance="outline" class="filter-select session-select dense-form-field">
-                <mat-label>セッション</mat-label>
+                <mat-label>確認実施記録</mat-label>
                 <mat-select [value]="selectedSessionId$.value" (selectionChange)="selectedSessionId$.next($event.value || null)">
                   <mat-option [value]="null">すべての確認結果</mat-option>
                   <mat-option *ngFor="let session of sessions$ | async" [value]="session.id">
@@ -206,7 +280,16 @@ interface DependentWithReview extends Dependent {
 
               <button mat-stroked-button type="button" color="primary" (click)="openCreateSessionDialog()">
                 <mat-icon>event_available</mat-icon>
-                セッションを作成
+                確認実施記録を作成
+              </button>
+              <button
+                *ngIf="selectedSessionId$.value"
+                mat-stroked-button
+                type="button"
+                (click)="openEditSessionDialog()"
+              >
+                <mat-icon>edit</mat-icon>
+                編集
               </button>
             </div>
             <mat-form-field appearance="outline" class="filter-select dense-form-field">
@@ -219,10 +302,22 @@ interface DependentWithReview extends Dependent {
               </mat-select>
             </mat-form-field>
           </div>
-          <button mat-flat-button color="primary" (click)="openCreateDialog()">
+          <div class="create-button-wrapper">
+            <button
+              mat-flat-button
+              color="primary"
+              [disabled]="!(selectedSessionId$ | async)"
+              [matTooltip]="!(selectedSessionId$ | async) ? '確認実施記録を選択してから登録してください' : ''"
+              (click)="openCreateDialog()"
+            >
             <mat-icon>add</mat-icon>
             確認結果を登録
           </button>
+            <p *ngIf="!(selectedSessionId$ | async)" class="button-hint">
+              <mat-icon>info</mat-icon>
+              確認実施記録を選択してから登録してください
+            </p>
+          </div>
         </div>
 
         <div *ngIf="reviewsViewModel$ | async as reviewsViewModel; else loading">
@@ -314,9 +409,111 @@ interface DependentWithReview extends Dependent {
         gap: 24px;
       }
 
+      .page-header {
+        margin-bottom: 8px;
+      }
+
+      .page-description {
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 12px 0 16px 0;
+      }
+
+      .page-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px 16px;
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        border-radius: 4px;
+        color: #856404;
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      .info-icon {
+        margin-top: 2px;
+        flex-shrink: 0;
+      }
+
+      .workflow-guide-card {
+        padding: 24px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+        border: 1px solid #e0e0e0;
+      }
+
+      .workflow-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .workflow-steps {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      .workflow-step {
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .step-number {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--mat-sys-primary);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 16px;
+      }
+
+      .step-content {
+        flex: 1;
+      }
+
+      .step-title {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 8px 0;
+        color: var(--mat-sys-on-surface);
+      }
+
+      .step-description {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--mat-sys-on-surface-variant);
+        margin: 0;
+      }
+
       .content-card {
         padding: 24px;
         border-radius: 8px;
+      }
+
+      .section-header {
+        margin-bottom: 16px;
+      }
+
+      .section-description {
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 8px 0 0 0;
       }
 
       .mb-0 { margin-bottom: 0; }
@@ -421,6 +618,56 @@ interface DependentWithReview extends Dependent {
 
       .no-review {
         color: #9ca3af;
+      }
+
+      .table-hint {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        border-radius: 4px;
+        margin-bottom: 16px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #1565c0;
+      }
+
+      .table-hint mat-icon {
+        flex-shrink: 0;
+        margin-top: 2px;
+        color: #2196f3;
+      }
+
+      .inline-icon {
+        display: inline-flex;
+        vertical-align: middle;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      .create-button-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+      }
+
+      .button-hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        font-size: 12px;
+        color: var(--mat-sys-on-surface-variant);
+      }
+
+      .button-hint mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
       }
     `
   ]
@@ -682,6 +929,79 @@ export class DependentReviewsPage {
       });
   }
 
+  async openEditSessionDialog(): Promise<void> {
+    const sessionId = await firstValueFrom(this.selectedSessionId$);
+    if (!sessionId) return;
+
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
+    if (!officeId) return;
+
+    const session = await firstValueFrom(
+      this.sessions$.pipe(
+        map((sessions) => sessions.find((s) => s.id === sessionId)),
+        take(1)
+      )
+    );
+    if (!session) return;
+
+    // この確認実施記録に紐づく確認結果の数を取得
+    const reviewsForSession = await firstValueFrom(
+      this.reviewsService.list(officeId, { sessionId }).pipe(take(1))
+    );
+    const reviewCount = reviewsForSession.length;
+    const canDelete = reviewCount === 0;
+
+    this.dialog
+      .open(SessionFormDialogComponent, {
+        width: '600px',
+        data: {
+          session,
+          referenceDate: session.referenceDate,
+          canDelete,
+          reviewCount
+        }
+      })
+      .afterClosed()
+      .subscribe(async (result) => {
+        if (!result) return;
+
+        if (result.delete) {
+          // 削除処理
+          await this.deleteSession(sessionId);
+          return;
+        }
+
+        // 更新処理
+        const currentUserProfile = await firstValueFrom(this.currentUser.profile$);
+        const currentUserId = currentUserProfile?.id;
+        if (!currentUserId) {
+          throw new Error('ユーザーIDが取得できませんでした');
+        }
+
+        await this.sessionsService.update(
+          officeId,
+          sessionId,
+          {
+            referenceDate: result.referenceDate,
+            checkedAt: result.checkedAt,
+            checkedBy: result.checkedBy || currentUserProfile?.displayName || '',
+            note: result.note
+          },
+          currentUserId
+        );
+      });
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    const officeId = await firstValueFrom(this.currentOffice.officeId$);
+    if (!officeId) return;
+
+    await this.sessionsService.delete(officeId, sessionId);
+
+    // 削除後は選択を解除
+    this.selectedSessionId$.next(null);
+  }
+
   async onCreateSession(sessionData: {
     referenceDate: string;
     checkedAt: string;
@@ -758,10 +1078,16 @@ export class DependentReviewsPage {
     const officeId = await firstValueFrom(this.currentOffice.officeId$);
     if (!officeId) return;
 
+    const selectedSessionId = await firstValueFrom(this.selectedSessionId$);
+    if (!selectedSessionId) {
+      alert('確認実施記録を選択してから登録してください。');
+      return;
+    }
+
     this.dialog
       .open(ReviewFormDialogComponent, {
         width: '600px',
-        data: { officeId }
+        data: { officeId, sessionId: selectedSessionId }
       })
       .afterClosed()
       .subscribe();
@@ -771,10 +1097,17 @@ export class DependentReviewsPage {
     const officeId = await firstValueFrom(this.currentOffice.officeId$);
     if (!officeId) return;
 
+    const selectedSessionId = await firstValueFrom(this.selectedSessionId$);
+
     this.dialog
       .open(ReviewFormDialogComponent, {
         width: '600px',
-        data: { officeId, employeeId: dependent.employeeId, dependentId: dependent.id }
+        data: {
+          officeId,
+          employeeId: dependent.employeeId,
+          dependentId: dependent.id,
+          ...(selectedSessionId ? { sessionId: selectedSessionId } : {})
+        }
       })
       .afterClosed()
       .subscribe();

@@ -94,7 +94,7 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>生年月日</mat-label>
-        <input matInput formControlName="birthDate" type="date" required />
+        <input matInput formControlName="birthDate" type="date" min="1900-01-01" max="2100-12-31" required />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -104,12 +104,12 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>入社日</mat-label>
-        <input matInput formControlName="hireDate" type="date" />
+        <input matInput formControlName="hireDate" type="date" min="1900-01-01" max="2100-12-31" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>退社日</mat-label>
-        <input matInput formControlName="retireDate" type="date" />
+        <input matInput formControlName="retireDate" type="date" min="1900-01-01" max="2100-12-31" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -467,7 +467,7 @@ export interface EmployeeDialogData {
         <div class="form-grid">
       <mat-form-field appearance="outline">
         <mat-label>資格取得日（健保）</mat-label>
-        <input matInput type="date" formControlName="healthQualificationDate" />
+        <input matInput type="date" formControlName="healthQualificationDate" min="1900-01-01" max="2100-12-31" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -483,7 +483,7 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>資格喪失日（健保）</mat-label>
-        <input matInput type="date" formControlName="healthLossDate" />
+        <input matInput type="date" formControlName="healthLossDate" min="1900-01-01" max="2100-12-31" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -508,7 +508,7 @@ export interface EmployeeDialogData {
         <div class="form-grid">
       <mat-form-field appearance="outline">
         <mat-label>資格取得日（厚年）</mat-label>
-        <input matInput type="date" formControlName="pensionQualificationDate" />
+        <input matInput type="date" formControlName="pensionQualificationDate" min="1900-01-01" max="2100-12-31" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -524,7 +524,7 @@ export interface EmployeeDialogData {
 
       <mat-form-field appearance="outline">
         <mat-label>資格喪失日（厚年）</mat-label>
-        <input matInput type="date" formControlName="pensionLossDate" />
+        <input matInput type="date" formControlName="pensionLossDate" min="1900-01-01" max="2100-12-31" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">

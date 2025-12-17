@@ -20,6 +20,7 @@ export interface ReviewFormDialogData {
   officeId: string;
   employeeId?: string;
   dependentId?: string;
+  sessionId?: string; // 確認実施記録ID
 }
 
 @Component({
@@ -64,7 +65,7 @@ export interface ReviewFormDialogData {
 
         <mat-form-field appearance="outline">
           <mat-label>確認日</mat-label>
-          <input matInput type="date" formControlName="reviewDate" />
+          <input matInput type="date" formControlName="reviewDate" min="1900-01-01" max="2100-12-31" />
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -196,7 +197,8 @@ export class ReviewFormDialogComponent {
           reviewDate: formValue.reviewDate || '',
           result: formValue.result as DependentReviewResult,
           reviewedBy,
-          note: formValue.note || ''
+          note: formValue.note || '',
+          ...(this.data.sessionId ? { sessionId: this.data.sessionId } : {})
         },
         currentUserId
       );

@@ -84,12 +84,12 @@ export interface ProcedureFormDialogData {
             事由発生日
             <mat-icon [matTooltip]="getDeadlineTooltip()" class="info-icon-small">info</mat-icon>
           </mat-label>
-          <input matInput type="date" formControlName="incidentDate" (change)="onIncidentDateChange()" />
+          <input matInput type="date" formControlName="incidentDate" (change)="onIncidentDateChange()" min="1900-01-01" max="2100-12-31" />
         </mat-form-field>
 
         <mat-form-field appearance="outline">
           <mat-label>提出期限</mat-label>
-          <input matInput type="date" formControlName="deadline" />
+          <input matInput type="date" formControlName="deadline" min="1900-01-01" max="2100-12-31" />
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -104,7 +104,7 @@ export interface ProcedureFormDialogData {
 
         <mat-form-field appearance="outline" *ngIf="form.get('status')?.value === 'submitted'">
           <mat-label>提出日</mat-label>
-          <input matInput type="date" formControlName="submittedAt" />
+          <input matInput type="date" formControlName="submittedAt" min="1900-01-01" max="2100-12-31" />
         </mat-form-field>
 
         <mat-form-field appearance="outline">

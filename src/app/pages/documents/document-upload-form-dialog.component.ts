@@ -88,7 +88,7 @@ export interface DocumentUploadFormDialogData {
 
         <mat-form-field appearance="outline" class="w-100">
           <mat-label>有効期限（任意）</mat-label>
-          <input matInput formControlName="expiresAt" type="date" />
+          <input matInput formControlName="expiresAt" type="date" min="1900-01-01" max="2100-12-31" />
         </mat-form-field>
 
                 <!-- ここを差し替え -->

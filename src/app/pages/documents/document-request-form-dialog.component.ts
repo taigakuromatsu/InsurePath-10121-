@@ -93,7 +93,7 @@ export interface DocumentRequestFormDialogData {
 
         <mat-form-field appearance="outline" class="w-100">
           <mat-label>締め切り日（任意）</mat-label>
-          <input matInput formControlName="dueDate" type="date" />
+          <input matInput formControlName="dueDate" type="date" min="1900-01-01" max="2100-12-31" />
         </mat-form-field>
       </div>
       <div mat-dialog-actions align="end">

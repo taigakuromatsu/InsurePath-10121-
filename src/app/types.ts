@@ -108,6 +108,7 @@ export interface UserProfile {
   employeeId?: string;
   createdAt?: IsoDateString;
   updatedAt?: IsoDateString;
+  hasSeenOnboarding?: boolean; // 初回オンボーディング表示済みフラグ
 }
 
 export type HealthPlanType = 'kyokai' | 'kumiai';

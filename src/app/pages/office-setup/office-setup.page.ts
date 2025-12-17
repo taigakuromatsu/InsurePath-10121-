@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,10 +8,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { firstValueFrom } from 'rxjs';
 
 import { CurrentUserService } from '../../services/current-user.service';
 import { OfficesService } from '../../services/offices.service';
 import { HealthPlanType } from '../../types';
+import { OnboardingDialogComponent } from '../../components/onboarding-dialog.component';
 
 @Component({
   selector: 'ip-office-setup-page',
@@ -24,6 +27,7 @@ import { HealthPlanType } from '../../types';
     MatInputModule,
     MatSelectModule,
     MatSnackBarModule,
+    MatDialogModule,
     ReactiveFormsModule
   ],
   template: `
@@ -179,12 +183,13 @@ import { HealthPlanType } from '../../types';
     `
   ]
 })
-export class OfficeSetupPage {
+export class OfficeSetupPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly officesService = inject(OfficesService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
 
   readonly form = this.fb.group({
     name: ['', Validators.required],
@@ -193,6 +198,35 @@ export class OfficeSetupPage {
   });
 
   readonly loading = signal(false);
+
+  ngOnInit(): void {
+    this.checkAndShowOnboarding();
+  }
+
+  private async checkAndShowOnboarding(): Promise<void> {
+    const profile = await firstValueFrom(this.currentUser.profile$);
+    if (!profile) {
+      return;
+    }
+
+    // 既にオンボーディングを見た場合はスキップ
+    if (profile.hasSeenOnboarding) {
+      return;
+    }
+
+    // オンボーディングダイアログを表示
+    const dialogRef = this.dialog.open(OnboardingDialogComponent, {
+      width: '600px',
+      disableClose: false
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result) {
+        // フラグを更新
+        await this.currentUser.updateProfile({ hasSeenOnboarding: true });
+      }
+    });
+  }
 
   async createOffice(): Promise<void> {
     if (this.form.invalid) {

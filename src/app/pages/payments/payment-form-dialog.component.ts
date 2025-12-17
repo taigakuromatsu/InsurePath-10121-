@@ -133,7 +133,7 @@ export interface PaymentFormDialogData {
 
         <mat-form-field appearance="outline">
           <mat-label>納付日</mat-label>
-          <input matInput type="date" formControlName="paymentDate" />
+          <input matInput type="date" formControlName="paymentDate" min="1900-01-01" max="2100-12-31" />
           <mat-hint>実際に保険料を納付した日を入力してください。</mat-hint>
           <mat-error *ngIf="paidRequiresActualAndDateError && form.touched">
             「納付済」を選択した場合は、納付日の入力が必須です。

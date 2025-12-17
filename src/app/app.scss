@@ -64,17 +64,55 @@ a[mat-list-item] mat-icon {
   flex: 1 1 auto;
 }
 
+.user-chip-container {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-right: 1rem;
+}
+
 .user-chip {
   text-transform: none;
   font-weight: 500;
+}
+
+.edit-display-name-btn {
+  color: #ffffff;
+  background-color: rgba(156, 39, 176, 0.7); // アクセントカラー（violet）に合わせた色
+  border: 1px solid rgba(156, 39, 176, 0.9);
+  transition: all 0.2s ease;
+  margin-left: 8px;
+  border-radius: 4px;
+  
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+  
+  &:hover {
+    background-color: rgba(156, 39, 176, 0.85);
+    border-color: rgba(156, 39, 176, 1);
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+  }
+  
+  &:active {
+    background-color: rgba(156, 39, 176, 0.75);
+  }
 }
 
 .user-meta {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  margin-left: 2rem;
   margin-right: 0.75rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: #000000;
+  
+  mat-icon {
+    color: #000000;
+  }
 }
 
 .main-content {

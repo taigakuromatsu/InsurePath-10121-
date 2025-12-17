@@ -100,7 +100,7 @@ export interface DependentUpdateRequestFormDialogData {
 
           <mat-form-field appearance="outline" class="flex-1">
             <mat-label>生年月日</mat-label>
-            <input matInput formControlName="dateOfBirth" type="date" required />
+            <input matInput formControlName="dateOfBirth" type="date" min="1900-01-01" max="2100-12-31" required />
             <mat-error *ngIf="form.get('dateOfBirth')?.hasError('required')">
               生年月日を入力してください
             </mat-error>

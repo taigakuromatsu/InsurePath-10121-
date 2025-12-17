@@ -130,7 +130,7 @@ interface DocumentViewModel {
           <ng-container *ngIf="data.employee && vm.type !== 'monthly_bonus_payment'">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>対象基準日</mat-label>
-              <input matInput type="date" [formControl]="referenceDateControl" />
+              <input matInput type="date" [formControl]="referenceDateControl" min="1900-01-01" max="2100-12-31" />
             </mat-form-field>
           </ng-container>
 

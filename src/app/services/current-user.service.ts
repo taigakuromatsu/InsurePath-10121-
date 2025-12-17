@@ -1,7 +1,7 @@
 // src/app/services/current-user.service.ts
 
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
-import { Auth } from '@angular/fire/auth';
+import { Auth, updateProfile } from '@angular/fire/auth';
 import {
   collection,
   doc,
@@ -170,6 +170,32 @@ export class CurrentUserService {
     const current = this.profileSubject.value;
     if (current) {
       this.profileSubject.next({ ...current, ...payload, updatedAt });
+    }
+    });
+  }
+
+  /**
+   * ディスプレイネームを更新（Firebase AuthとFirestoreの両方を更新）
+   */
+  async updateDisplayName(newDisplayName: string): Promise<void> {
+    return this.inCtxAsync(async () => {
+      const user = this.auth.currentUser;
+      if (!user) {
+        throw new Error('ログイン情報を確認できませんでした');
+      }
+
+      // Firebase Authのプロファイルを更新
+      await updateProfile(user, { displayName: newDisplayName });
+
+      // Firestoreのusersコレクションも更新
+      const userDoc = doc(this.firestore, 'users', user.uid);
+      const updatedAt = new Date().toISOString();
+      await updateDoc(userDoc, { displayName: newDisplayName, updatedAt });
+
+      // ローカルキャッシュも更新
+      const current = this.profileSubject.value;
+      if (current) {
+        this.profileSubject.next({ ...current, displayName: newDisplayName, updatedAt });
     }
     });
   }

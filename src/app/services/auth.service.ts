@@ -64,23 +64,23 @@ export class AuthService {
     const userDoc = this.inCtx(() => doc(this.firestore, 'users', user.uid));
     const snapshot = await this.inCtxP(() => getDoc(userDoc));
 
+    const existingData = snapshot.exists() ? snapshot.data() : null;
+    
     const baseProfile: UserProfile = {
       id: user.uid,
-      officeId: snapshot.exists()
-        ? (snapshot.data()['officeId'] as string | undefined)
-        : undefined,
-      role: (snapshot.exists() ? snapshot.data()['role'] : 'employee') as UserProfile['role'],
-      displayName: user.displayName ?? user.email ?? 'User',
+      officeId: existingData?.['officeId'] as string | undefined,
+      role: (existingData?.['role'] ?? 'employee') as UserProfile['role'],
+      // Firestoreに既にdisplayNameがある場合はそれを優先（ユーザーが手動編集した可能性があるため）
+      // ない場合のみFirebase AuthのdisplayNameを使用
+      displayName: existingData?.['displayName'] ?? user.displayName ?? user.email ?? 'User',
       email: user.email ?? 'unknown@example.com',
-      createdAt: snapshot.exists()
-        ? snapshot.data()['createdAt']
-        : new Date().toISOString(),
+      createdAt: existingData?.['createdAt'] ?? new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     if (snapshot.exists()) {
+      // emailとupdatedAtのみ更新（displayNameは既存のものを保持）
       await this.inCtxP(() => updateDoc(userDoc, {
-        displayName: baseProfile.displayName,
         email: baseProfile.email,
         updatedAt: baseProfile.updatedAt
       }));
