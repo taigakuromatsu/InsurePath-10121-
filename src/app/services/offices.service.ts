@@ -2,9 +2,9 @@ import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '
 import {
   Firestore,
   collection,
+  collectionData,
   doc,
   getDoc,
-  getDocs,
   setDoc
 } from '@angular/fire/firestore';
 import { from, map, Observable } from 'rxjs';
@@ -47,20 +47,13 @@ export class OfficesService {
     });
   }
 
-  // 事業所一覧を1回取得
+  /**
+   * 事業所一覧をリアルタイムで監視（watch）
+   * データ変更を自動的に検知します。
+   */
   listOffices(): Observable<Office[]> {
     return this.inCtx(() => {
-      return from(getDocs(this.getCollectionRef())).pipe(
-      map((snapshot) =>
-        snapshot.docs.map(
-          (d) =>
-            ({
-              id: d.id,
-              ...(d.data() as any)
-            } as Office)
-        )
-      )
-    );
+      return collectionData(this.getCollectionRef(), { idField: 'id' }) as Observable<Office[]>;
     });
   }
 

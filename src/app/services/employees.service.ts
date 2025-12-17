@@ -2,6 +2,7 @@ import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '
 import {
   Firestore,
   collection,
+  collectionData,
   deleteDoc,
   deleteField,
   doc,
@@ -96,21 +97,14 @@ export class EmployeesService {
     });
   }
 
-  // ★ここは getDocs に戻す（元の形）
+  /**
+   * 従業員一覧をリアルタイムで監視（watch）
+   * データ変更を自動的に検知します。
+   */
   list(officeId: string): Observable<Employee[]> {
     return this.inCtx(() => {
-    const ref = this.collectionPath(officeId);
-    return from(getDocs(ref)).pipe(
-      map((snapshot) =>
-        snapshot.docs.map(
-          (d) =>
-            ({
-              id: d.id,
-              ...(d.data() as any)
-            } as Employee)
-        )
-      )
-    );
+      const ref = this.collectionPath(officeId);
+      return collectionData(ref, { idField: 'id' }) as Observable<Employee[]>;
     });
   }
 

@@ -777,6 +777,7 @@ type MonthlyPremiumViewRow = MonthlyPremium & {
         border-radius: 8px;
         border: 1px solid #e0e0e0;
         overflow: hidden;
+        overflow-x: auto; /* 横スクロールを有効化 */
         background: #fff;
         margin-bottom: 24px;
       }

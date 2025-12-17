@@ -13,11 +13,9 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSortModule, MatSort, Sort } from '@angular/material/sort';
 import {
-  Subject,
   combineLatest,
   map,
   of,
-  startWith,
   switchMap,
   tap,
   firstValueFrom
@@ -1065,9 +1063,6 @@ export class EmployeesPage {
     map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
   );
 
-  // 保存・削除後に一覧を取り直すためのトリガー
-  private readonly reload$ = new Subject<void>();
-
   // フィルターモード（デフォルトは在籍者のみ）
   readonly filterMode = signal<'active' | 'retired' | 'all'>('active');
 
@@ -1077,13 +1072,10 @@ export class EmployeesPage {
   // MatTableDataSource
   readonly dataSource = new MatTableDataSource<EmployeeWithUpdatedBy>([]);
 
-  // officeId$ と reload$ を組み合わせて、初回＆更新のたびに list() を実行
-  readonly employees$ = combineLatest([
-    this.officeId$,
-    this.reload$.pipe(startWith<void>(undefined))
-  ]).pipe(
-    tap(([officeId]) => console.log('[EmployeesPage] officeId$', officeId)),
-    switchMap(([officeId]) => {
+  // リアルタイムリスナーで従業員一覧を監視（データ変更を自動的に検知）
+  readonly employees$ = this.officeId$.pipe(
+    tap((officeId) => console.log('[EmployeesPage] officeId$', officeId)),
+    switchMap((officeId) => {
       if (!officeId) {
         return of([] as Employee[]);
       }
@@ -1355,9 +1347,7 @@ export class EmployeesPage {
         { duration: 4000 }
       );
 
-      if (result.successCount > 0) {
-        this.reload$.next();
-      }
+      // リアルタイムリスナーにより自動的に一覧が更新される
     });
   }
 
@@ -1431,11 +1421,11 @@ export class EmployeesPage {
         return;
       }
       this.snackBar.open('招待URLを生成しました', '閉じる', { duration: 3000 });
-      this.reload$.next();
+      // リアルタイムリスナーにより自動的に一覧が更新される
     });
   }
 
-  // 編集ダイアログを開いて保存後に reload$.next() で一覧を再取得
+  // 編集ダイアログを開く（保存後はリアルタイムリスナーにより自動的に一覧が更新される）
   async openDialog(employee?: Employee): Promise<void> {
     const officeId = await firstValueFrom(this.officeId$);
     if (!officeId) {
@@ -1449,17 +1439,10 @@ export class EmployeesPage {
     });
 
     dialogRef.afterClosed().subscribe(async (result) => {
-      // 履歴が変更された場合は、保存していなくても一覧を再読み込み
-      if (result?.historyChanged) {
-        this.reload$.next();
-      }
-
+      // リアルタイムリスナーにより自動的に一覧が更新される
       if (!result?.saved) {
         return;
       }
-
-      // 一覧再読み込み
-      this.reload$.next();
 
       if (result.mode === 'created' && result.employeeId) {
         const snackRef = this.snackBar.open(
@@ -1515,7 +1498,7 @@ export class EmployeesPage {
     await this.delete(employee);
   }
 
-  // 削除後も reload$.next() で一覧を再取得
+  // 削除処理（削除後はリアルタイムリスナーにより自動的に一覧が更新される）
   private async delete(employee: Employee): Promise<void> {
     const officeId = await firstValueFrom(this.officeId$);
     if (!officeId) {
@@ -1524,8 +1507,7 @@ export class EmployeesPage {
     try {
       await this.employeesService.delete(officeId, employee.id);
       this.snackBar.open('従業員を削除しました', '閉じる', { duration: 3000 });
-      // 一覧再読み込み
-      this.reload$.next();
+      // リアルタイムリスナーにより自動的に一覧が更新される
     } catch (error) {
       console.error(error);
       this.snackBar.open('従業員の削除に失敗しました', '閉じる', {
