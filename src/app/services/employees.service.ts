@@ -103,7 +103,7 @@ export class EmployeesService {
    */
   list(officeId: string): Observable<Employee[]> {
     return this.inCtx(() => {
-      const ref = this.collectionPath(officeId);
+    const ref = this.collectionPath(officeId);
       return collectionData(ref, { idField: 'id' }) as Observable<Employee[]>;
     });
   }
