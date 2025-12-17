@@ -23,8 +23,8 @@ import { MatIconModule } from '@angular/material/icon';
         <div class="step-item">
           <div class="step-number">1</div>
           <div class="step-content">
-            <h4>事業所設定</h4>
-            <p>事業所情報を設定します。</p>
+            <h4>事業所作成・設定</h4>
+            <p>事業所作成後に事業所情報を設定します（作成後にサイドバーが表示されるようになります）。</p>
           </div>
         </div>
         

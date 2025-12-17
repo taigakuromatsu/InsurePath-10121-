@@ -110,7 +110,7 @@ export class CurrentUserService {
     });
   }
 
-  async assignOffice(officeId: string): Promise<void> {
+  async assignOffice(officeId: string, skipEmployeeSearch: boolean = false): Promise<void> {
     return this.inCtxAsync(async () => {
     const user = this.auth.currentUser;
     if (!user) {
@@ -122,7 +122,7 @@ export class CurrentUserService {
     const role = this.profileSubject.value?.role ?? 'employee';
 
     let employeeId = this.profileSubject.value?.employeeId;
-    if (!employeeId && user.email) {
+    if (!employeeId && user.email && !skipEmployeeSearch) {
       employeeId = (await this.findEmployeeIdByEmail(officeId, user.email)) ?? undefined;
     }
 

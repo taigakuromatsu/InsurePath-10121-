@@ -426,6 +426,7 @@ service cloud.firestore {
           'createdAt',
           'updatedAt',
           'employeeId',
+          'hasSeenOnboarding',
         ])
         && (d.id is string && d.id == uid)
         && (!('officeId' in d) || (d.officeId is string))
@@ -441,7 +442,8 @@ service cloud.firestore {
         && (!('employeeId' in d)
             || (d.employeeId is string
                 && d.employeeId.size() > 0
-                && d.employeeId.size() <= 200));
+                && d.employeeId.size() <= 200))
+        && (!('hasSeenOnboarding' in d) || (d.hasSeenOnboarding is bool));
       }
 
       // ① 単一ドキュメント取得: 自分自身だけ

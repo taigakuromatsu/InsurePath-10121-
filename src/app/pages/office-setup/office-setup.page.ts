@@ -200,43 +200,10 @@ export class OfficeSetupPage implements OnInit {
   readonly loading = signal(false);
 
   ngOnInit(): void {
-    // オンボーディングは事業所作成後に表示するため、ここでは何もしない
+    this.checkAndShowOnboarding();
   }
 
-  async createOffice(): Promise<void> {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
-    try {
-      this.loading.set(true);
-      const formValue = this.form.value;
-      const office = await this.officesService.createOffice({
-        name: formValue.name ?? '',
-        address: formValue.address ?? undefined,
-        healthPlanType: (formValue.healthPlanType ?? 'kyokai') as HealthPlanType
-      });
-      await this.currentUser.assignOffice(office.id);
-      await this.currentUser.updateProfile({ role: 'admin' });
-      
-      // 事業所作成後にオンボーディングを表示
-      await this.showOnboardingAfterOfficeCreation();
-      
-      await this.router.navigateByUrl('/offices');
-      this.snackBar.open(
-        '新しい事業所を作成しました。事業所設定画面で事業所記号や郵便番号などの識別情報も入力してください。',
-        '閉じる',
-        { duration: 4000 }
-      );
-    } catch (error) {
-      console.error(error);
-      this.snackBar.open('事業所の作成に失敗しました', '閉じる', { duration: 4000 });
-    } finally {
-      this.loading.set(false);
-    }
-  }
-
-  private async showOnboardingAfterOfficeCreation(): Promise<void> {
+  private async checkAndShowOnboarding(): Promise<void> {
     const profile = await firstValueFrom(this.currentUser.profile$);
     if (!profile) {
       return;
@@ -253,11 +220,40 @@ export class OfficeSetupPage implements OnInit {
       disableClose: false
     });
 
-    // ダイアログが閉じられるまで待機
-    const result = await firstValueFrom(dialogRef.afterClosed());
-    if (result) {
-      // フラグを更新
-      await this.currentUser.updateProfile({ hasSeenOnboarding: true });
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result) {
+        // フラグを更新
+        await this.currentUser.updateProfile({ hasSeenOnboarding: true });
+      }
+    });
+  }
+
+  async createOffice(): Promise<void> {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    try {
+      this.loading.set(true);
+      const formValue = this.form.value;
+      const office = await this.officesService.createOffice({
+        name: formValue.name ?? '',
+        address: formValue.address ?? undefined,
+        healthPlanType: (formValue.healthPlanType ?? 'kyokai') as HealthPlanType
+      });
+      await this.currentUser.assignOffice(office.id, true); // 新規事業所作成時は従業員レコード検索をスキップ
+      await this.currentUser.updateProfile({ role: 'admin' });
+      await this.router.navigateByUrl('/offices');
+      this.snackBar.open(
+        '新しい事業所を作成しました。事業所設定画面で事業所記号や郵便番号などの識別情報も入力してください。',
+        '閉じる',
+        { duration: 4000 }
+      );
+    } catch (error) {
+      console.error(error);
+      this.snackBar.open('事業所の作成に失敗しました', '閉じる', { duration: 4000 });
+    } finally {
+      this.loading.set(false);
     }
   }
 }
