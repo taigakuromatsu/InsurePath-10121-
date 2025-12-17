@@ -51,8 +51,8 @@ export class EmployeesService {
       return Object.keys(out).length > 0 ? out : undefined;
     }
 
-    return value;
-  }
+      return value;
+    }
 
   /**
    * payloadをFirestore merge用に変換
@@ -288,7 +288,7 @@ export class EmployeesService {
         if (employee.bankAccount.accountHolderKana !== undefined) ba.accountHolderKana = employee.bankAccount.accountHolderKana;
         if (employee.bankAccount.isMain !== undefined) ba.isMain = employee.bankAccount.isMain;
         payload.bankAccount = ba;
-      }
+    }
     }
 
     // payrollSettings: 指定されたキーだけpayloadに入れる（?? nullをやめる）

@@ -19,6 +19,7 @@ import {
   StandardRewardHistoryAddConfirmDialogComponent,
   StandardRewardHistoryAddConfirmDialogData
 } from './standard-reward-history-add-confirm-dialog.component';
+import { StandardRewardHistoryDialogComponent } from './standard-reward-history-dialog.component';
 import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/confirm-dialog.component';
 
 import { EmployeesService } from '../../services/employees.service';
@@ -36,7 +37,7 @@ import {
   StandardRewardHistory
 } from '../../types';
 import { CurrentUserService } from '../../services/current-user.service';
-import { combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap } from 'rxjs';
+import { combineLatest, firstValueFrom, map, Observable, of, shareReplay, startWith, switchMap } from 'rxjs';
 import { MyNumberService } from '../../services/mynumber.service';
 import { OfficesService } from '../../services/offices.service';
 import { MastersService } from '../../services/masters.service';
@@ -254,47 +255,13 @@ export interface EmployeeDialogData {
       <!-- 標準報酬セクション -->
       <div class="standard-reward-section">
         <!-- 最新の標準報酬履歴見出し -->
-        <h4 class="latest-standard-reward-title">適用中の標準報酬履歴／新規追加（更新）</h4>
+        <h4 class="latest-standard-reward-title">現在有効な標準報酬（表示のみ）</h4>
 
-        <!-- ヘッダー行：適用開始年月、報酬月額、自動計算ボタン -->
-        <div class="standard-reward-header">
-          <mat-form-field appearance="outline" class="decision-year-month-field">
-            <mat-label>適用開始年月</mat-label>
-            <input matInput type="month" formControlName="decisionYearMonth" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="salary-field">
-            <mat-label>報酬月額（円）</mat-label>
-            <input matInput formControlName="payrollInsurableMonthlyWage" />
-            <mat-hint>標準報酬月額を概算するための月額給与</mat-hint>
-            <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('min')">
-              1以上の数値を入力してください
-            </mat-error>
-            <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('pattern')">
-              数字のみを入力してください
-            </mat-error>
-          </mat-form-field>
-          <button
-            mat-stroked-button
-            type="button"
-            color="primary"
-            [disabled]="!canExecuteAutoInput"
-            (click)="onAutoInputButtonClick()"
-            class="auto-calc-button"
-            [matTooltip]="'報酬月額から保険マスタデータの等級表をもとに標準報酬履歴を自動追加します。'"
-            matTooltipPosition="above"
-          >
-            <mat-icon>auto_fix_high</mat-icon>
-            <span>標準報酬履歴自動追加</span>
-          </button>
-        </div>
-
-        <!-- 説明文（コンパクト） -->
+        <!-- 説明文 -->
         <div class="standard-reward-hint">
           <mat-icon class="hint-icon">info</mat-icon>
           <div class="hint-content">
-            <p class="hint-text">報酬月額と標準報酬は別管理です。標準報酬は"履歴"に追加した内容が保険料計算で使用されます。</p>
-            <p class="hint-text">現在の報酬月額の金額が必ずしも標準報酬月額や等級範囲と一致するとは限りません（例：通勤費の有無などで金額に幅がある場合など）。</p>
-            <p class="hint-text">自動追加はあくまでも報酬月額をもとにした概算なので、標準報酬月額決定通知書と一致しない場合は手動で履歴を追加してください。</p>
+            <p class="hint-text">標準報酬は履歴で管理します。編集は標準報酬履歴フォームで行ってください。</p>
           </div>
         </div>
 
@@ -306,45 +273,25 @@ export interface EmployeeDialogData {
               <mat-icon class="insurance-icon">local_hospital</mat-icon>
               <span class="insurance-title">健康保険</span>
             </div>
-            <div class="grade-reward-row">
-              <mat-form-field appearance="outline" class="grade-field readonly-field">
-                <mat-label>等級</mat-label>
-                <input
-                  matInput
-                  type="number"
-                  formControlName="healthGrade"
-                  readonly
-                  [matTooltip]="'標準報酬月額を選択すると自動的に設定されます'"
-                  matTooltipPosition="above"
-                />
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="reward-field">
-                <mat-label>標準報酬</mat-label>
-                <mat-select formControlName="healthStandardMonthly" [disabled]="!(availableHealthStandardMonthlyRewards$ | async)?.length">
-                  <mat-option *ngFor="let amount of availableHealthStandardMonthlyRewards$ | async" [value]="amount">
-                    {{ amount | number }}円
-                  </mat-option>
-                </mat-select>
-                <mat-spinner *ngIf="loadingHealthMasterData$ | async" diameter="20" matPrefix class="inline-spinner"></mat-spinner>
-                <mat-hint *ngIf="healthCalculationError" style="color:#d32f2f">
-                  {{ healthCalculationError }}
-                </mat-hint>
-                <mat-hint *ngIf="healthHintMessage$ | async as hintMessage">
-                  {{ hintMessage }}
-                </mat-hint>
-              </mat-form-field>
+            <div class="standard-reward-display">
+              <ng-container *ngIf="effectiveHealthStandardReward$ | async as healthReward">
+                <div class="display-row">
+                  <span class="display-label">等級:</span>
+                  <span class="display-value">{{ healthReward.grade ?? '未設定' }}</span>
+                </div>
+                <div class="display-row">
+                  <span class="display-label">標準報酬月額:</span>
+                  <span class="display-value">{{ healthReward.standardMonthlyReward ? (healthReward.standardMonthlyReward | number) + '円' : '未設定' }}</span>
+                </div>
+                <div class="display-row">
+                  <span class="display-label">適用開始年月:</span>
+                  <span class="display-value">{{ healthReward.appliedFromYearMonth }}</span>
+                </div>
+              </ng-container>
+              <div class="display-row" *ngIf="!(effectiveHealthStandardReward$ | async)">
+                <span class="display-value">標準報酬履歴が登録されていません</span>
+              </div>
             </div>
-            <button
-              mat-stroked-button
-              type="button"
-              color="primary"
-              [disabled]="!canAddHealthHistory"
-              (click)="onAddHistoryClick('health')"
-              class="add-history-button-compact"
-            >
-              <mat-icon>add</mat-icon>
-              <span>履歴に追加</span>
-            </button>
           </div>
 
           <!-- 厚生年金カラム -->
@@ -353,48 +300,55 @@ export interface EmployeeDialogData {
               <mat-icon class="insurance-icon">account_balance</mat-icon>
               <span class="insurance-title">厚生年金</span>
             </div>
-            <div class="grade-reward-row">
-              <mat-form-field appearance="outline" class="grade-field readonly-field">
-                <mat-label>等級</mat-label>
-                <input
-                  matInput
-                  type="number"
-                  formControlName="pensionGrade"
-                  readonly
-                  [matTooltip]="'標準報酬月額を選択すると自動的に設定されます'"
-                  matTooltipPosition="above"
-                />
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="reward-field">
-                <mat-label>標準報酬</mat-label>
-                <mat-select formControlName="pensionStandardMonthly" [disabled]="!(availablePensionStandardMonthlyRewards$ | async)?.length">
-                  <mat-option *ngFor="let amount of availablePensionStandardMonthlyRewards$ | async" [value]="amount">
-                    {{ amount | number }}円
-                  </mat-option>
-                </mat-select>
-                <mat-spinner *ngIf="loadingPensionMasterData$ | async" diameter="20" matPrefix class="inline-spinner"></mat-spinner>
-                <mat-hint *ngIf="pensionCalculationError" style="color:#d32f2f">
-                  {{ pensionCalculationError }}
-                </mat-hint>
-                <mat-hint *ngIf="pensionHintMessage$ | async as hintMessage">
-                  {{ hintMessage }}
-                </mat-hint>
-              </mat-form-field>
+            <div class="standard-reward-display">
+              <ng-container *ngIf="effectivePensionStandardReward$ | async as pensionReward">
+                <div class="display-row">
+                  <span class="display-label">等級:</span>
+                  <span class="display-value">{{ pensionReward.grade ?? '未設定' }}</span>
+                </div>
+                <div class="display-row">
+                  <span class="display-label">標準報酬月額:</span>
+                  <span class="display-value">{{ pensionReward.standardMonthlyReward ? (pensionReward.standardMonthlyReward | number) + '円' : '未設定' }}</span>
+                </div>
+                <div class="display-row">
+                  <span class="display-label">適用開始年月:</span>
+                  <span class="display-value">{{ pensionReward.appliedFromYearMonth }}</span>
+                </div>
+              </ng-container>
+              <div class="display-row" *ngIf="!(effectivePensionStandardReward$ | async)">
+                <span class="display-value">標準報酬履歴が登録されていません</span>
+              </div>
             </div>
-            <button
-              mat-stroked-button
-              type="button"
-              color="primary"
-              [disabled]="!canAddPensionHistory"
-              (click)="onAddHistoryClick('pension')"
-              class="add-history-button-compact"
-            >
-              <mat-icon>add</mat-icon>
-              <span>履歴に追加</span>
-            </button>
           </div>
         </div>
+
+        <!-- 標準報酬履歴を開くボタン -->
+        <div class="standard-reward-actions">
+          <button
+            mat-stroked-button
+            type="button"
+            color="primary"
+            (click)="openStandardRewardHistoryDialog()"
+            class="open-history-button"
+          >
+            <mat-icon>history</mat-icon>
+            <span>標準報酬履歴を開く</span>
+          </button>
+        </div>
       </div>
+
+      <!-- 報酬月額フィールド（従業員フォームで編集可能） -->
+      <mat-form-field appearance="outline">
+        <mat-label>報酬月額（円）</mat-label>
+        <input matInput formControlName="payrollInsurableMonthlyWage" />
+        <mat-hint>標準報酬月額を概算するための月額給与</mat-hint>
+        <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('min')">
+          1以上の数値を入力してください
+        </mat-error>
+        <mat-error *ngIf="form.get('payrollInsurableMonthlyWage')?.hasError('pattern')">
+          数字のみを入力してください
+        </mat-error>
+      </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>支給形態</mat-label>
@@ -986,6 +940,44 @@ export interface EmployeeDialogData {
       .add-exemption-button {
         margin-top: 8px;
       }
+
+      .standard-reward-display {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        background-color: #fafafa;
+        border-radius: 4px;
+      }
+
+      .display-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+      }
+
+      .display-label {
+        font-weight: 500;
+        color: #666;
+        font-size: 0.875rem;
+      }
+
+      .display-value {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.875rem;
+      }
+
+      .standard-reward-actions {
+        margin-top: 12px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .open-history-button {
+        width: 100%;
+      }
     `
   ]
 })
@@ -1004,17 +996,6 @@ export class EmployeeFormDialogComponent {
   private readonly fb = inject(FormBuilder);
 
   protected maskedMyNumber: string | null = null;
-  protected healthCalculationError: string | null = null;
-  protected pensionCalculationError: string | null = null;
-  private historyChanged = false;
-
-  private autoCalculatedHealthGrade: number | null = null;
-  private autoCalculatedHealthStandardMonthly: number | null = null;
-  private autoCalculatedPensionGrade: number | null = null;
-  private autoCalculatedPensionStandardMonthly: number | null = null;
-  private readonly originalStandardMonthly?: number;
-  private previousSalary: number | null = null;
-  private previousDecisionYearMonth: YearMonthString | null = null;
 
   readonly form = inject(FormBuilder).group({
     id: [''],
@@ -1048,14 +1029,7 @@ export class EmployeeFormDialogComponent {
     weeklyWorkingDays: [null],
     contractPeriodNote: [''],
     isStudent: [false],
-    decisionYearMonth: [this.getCurrentYearMonth()],
     isInsured: [true],
-    healthGrade: [null, [Validators.min(1), Validators.max(100)]],
-    healthStandardMonthly: [null, [Validators.min(1)]],
-    healthGradeSource: [null as GradeDecisionSource | null],
-    pensionGrade: [null, [Validators.min(1), Validators.max(100)]],
-    pensionStandardMonthly: [null, [Validators.min(1)]],
-    pensionGradeSource: [null as GradeDecisionSource | null],
     healthInsuredSymbol: [''],
     healthInsuredNumber: [''],
     pensionNumber: [''],
@@ -1087,29 +1061,52 @@ export class EmployeeFormDialogComponent {
     payrollNote: ['']
   });
 
+  /**
+   * 現在有効な健康保険の標準報酬を取得
+   */
+  readonly effectiveHealthStandardReward$: Observable<StandardRewardHistory | null>;
+
+  /**
+   * 現在有効な厚生年金の標準報酬を取得
+   */
+  readonly effectivePensionStandardReward$: Observable<StandardRewardHistory | null>;
+
   constructor(@Inject(MAT_DIALOG_DATA) public data: EmployeeDialogData) {
+    // 既存の従業員を編集する場合、現在有効な標準報酬を取得
+    if (data.employee?.id) {
+      this.effectiveHealthStandardReward$ = this.standardRewardHistoryService
+        .listByInsuranceKind(data.officeId, data.employee.id, 'health')
+        .pipe(
+          map((healthList) => {
+            const asOfYm = this.getCurrentYearMonth();
+            return this.pickEffectiveHistory(healthList ?? [], asOfYm);
+          }),
+          shareReplay(1)
+        );
+
+      this.effectivePensionStandardReward$ = this.standardRewardHistoryService
+        .listByInsuranceKind(data.officeId, data.employee.id, 'pension')
+        .pipe(
+          map((pensionList) => {
+            const asOfYm = this.getCurrentYearMonth();
+            return this.pickEffectiveHistory(pensionList ?? [], asOfYm);
+          }),
+          shareReplay(1)
+        );
+    } else {
+      this.effectiveHealthStandardReward$ = of(null).pipe(shareReplay(1));
+      this.effectivePensionStandardReward$ = of(null).pipe(shareReplay(1));
+    }
+
     if (data.employee) {
       const employee = data.employee;
-      const maxStandard = Math.max(
-        employee.healthStandardMonthly ?? 0,
-        employee.pensionStandardMonthly ?? 0
-      );
-      this.originalStandardMonthly = maxStandard > 0 ? maxStandard : undefined;
 
       this.form.patchValue({
         ...employee,
-        // decisionYearMonthはbindEffectiveStandardRewardで後から設定されるため、ここでは設定しない
-        // 新規作成時のみgetCurrentYearMonth()を使用（else節で設定）
         employeeCodeInOffice: employee.employeeCodeInOffice ?? '',
         sex: employee.sex ?? null,
         postalCode: employee.postalCode ?? '',
         addressKana: employee.addressKana ?? '',
-        healthGrade: employee.healthGrade ?? null,
-        healthStandardMonthly: employee.healthStandardMonthly ?? null,
-        healthGradeSource: employee.healthGradeSource ?? null,
-        pensionGrade: employee.pensionGrade ?? null,
-        pensionStandardMonthly: employee.pensionStandardMonthly ?? null,
-        pensionGradeSource: employee.pensionGradeSource ?? null,
         weeklyWorkingHours: employee.weeklyWorkingHours ?? null,
         weeklyWorkingDays: employee.weeklyWorkingDays ?? null,
         healthQualificationDate: employee.healthQualificationDate ?? '',
@@ -1157,542 +1154,17 @@ export class EmployeeFormDialogComponent {
           );
         });
       }
-
-      // 変更前の値を初期化
-      this.previousSalary = employee.payrollSettings?.insurableMonthlyWage ?? null;
-      this.previousDecisionYearMonth = this.getCurrentYearMonth();
-    } else {
-      // 新規作成時は初期値を設定
-      this.previousSalary = null;
-      this.previousDecisionYearMonth = this.getCurrentYearMonth();
     }
 
-    this.setupAutoCalculationSubscriptions();
-    
-    // 既存の従業員を編集する場合、標準報酬が既に設定されている場合は自動計算をスキップ
-    // （手動で上書きした値が自動計算で上書きされるのを防ぐ）
-    const isExistingEmployee = !!this.data.employee;
-    const hasExistingStandardReward = 
-      (this.data.employee?.healthStandardMonthly != null && this.data.employee.healthStandardMonthly > 0) ||
-      (this.data.employee?.pensionStandardMonthly != null && this.data.employee.pensionStandardMonthly > 0);
-    
-    const salaryInit = this.form.get('payrollInsurableMonthlyWage')?.value;
-    if (salaryInit && salaryInit > 0 && !(isExistingEmployee && hasExistingStandardReward)) {
-      void this.recalculateStandardRewardsFromForm();
-    }
-
-    // 既存の従業員を編集する場合、最新のemployeeをwatchして反映
-    if (isExistingEmployee && this.data.employee?.id) {
+    // 既存の従業員を編集する場合、現在有効な標準報酬を取得
+    if (this.data.employee?.id) {
       this.watchEmployeeAndUpdateForm(this.data.employee.id);
-      this.bindEffectiveStandardReward(this.data.employee.id);
-    }
-
-    // 標準報酬月額の選択肢が変更されたとき、現在の値が選択肢に含まれていない場合はリセット
-    combineLatest([
-      this.availableHealthStandardMonthlyRewards$,
-      this.availablePensionStandardMonthlyRewards$
-    ]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([healthAmounts, pensionAmounts]) => {
-      const currentHealth = this.form.get('healthStandardMonthly')?.value;
-      if (currentHealth != null && typeof currentHealth === 'number' && healthAmounts && healthAmounts.length > 0 && !healthAmounts.includes(currentHealth)) {
-        this.form.get('healthStandardMonthly')?.setValue(null);
-      }
-      const currentPension = this.form.get('pensionStandardMonthly')?.value;
-      if (currentPension != null && typeof currentPension === 'number' && pensionAmounts && pensionAmounts.length > 0 && !pensionAmounts.includes(currentPension)) {
-        this.form.get('pensionStandardMonthly')?.setValue(null);
-      }
-    });
-  }
-
-  readonly decisionYearMonth$ = this.form.get('decisionYearMonth')!.valueChanges.pipe(
-    startWith(this.form.get('decisionYearMonth')!.value)
-  );
-
-  readonly availableHealthStandardMonthlyRewards$: Observable<number[]> = combineLatest([
-    this.currentOfficeService.office$,
-    this.decisionYearMonth$
-  ]).pipe(
-    switchMap(([office, yearMonth]) => {
-      if (!office || !yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
-        return of([]);
-      }
-
-      const yearMonthString = yearMonth as YearMonthString;
-      return this.mastersService.getHealthRateTableForYearMonth(office, yearMonthString).pipe(
-        map((master) => {
-          if (!master || !master.bands) return [];
-          // 標準報酬月額のリストを取得し、重複を除去してソート
-          const amounts = master.bands.map((band) => band.standardMonthly);
-          return [...new Set(amounts)].sort((a, b) => a - b);
-        })
-      );
-    })
-  );
-
-  readonly availablePensionStandardMonthlyRewards$: Observable<number[]> = combineLatest([
-    this.currentOfficeService.office$,
-    this.decisionYearMonth$
-  ]).pipe(
-    switchMap(([office, yearMonth]) => {
-      if (!office || !yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
-        return of([]);
-      }
-
-      const yearMonthString = yearMonth as YearMonthString;
-      return this.mastersService.getPensionRateTableForYearMonth(office, yearMonthString).pipe(
-        map((master) => {
-          if (!master || !master.bands) return [];
-          // 標準報酬月額のリストを取得し、重複を除去してソート
-          const amounts = master.bands.map((band) => band.standardMonthly);
-          return [...new Set(amounts)].sort((a, b) => a - b);
-        })
-      );
-    })
-  );
-
-  readonly loadingHealthMasterData$ = combineLatest([
-    this.currentOfficeService.office$,
-    this.decisionYearMonth$,
-    this.availableHealthStandardMonthlyRewards$
-  ]).pipe(
-    map(([office, yearMonth, amounts]) => {
-      // 条件が満たされていて、まだデータが取得されていない場合のみローディング
-      const isValid = !!(office && yearMonth && /^\d{4}-\d{2}$/.test(yearMonth));
-      // データが取得されたら（空配列でも）ローディング終了
-      // ただし、yearMonthが空文字列の場合はローディングしない
-      return isValid && yearMonth !== '' && amounts.length === 0;
-    })
-  );
-
-  readonly loadingPensionMasterData$ = combineLatest([
-    this.currentOfficeService.office$,
-    this.decisionYearMonth$,
-    this.availablePensionStandardMonthlyRewards$
-  ]).pipe(
-    map(([office, yearMonth, amounts]) => {
-      // 条件が満たされていて、まだデータが取得されていない場合のみローディング
-      const isValid = !!(office && yearMonth && /^\d{4}-\d{2}$/.test(yearMonth));
-      // データが取得されたら（空配列でも）ローディング終了
-      // ただし、yearMonthが空文字列の場合はローディングしない
-      return isValid && yearMonth !== '' && amounts.length === 0;
-    })
-  );
-
-  readonly healthHintMessage$ = combineLatest([
-    this.decisionYearMonth$,
-    this.availableHealthStandardMonthlyRewards$
-  ]).pipe(
-    map(([yearMonth, amounts]) => {
-      // 適用開始年月が未入力または空文字列の場合
-      if (!yearMonth || yearMonth === '') {
-        return '適用開始年月を選択してから標準報酬月額を選択してください';
-      }
-      // 適用開始年月が有効な形式で、マスターデータが見つからない場合
-      if (/^\d{4}-\d{2}$/.test(yearMonth) && (!amounts || amounts.length === 0)) {
-        return '適用開始年月に有効なマスターデータが見つかりません。保険料率管理ページでマスターデータを登録してください。';
-      }
-      // それ以外の場合はヒントを表示しない
-      return null;
-    })
-  );
-
-  readonly pensionHintMessage$ = combineLatest([
-    this.decisionYearMonth$,
-    this.availablePensionStandardMonthlyRewards$
-  ]).pipe(
-    map(([yearMonth, amounts]) => {
-      // 適用開始年月が未入力または空文字列の場合
-      if (!yearMonth || yearMonth === '') {
-        return '適用開始年月を選択してから標準報酬月額を選択してください';
-      }
-      // 適用開始年月が有効な形式で、マスターデータが見つからない場合
-      if (/^\d{4}-\d{2}$/.test(yearMonth) && (!amounts || amounts.length === 0)) {
-        return '適用開始年月に有効なマスターデータが見つかりません。保険料率管理ページでマスターデータを登録してください。';
-      }
-      // それ以外の場合はヒントを表示しない
-      return null;
-    })
-  );
-
-  private setupAutoCalculationSubscriptions(): void {
-
-    this.form
-      .get('healthGrade')
-      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((value) => this.onHealthGradeChanged(value));
-    this.form
-      .get('healthStandardMonthly')
-      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((value) => this.onHealthStandardMonthlyChanged(value));
-    this.form
-      .get('pensionGrade')
-      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((value) => this.onPensionGradeChanged(value));
-    this.form
-      .get('pensionStandardMonthly')
-      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((value) => this.onPensionStandardMonthlyChanged(value));
-
-    // 健康保険: 標準報酬月額が変更されたとき、マスターデータから対応する等級を自動設定
-    combineLatest([
-      this.form.get('healthStandardMonthly')!.valueChanges.pipe(startWith(this.form.get('healthStandardMonthly')!.value)),
-      this.form.get('decisionYearMonth')!.valueChanges.pipe(startWith(this.form.get('decisionYearMonth')!.value)),
-      this.currentOfficeService.office$
-    ]).pipe(
-      switchMap(([healthStandardMonthly, decisionYearMonth, office]) => {
-        if (!healthStandardMonthly || !decisionYearMonth || !office || !/^\d{4}-\d{2}$/.test(decisionYearMonth)) {
-          return of(null);
-        }
-        const yearMonthString = decisionYearMonth as YearMonthString;
-        return this.mastersService.getHealthRateTableForYearMonth(office, yearMonthString).pipe(
-          map((master) => ({ healthStandardMonthly, bands: master?.bands ?? [] }))
-        );
-      }),
-      takeUntilDestroyed(this.destroyRef)
-    ).subscribe((result) => {
-      if (result && result.healthStandardMonthly != null && result.bands.length > 0) {
-        // 標準報酬月額に対応する等級を検索（最初に見つかったものを使用）
-        const matchingBand = result.bands.find((band) => band.standardMonthly === result.healthStandardMonthly);
-        if (matchingBand) {
-          // 等級を自動設定（標準報酬履歴フォームと同じ動作）
-          this.form.patchValue({ healthGrade: matchingBand.grade as any }, { emitEvent: false });
-        }
-      }
-    });
-
-    // 厚生年金: 標準報酬月額が変更されたとき、マスターデータから対応する等級を自動設定
-    combineLatest([
-      this.form.get('pensionStandardMonthly')!.valueChanges.pipe(startWith(this.form.get('pensionStandardMonthly')!.value)),
-      this.form.get('decisionYearMonth')!.valueChanges.pipe(startWith(this.form.get('decisionYearMonth')!.value)),
-      this.currentOfficeService.office$
-    ]).pipe(
-      switchMap(([pensionStandardMonthly, decisionYearMonth, office]) => {
-        if (!pensionStandardMonthly || !decisionYearMonth || !office || !/^\d{4}-\d{2}$/.test(decisionYearMonth)) {
-          return of(null);
-        }
-        const yearMonthString = decisionYearMonth as YearMonthString;
-        return this.mastersService.getPensionRateTableForYearMonth(office, yearMonthString).pipe(
-          map((master) => ({ pensionStandardMonthly, bands: master?.bands ?? [] }))
-        );
-      }),
-      takeUntilDestroyed(this.destroyRef)
-    ).subscribe((result) => {
-      if (result && result.pensionStandardMonthly != null && result.bands.length > 0) {
-        // 標準報酬月額に対応する等級を検索（最初に見つかったものを使用）
-        const matchingBand = result.bands.find((band) => band.standardMonthly === result.pensionStandardMonthly);
-        if (matchingBand) {
-          // 等級を自動設定（標準報酬履歴フォームと同じ動作）
-          this.form.patchValue({ pensionGrade: matchingBand.grade as any }, { emitEvent: false });
-        }
-      }
-    });
-  }
-
-  private async onSalaryOrDecisionYearMonthChanged(
-    newSalary: number | null,
-    newDecisionYearMonth: YearMonthString | null,
-    previousSalaryValue: number | null | undefined,
-    previousDecisionYearMonthValue: YearMonthString | null | undefined
-  ): Promise<void> {
-    const currentSalary = newSalary ?? this.form.get('payrollInsurableMonthlyWage')?.value;
-    const currentDecisionYearMonth =
-      (newDecisionYearMonth ?? this.form.get('decisionYearMonth')?.value) as YearMonthString | null;
-
-    if (!currentSalary || currentSalary <= 0 || !currentDecisionYearMonth) {
-      this.healthCalculationError = null;
-      this.pensionCalculationError = null;
-      return;
-    }
-
-    // 自動計算を実行して結果を取得
-    const office = await firstValueFrom(this.officesService.watchOffice(this.data.officeId));
-    if (!office) {
-      return;
-    }
-
-    const calcResult = await calculateStandardRewardsFromSalary(
-      office,
-      Number(currentSalary),
-      currentDecisionYearMonth,
-      this.mastersService
-    );
-
-    // 確認ダイアログを表示
-    const dialogRef = this.dialog.open<
-      StandardRewardAutoInputConfirmDialogComponent,
-      StandardRewardAutoInputConfirmDialogData,
-      'add' | 'cancel'
-    >(StandardRewardAutoInputConfirmDialogComponent, {
-      width: '600px',
-      disableClose: true,
-      data: {
-        salary: Number(currentSalary),
-        decisionYearMonth: currentDecisionYearMonth,
-        healthGrade: calcResult.healthGrade,
-        healthStandardMonthly: calcResult.healthStandardMonthly,
-        pensionGrade: calcResult.pensionGrade,
-        pensionStandardMonthly: calcResult.pensionStandardMonthly,
-        healthError: calcResult.errors.health ?? null,
-        pensionError: calcResult.errors.pension ?? null
-      }
-    });
-
-    const result = await firstValueFrom(dialogRef.afterClosed());
-
-    if (result === 'add') {
-      // 履歴を自動追加する
-      // エラーチェック（既にダイアログでチェック済みだが念のため）
-      if (calcResult.errors.health || calcResult.errors.pension) {
-        this.snackBar.open('エラーがあるため履歴を追加できません。', undefined, {
-          duration: 3000
-        });
-        return;
-      }
-
-      // 従業員IDを取得（新規作成の場合は先に保存）
-      let employeeId: string;
-      if (this.data.employee?.id) {
-        employeeId = this.data.employee.id;
-      } else {
-        // 新規作成の場合は先に従業員を保存
-        if (!this.canSave) {
-          this.snackBar.open('先に従業員情報を保存してください。', undefined, {
-            duration: 3000
-          });
-          return;
-        }
-        
-        const savedId = await this.saveEmployeeWithoutClosing();
-        if (!savedId) {
-          return;
-        }
-        employeeId = savedId;
-      }
-
-      // 重複チェックを先に行う（どちらか一方でも重複がある場合は処理を中断）
-      let hasDuplicate = false;
-      const duplicateMessages: string[] = [];
-
-      if (calcResult.healthStandardMonthly && calcResult.healthGrade) {
-        try {
-          const existingHealthHistories = await firstValueFrom(
-            this.standardRewardHistoryService.listByInsuranceKind(
-              this.data.officeId,
-              employeeId,
-              'health'
-            )
-          );
-          
-          const isDuplicate = existingHealthHistories.some(
-            (h) => h.appliedFromYearMonth === currentDecisionYearMonth
-          );
-
-          if (isDuplicate) {
-            hasDuplicate = true;
-            duplicateMessages.push(`健康保険の適用開始年月（${currentDecisionYearMonth}）の履歴が既に存在します。`);
-          }
-        } catch (error) {
-          console.error('健康保険の重複チェックに失敗しました:', error);
-          this.snackBar.open('健康保険の重複チェックに失敗しました。', undefined, {
-            duration: 3000
-          });
-          return;
-        }
-      }
-
-      if (calcResult.pensionStandardMonthly && calcResult.pensionGrade) {
-        try {
-          const existingPensionHistories = await firstValueFrom(
-            this.standardRewardHistoryService.listByInsuranceKind(
-              this.data.officeId,
-              employeeId,
-              'pension'
-            )
-          );
-          
-          const isDuplicate = existingPensionHistories.some(
-            (h) => h.appliedFromYearMonth === currentDecisionYearMonth
-          );
-
-          if (isDuplicate) {
-            hasDuplicate = true;
-            duplicateMessages.push(`厚生年金の適用開始年月（${currentDecisionYearMonth}）の履歴が既に存在します。`);
-          }
-        } catch (error) {
-          console.error('厚生年金の重複チェックに失敗しました:', error);
-          this.snackBar.open('厚生年金の重複チェックに失敗しました。', undefined, {
-            duration: 3000
-          });
-          return;
-        }
-      }
-
-      // 重複がある場合は処理を中断
-      if (hasDuplicate) {
-        this.snackBar.open(duplicateMessages.join(' '), '閉じる', {
-          duration: 5000
-        });
-        return;
-      }
-
-      // 健康保険の履歴を追加（値がある場合）
-      let addedAny = false;
-      
-      if (calcResult.healthStandardMonthly && calcResult.healthGrade) {
-        try {
-          await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
-            insuranceKind: 'health',
-            appliedFromYearMonth: currentDecisionYearMonth,
-            standardMonthlyReward: calcResult.healthStandardMonthly,
-            grade: calcResult.healthGrade,
-            decisionKind: 'other',
-            note: '標準報酬履歴自動追加から追加'
-          });
-          addedAny = true;
-        } catch (error) {
-          console.error('健康保険履歴の追加に失敗しました:', error);
-          this.snackBar.open('健康保険履歴の追加に失敗しました。', undefined, {
-            duration: 3000
-          });
-          return; // エラー時は処理を中断
-        }
-      }
-
-      // 厚生年金の履歴を追加（値がある場合）
-      if (calcResult.pensionStandardMonthly && calcResult.pensionGrade) {
-        try {
-          await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
-            insuranceKind: 'pension',
-            appliedFromYearMonth: currentDecisionYearMonth,
-            standardMonthlyReward: calcResult.pensionStandardMonthly,
-            grade: calcResult.pensionGrade,
-            decisionKind: 'other',
-            note: '標準報酬履歴自動追加から追加'
-          });
-          addedAny = true;
-        } catch (error) {
-          console.error('厚生年金履歴の追加に失敗しました:', error);
-          this.snackBar.open('厚生年金履歴の追加に失敗しました。', undefined, {
-            duration: 3000
-          });
-          return; // エラー時は処理を中断
-        }
-      }
-
-      // 少なくとも1件でも履歴を追加した場合はフラグを立てる
-      if (addedAny) {
-        this.historyChanged = true;
-      }
-
-      // 最新履歴を反映（既存従業員の場合）
-      if (this.data.employee?.id) {
-        await this.bindEffectiveStandardReward(employeeId);
-      }
-
-      // 成功メッセージ
-      this.snackBar.open('標準報酬履歴を追加しました', undefined, {
-        duration: 3000
-      });
-
-      // 変更前の値を更新
-      this.previousSalary = Number(currentSalary);
-      this.previousDecisionYearMonth = currentDecisionYearMonth;
-    } else if (result === 'cancel') {
-      // キャンセル：報酬月額の変更を取り消し、標準報酬セクションを元の状態に戻す
-      this.form.patchValue(
-        {
-          payrollInsurableMonthlyWage: previousSalaryValue ?? null
-          // decisionYearMonthは変更後のまま（標準報酬選択に必要な情報のため）
-        } as any,
-        { emitEvent: false }
-      );
-      
-      // 変更前の値も元に戻す
-      this.previousSalary = previousSalaryValue ?? null;
-      
-      // 標準報酬セクションを元の状態に戻す（既存従業員の場合）
-      if (this.data.employee?.id) {
-        await this.bindEffectiveStandardReward(this.data.employee.id);
-      } else {
-        // 新規作成の場合は空欄に戻す
-        this.form.patchValue(
-          {
-            healthGrade: null,
-            healthStandardMonthly: null,
-            healthGradeSource: null,
-            pensionGrade: null,
-            pensionStandardMonthly: null,
-            pensionGradeSource: null
-          } as any,
-          { emitEvent: false }
-        );
-      }
     }
   }
 
-  private async recalculateStandardRewardsFromForm(): Promise<void> {
-    const salary = this.form.get('payrollInsurableMonthlyWage')?.value;
-    const decisionYearMonth = this.form.get('decisionYearMonth')?.value as YearMonthString | null;
 
-    if (!salary || salary <= 0 || !decisionYearMonth) {
-      this.healthCalculationError = null;
-      this.pensionCalculationError = null;
-      return;
-    }
 
-    const previousSalary = this.previousSalary ?? salary;
-    const previousDecisionYearMonth = this.previousDecisionYearMonth ?? decisionYearMonth;
-    await this.onSalaryOrDecisionYearMonthChanged(null, null, previousSalary, previousDecisionYearMonth);
-  }
 
-  private onHealthGradeChanged(value: number | null): void {
-    if (value != null && value > 0) {
-      if (this.autoCalculatedHealthGrade === null || value !== this.autoCalculatedHealthGrade) {
-        this.form.patchValue({ healthGradeSource: 'manual_override' }, { emitEvent: false });
-      }
-    }
-  }
-
-  private onHealthStandardMonthlyChanged(value: number | null): void {
-    if (value != null && value > 0) {
-      if (
-        this.autoCalculatedHealthStandardMonthly === null ||
-        value !== this.autoCalculatedHealthStandardMonthly
-      ) {
-        this.form.patchValue({ healthGradeSource: 'manual_override' }, { emitEvent: false });
-      }
-    }
-  }
-
-  private onPensionGradeChanged(value: number | null): void {
-    if (value != null && value > 0) {
-      if (this.autoCalculatedPensionGrade === null || value !== this.autoCalculatedPensionGrade) {
-        this.form.patchValue({ pensionGradeSource: 'manual_override' }, { emitEvent: false });
-      }
-    }
-  }
-
-  private onPensionStandardMonthlyChanged(value: number | null): void {
-    if (value != null && value > 0) {
-      if (
-        this.autoCalculatedPensionStandardMonthly === null ||
-        value !== this.autoCalculatedPensionStandardMonthly
-      ) {
-        this.form.patchValue({ pensionGradeSource: 'manual_override' }, { emitEvent: false });
-      }
-    }
-  }
-
-  get canExecuteAutoInput(): boolean {
-    const salary = this.form.get('payrollInsurableMonthlyWage')?.value;
-    const decisionYearMonth = this.form.get('decisionYearMonth')?.value;
-    return !!(salary && salary > 0 && decisionYearMonth);
-  }
-
-  get canAddHealthHistory(): boolean {
-    const standardMonthly = this.form.get('healthStandardMonthly')?.value;
-    const decisionYearMonth = this.form.get('decisionYearMonth')?.value;
-    return !!(standardMonthly && standardMonthly > 0 && decisionYearMonth);
-  }
 
   get exemptionMonthsArray(): FormArray {
     return this.form.get('premiumExemptionMonths') as FormArray;
@@ -1794,153 +1266,6 @@ export class EmployeeFormDialogComponent {
     return false;
   }
 
-  get canAddPensionHistory(): boolean {
-    const standardMonthly = this.form.get('pensionStandardMonthly')?.value;
-    const decisionYearMonth = this.form.get('decisionYearMonth')?.value;
-    return !!(standardMonthly && standardMonthly > 0 && decisionYearMonth);
-  }
-
-  async onAddHistoryClick(insuranceKind: 'health' | 'pension'): Promise<void> {
-    const standardMonthly = this.form.get(
-      insuranceKind === 'health' ? 'healthStandardMonthly' : 'pensionStandardMonthly'
-    )?.value;
-    const grade = this.form.get(insuranceKind === 'health' ? 'healthGrade' : 'pensionGrade')?.value;
-    const decisionYearMonth = this.form.get('decisionYearMonth')?.value as YearMonthString | null;
-
-    if (!standardMonthly || standardMonthly <= 0 || !decisionYearMonth) {
-      return;
-    }
-
-    // 確認ダイアログを表示
-    const dialogRef = this.dialog.open<
-      StandardRewardHistoryAddConfirmDialogComponent,
-      StandardRewardHistoryAddConfirmDialogData,
-      boolean
-    >(StandardRewardHistoryAddConfirmDialogComponent, {
-      width: '500px',
-      data: {
-        insuranceKind,
-        appliedFromYearMonth: decisionYearMonth,
-        grade: grade ?? null,
-        standardMonthlyReward: standardMonthly
-      }
-    });
-
-    const confirmed = await firstValueFrom(dialogRef.afterClosed());
-    if (!confirmed) {
-      return;
-    }
-
-    // 従業員IDを取得（新規作成の場合は先に保存）
-    let employeeId: string;
-    if (this.data.employee?.id) {
-      employeeId = this.data.employee.id;
-    } else {
-      // 新規作成の場合は先に従業員を保存
-      if (!this.canSave) {
-        this.snackBar.open('先に従業員情報を保存してください。', undefined, {
-          duration: 3000
-        });
-        return;
-      }
-      
-      const savedId = await this.saveEmployeeWithoutClosing();
-      if (!savedId) {
-        return;
-      }
-      employeeId = savedId;
-    }
-
-    // 重複チェック：同じ保険種別・適用開始年月の履歴が既に存在するか確認
-    try {
-      const existingHistories = await firstValueFrom(
-        this.standardRewardHistoryService.listByInsuranceKind(
-          this.data.officeId,
-          employeeId,
-          insuranceKind
-        )
-      );
-
-      const isDuplicate = existingHistories.some(
-        (h) => h.appliedFromYearMonth === decisionYearMonth
-      );
-
-      if (isDuplicate) {
-        this.snackBar.open(
-          `この保険種別・適用開始年月（${decisionYearMonth}）の履歴が既に存在します。変更が必要な場合は標準報酬履歴フォームから編集してください。`,
-          '閉じる',
-          { duration: 5000 }
-        );
-        return;
-      }
-    } catch (error) {
-      console.error('重複チェックに失敗しました:', error);
-      // 重複チェックに失敗しても続行（エラーをログに記録するだけ）
-    }
-
-    try {
-      // 履歴を追加（save()が更新後の従業員データを返す）
-      const updatedEmployee = await this.standardRewardHistoryService.save(
-        this.data.officeId,
-        employeeId,
-        {
-        insuranceKind,
-        appliedFromYearMonth: decisionYearMonth,
-        standardMonthlyReward: standardMonthly,
-        grade: grade ?? undefined,
-        decisionKind: 'other',
-        note: '従業員フォームから追加'
-        }
-      );
-
-      if (updatedEmployee) {
-        // 追加した保険種別だけフォームに反映する
-        const patch: any =
-          insuranceKind === 'health'
-            ? {
-          healthStandardMonthly: updatedEmployee.healthStandardMonthly ?? null,
-          healthGrade: updatedEmployee.healthGrade ?? null,
-              }
-            : {
-                pensionStandardMonthly: updatedEmployee.pensionStandardMonthly ?? null,
-                pensionGrade: updatedEmployee.pensionGrade ?? null,
-              };
-
-        this.form.patchValue(patch, { emitEvent: false });
-        this.data.employee = updatedEmployee;
-        // 履歴が変更されたことを記録
-        this.historyChanged = true;
-      }
-
-      this.snackBar.open('標準報酬履歴を追加しました', undefined, {
-        duration: 2500
-      });
-    } catch (error) {
-      console.error(`標準報酬履歴（${insuranceKind}）の追加に失敗しました:`, error);
-      this.snackBar.open('標準報酬履歴の追加に失敗しました。時間をおいて再度お試しください。', undefined, {
-        duration: 3000
-      });
-    }
-  }
-
-  async onAutoInputButtonClick(): Promise<void> {
-    const salary = this.form.get('payrollInsurableMonthlyWage')?.value;
-    const decisionYearMonth = this.form.get('decisionYearMonth')?.value as YearMonthString | null;
-
-    if (!salary || salary <= 0 || !decisionYearMonth) {
-      return;
-    }
-
-    // 変更前の値は現在のフォームの値（ボタンクリック時点での値）
-    const previousSalary = this.previousSalary ?? salary;
-    const previousDecisionYearMonth = this.previousDecisionYearMonth ?? decisionYearMonth;
-    
-    // 変更前の値を更新（次回のボタンクリック時に使用）
-    this.previousSalary = salary ?? null;
-    this.previousDecisionYearMonth = decisionYearMonth;
-    
-    await this.onSalaryOrDecisionYearMonthChanged(salary, decisionYearMonth, previousSalary, previousDecisionYearMonth);
-  }
 
   get canSave(): boolean {
     // 標準報酬は履歴で管理するため、フォーム保存時には標準報酬の入力は必須ではない
@@ -2214,90 +1539,18 @@ export class EmployeeFormDialogComponent {
 
     const mode: 'created' | 'updated' = this.data.employee ? 'updated' : 'created';
     
-    // 標準報酬履歴の自動追加は廃止
-    // 履歴を追加する場合は「履歴に追加」ボタンを使用すること
-    
     this.dialogRef.close({ 
       saved: true, 
       mode, 
-      employeeId: savedId,
-      historyChanged: this.historyChanged 
+      employeeId: savedId
     });
   }
 
   async onCancel(): Promise<void> {
-    // 履歴が変更されていたら確認ダイアログを表示
-    if (this.historyChanged) {
-      const dialogRef = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
-        ConfirmDialogComponent,
-        {
-          width: '500px',
-          data: {
-            title: '従業員フォームを閉じますか？',
-            message: '標準報酬履歴の追加は保存済みです。従業員フォームの変更は破棄して閉じますか？',
-            confirmLabel: '閉じる',
-            cancelLabel: 'キャンセル'
-          }
-        }
-      );
-
-      const confirmed = await firstValueFrom(dialogRef.afterClosed());
-      if (!confirmed) {
-        return; // キャンセルされた場合は何もしない
-      }
-    }
-
-    // 履歴が変更されていたら、親画面に通知して閉じる
     this.dialogRef.close({ 
-      saved: false, 
-      historyChanged: this.historyChanged,
+      saved: false,
       employeeId: this.data.employee?.id 
     });
-  }
-
-  private async addAutoStandardRewardHistory(
-    employeeId: string,
-    mode: 'created' | 'updated',
-    insuranceKind: 'health' | 'pension',
-    newStandardMonthly: number | null,
-    decisionYearMonth: YearMonthString | null
-  ): Promise<void> {
-    // 標準報酬が設定されていない場合はスキップ
-    if (!newStandardMonthly || newStandardMonthly <= 0) {
-      return;
-    }
-
-    // 決定年月が設定されていない場合はスキップ
-    if (!decisionYearMonth) {
-      return;
-    }
-
-    // 更新モードの場合、変更がない場合はスキップ
-    if (mode === 'updated') {
-      const originalStandardMonthly =
-        insuranceKind === 'health'
-          ? this.data.employee?.healthStandardMonthly
-          : this.data.employee?.pensionStandardMonthly;
-      
-      if (originalStandardMonthly === newStandardMonthly) {
-        return;
-      }
-    }
-
-    try {
-      await this.standardRewardHistoryService.save(this.data.officeId, employeeId, {
-        insuranceKind,
-        appliedFromYearMonth: decisionYearMonth,
-        standardMonthlyReward: newStandardMonthly,
-        decisionKind: 'other',
-        note:
-          mode === 'created'
-            ? `従業員フォームで初回の${insuranceKind === 'health' ? '健康保険' : '厚生年金'}標準報酬月額が登録されたため自動登録`
-            : `従業員フォームで${insuranceKind === 'health' ? '健康保険' : '厚生年金'}標準報酬月額が変更されたため自動登録`
-      });
-    } catch (error) {
-      console.error(`標準報酬履歴（${insuranceKind}）の自動追加に失敗しました:`, error);
-    }
   }
 
   private getCurrentYearMonth(): YearMonthString {
@@ -2316,17 +1569,6 @@ export class EmployeeFormDialogComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((latest) => {
         if (!latest) return;
-
-        // 標準報酬関連のフィールドを最新の値で更新（emitEvent:falseで事故防止）
-        this.form.patchValue(
-          {
-            healthGrade: latest.healthGrade ?? null,
-            healthStandardMonthly: latest.healthStandardMonthly ?? null,
-            pensionGrade: latest.pensionGrade ?? null,
-            pensionStandardMonthly: latest.pensionStandardMonthly ?? null
-          } as any,
-          { emitEvent: false }
-        );
 
         // dataも最新に更新
         this.data.employee = latest;
@@ -2353,34 +1595,23 @@ export class EmployeeFormDialogComponent {
   }
 
   /**
-   * 現行で使われている標準報酬履歴を取得してフォームに反映
+   * 標準報酬履歴ダイアログを開く
    */
-  private bindEffectiveStandardReward(employeeId: string): void {
-    const asOfYm = this.getCurrentYearMonth();
-
-    combineLatest([
-      this.standardRewardHistoryService.listByInsuranceKind(this.data.officeId, employeeId, 'health'),
-      this.standardRewardHistoryService.listByInsuranceKind(this.data.officeId, employeeId, 'pension')
-    ])
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(([healthList, pensionList]) => {
-        const healthEff = this.pickEffectiveHistory(healthList ?? [], asOfYm);
-        const pensionEff = this.pickEffectiveHistory(pensionList ?? [], asOfYm);
-
-        // 適用開始年月は health を優先（どちらか一方に合わせる）
-        const decisionYm = (healthEff?.appliedFromYearMonth ?? pensionEff?.appliedFromYearMonth ?? asOfYm) as YearMonthString;
-
-        this.form.patchValue(
-          {
-            decisionYearMonth: decisionYm,
-            // 現行履歴の値もフォームに表示（見た目目的）
-            healthGrade: healthEff?.grade ?? null,
-            healthStandardMonthly: healthEff?.standardMonthlyReward ?? null,
-            pensionGrade: pensionEff?.grade ?? null,
-            pensionStandardMonthly: pensionEff?.standardMonthlyReward ?? null
-          } as any,
-          { emitEvent: false }
-        );
+  openStandardRewardHistoryDialog(): void {
+    if (!this.data.employee?.id) {
+      this.snackBar.open('先に従業員情報を保存してください。', undefined, {
+        duration: 3000
       });
+      return;
+    }
+
+    this.dialog.open(StandardRewardHistoryDialogComponent, {
+      width: '1000px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      data: {
+        employee: this.data.employee
+      }
+    });
   }
 }

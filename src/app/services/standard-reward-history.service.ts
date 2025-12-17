@@ -111,9 +111,13 @@ export class StandardRewardHistoryService {
       appliedFromYearMonth: history.appliedFromYearMonth ?? '',
       standardMonthlyReward: history.standardMonthlyReward ?? 0,
       decisionKind: history.decisionKind ?? 'other',
-      updatedAt: now,
-      updatedByUserId: currentUser?.id
+      updatedAt: now
     };
+
+    // updatedByUserIdは値がある場合のみ追加（undefinedはFirestoreに保存できない）
+    if (currentUser?.id) {
+      payload.updatedByUserId = currentUser.id;
+    }
 
     // gradeが設定されている場合のみ追加（undefinedはFirestoreに保存できない）
     if (history.grade != null) {
@@ -127,10 +131,16 @@ export class StandardRewardHistoryService {
 
     if (!history.id) {
       payload.createdAt = now;
-      payload.createdByUserId = currentUser?.id;
+      // createdByUserIdは値がある場合のみ追加（undefinedはFirestoreに保存できない）
+      if (currentUser?.id) {
+        payload.createdByUserId = currentUser.id;
+      }
     } else if (history.createdAt) {
       payload.createdAt = history.createdAt;
-      payload.createdByUserId = history.createdByUserId;
+      // createdByUserIdは値がある場合のみ追加（undefinedはFirestoreに保存できない）
+      if (history.createdByUserId) {
+        payload.createdByUserId = history.createdByUserId;
+      }
     }
 
     await setDoc(ref, payload, { merge: true });

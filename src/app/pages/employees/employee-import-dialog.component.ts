@@ -110,6 +110,10 @@ interface PreviewColumn {
             <li>CSVテンプレートのヘッダ名は変更しないでください</li>
             <li># で始まる行はコメント行として無視されます</li>
           </ul>
+          <div class="standard-reward-notice">
+            <h4>標準報酬に関する重要なお知らせ</h4>
+            <p>標準報酬は"標準報酬履歴"で管理します。CSVの標準報酬関連列（健康保険等級、健康保険標準報酬月額、健康保険適用開始年月、厚生年金等級、厚生年金標準報酬月額、厚生年金適用開始年月）は参照用で、インポートでは反映されません。</p>
+          </div>
         </div>
       </section>
 
@@ -293,6 +297,28 @@ interface PreviewColumn {
 
       .import-rules li {
         margin-bottom: 0.25rem;
+      }
+
+      .standard-reward-notice {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        background: #fff3e0;
+        border: 1px solid #ffcc80;
+      }
+
+      .standard-reward-notice h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #e65100;
+      }
+
+      .standard-reward-notice p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #bf360c;
+        line-height: 1.5;
       }
 
       .preview-section .preview-table-container {
@@ -603,7 +629,7 @@ export class EmployeeImportDialogComponent {
       }
     }
     return result;
-  }
+      }
 
   private normalizeEmployee(employee: Partial<Employee>): Partial<Employee> & { id?: string } {
     // undefinedを除去（merge動作のため）

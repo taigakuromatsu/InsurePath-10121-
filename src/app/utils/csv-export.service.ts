@@ -1,8 +1,10 @@
 import { Injectable, inject } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
-import { BonusPremium, Employee, MonthlyPremium } from '../types';
+import { BonusPremium, Employee, MonthlyPremium, StandardRewardHistory, YearMonthString } from '../types';
 import { CsvImportService } from './csv-import.service';
 import { EMPLOYEE_CSV_COLUMNS_V2, getEmployeeCsvHeadersV2 } from './csv-column-definitions';
+import { StandardRewardHistoryService } from '../services/standard-reward-history.service';
 
 interface CsvColumn<T> {
   label: string;
@@ -13,11 +15,12 @@ interface CsvColumn<T> {
 @Injectable({ providedIn: 'root' })
 export class CsvExportService {
   private readonly csvImportService = inject(CsvImportService);
+  private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
   /**
    * 従業員一覧をCSV形式でエクスポートする（v2列定義準拠）
    * テンプレートCSVと完全に同じフォーマットで出力する
    */
-  exportEmployees(employees: Employee[], fileName = '従業員一覧'): void {
+  async exportEmployees(employees: Employee[], fileName = '従業員一覧'): Promise<void> {
     if (!employees?.length) {
       return;
     }
@@ -49,7 +52,7 @@ export class CsvExportService {
     lines.push('# 【ネストオブジェクトの削除（口座情報・給与情報）】');
     lines.push('# ・口座情報を削除: 口座情報に関連する全列（金融機関名/金融機関コード/支店名/支店コード/口座種別/口座番号/名義/名義カナ/主口座フラグ）のすべてに__CLEAR__を入力');
     lines.push('# ・給与情報を削除: 給与情報に関連する全列（報酬月額/支給形態/支給サイクル/給与メモ）のすべてに__CLEAR__を入力');
-    lines.push('# ・注意: 一部の列だけに__CLEAR__を入力した場合、オブジェクト全体は削除されず、該当フィールドのみがnullになります');
+    lines.push('# ・注意: 一部の列だけに__CLEAR__を入力した場合、オブジェクト全体は削除されず、該当フィールドのみが削除されます（Firestoreからフィールドを削除）');
     lines.push('');
     lines.push('# 【必須項目】');
     lines.push('# ・基本情報: 氏名 / フリガナ / 生年月日 / 入社日 / 雇用形態');
@@ -81,6 +84,7 @@ export class CsvExportService {
     lines.push('#    - kindはmaternity（産前産後）またはchildcare（育児）');
     lines.push('');
     lines.push('# 【標準報酬関連の注意】');
+    lines.push('# ・標準報酬は"標準報酬履歴"で管理します。CSVの標準報酬関連列（健康保険等級、健康保険標準報酬月額、健康保険適用開始年月、厚生年金等級、厚生年金標準報酬月額、厚生年金適用開始年月）は参照用で、インポートでは反映されません。');
     lines.push('# ・健康保険等級/健康保険標準報酬月額: 健康保険・介護保険用');
     lines.push('# ・厚生年金等級/厚生年金標準報酬月額: 厚生年金用');
     lines.push('# ・健康保険と厚生年金で等級や標準報酬月額が異なる場合は、それぞれ別に入力してください');
@@ -91,16 +95,88 @@ export class CsvExportService {
     const headerLine = headers.map((h) => this.escapeCsvValue(h)).join(',');
     lines.push(headerLine);
 
+    // 現在有効な標準報酬を履歴から取得（パフォーマンス対策：バッチ並列取得）
+    const asOfYearMonth = this.getCurrentYearMonth();
+    const standardRewardCache = new Map<
+      string,
+      { health: StandardRewardHistory | null; pension: StandardRewardHistory | null }
+    >();
+    
+    // バッチサイズ（20〜30件ずつ並列取得）
+    const BATCH_SIZE = 25;
+    const batches: Employee[][] = [];
+    for (let i = 0; i < employees.length; i += BATCH_SIZE) {
+      batches.push(employees.slice(i, i + BATCH_SIZE));
+    }
+
+    // 各バッチを並列処理
+    for (const batch of batches) {
+      const promises = batch.map(async (emp) => {
+        if (!emp.id || !emp.officeId) {
+          return { employeeId: emp.id, health: null, pension: null };
+        }
+
+        const cacheKey = `${emp.officeId}_${emp.id}`;
+        if (standardRewardCache.has(cacheKey)) {
+          return { employeeId: emp.id, ...standardRewardCache.get(cacheKey)! };
+        }
+
+        try {
+          const [healthList, pensionList] = await Promise.all([
+            firstValueFrom(this.standardRewardHistoryService.listByInsuranceKind(emp.officeId, emp.id, 'health')),
+            firstValueFrom(this.standardRewardHistoryService.listByInsuranceKind(emp.officeId, emp.id, 'pension'))
+          ]);
+
+          const healthEffective = this.pickEffectiveHistory(healthList ?? [], asOfYearMonth);
+          const pensionEffective = this.pickEffectiveHistory(pensionList ?? [], asOfYearMonth);
+
+          const result = {
+            employeeId: emp.id,
+            health: healthEffective,
+            pension: pensionEffective
+          };
+
+          standardRewardCache.set(cacheKey, { health: healthEffective, pension: pensionEffective });
+          return result;
+        } catch (error) {
+          console.error(`標準報酬履歴の取得に失敗しました (employeeId: ${emp.id}):`, error);
+          return { employeeId: emp.id, health: null, pension: null };
+        }
+      });
+
+      await Promise.all(promises);
+    }
+
     // データ行
     for (const emp of employees) {
       const row: string[] = [];
+      const cacheKey = `${emp.officeId}_${emp.id}`;
+      const cachedRewards = standardRewardCache.get(cacheKey);
+
       for (const col of columns) {
         // 「標準報酬月額」はエクスポートしない
         if (col.header === '標準報酬月額') {
           continue;
         }
 
-        const raw = col.getter(emp);
+        // 標準報酬関連の列は履歴から取得
+        let raw: string | number | null | undefined;
+        if (col.header === '健康保険等級') {
+          raw = cachedRewards?.health?.grade ?? '';
+        } else if (col.header === '健康保険標準報酬月額') {
+          raw = cachedRewards?.health?.standardMonthlyReward ?? '';
+        } else if (col.header === '健康保険適用開始年月') {
+          raw = cachedRewards?.health?.appliedFromYearMonth ?? '';
+        } else if (col.header === '厚生年金等級') {
+          raw = cachedRewards?.pension?.grade ?? '';
+        } else if (col.header === '厚生年金標準報酬月額') {
+          raw = cachedRewards?.pension?.standardMonthlyReward ?? '';
+        } else if (col.header === '厚生年金適用開始年月') {
+          raw = cachedRewards?.pension?.appliedFromYearMonth ?? '';
+        } else {
+          raw = col.getter(emp);
+        }
+
         let text = '';
 
         if (raw !== undefined && raw !== null) {
@@ -327,6 +403,7 @@ export class CsvExportService {
     lines.push('#    - kindはmaternity（産前産後）またはchildcare（育児）');
     lines.push('');
     lines.push('# 【標準報酬関連の注意】');
+    lines.push('# ・標準報酬は"標準報酬履歴"で管理します。CSVの標準報酬関連列（健康保険等級、健康保険標準報酬月額、健康保険適用開始年月、厚生年金等級、厚生年金標準報酬月額、厚生年金適用開始年月）は参照用で、インポートでは反映されません。');
     lines.push('# ・健康保険等級/健康保険標準報酬月額: 健康保険・介護保険用');
     lines.push('# ・厚生年金等級/厚生年金標準報酬月額: 厚生年金用');
     lines.push('# ・健康保険と厚生年金で等級や標準報酬月額が異なる場合は、それぞれ別に入力してください');
@@ -537,5 +614,36 @@ export class CsvExportService {
     a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /**
+   * 現在有効な標準報酬履歴を選択
+   */
+  private pickEffectiveHistory(
+    histories: StandardRewardHistory[],
+    asOfYm: YearMonthString
+  ): StandardRewardHistory | null {
+    if (!histories?.length) return null;
+
+    const pastOrCurrent = histories
+      .filter((h) => h.appliedFromYearMonth <= asOfYm)
+      .sort((a, b) => b.appliedFromYearMonth.localeCompare(a.appliedFromYearMonth));
+
+    if (pastOrCurrent.length) return pastOrCurrent[0];
+
+    // 未来しかない場合などは一番新しいもの
+    return [...histories].sort((a, b) => b.appliedFromYearMonth.localeCompare(a.appliedFromYearMonth))[0];
+  }
+
+  /**
+   * 現在の年月を取得（JSTでYYYY-MM形式）
+   */
+  private getCurrentYearMonth(): YearMonthString {
+    const now = new Date();
+    // JSTに変換（UTC+9時間）
+    const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const year = jstNow.getUTCFullYear();
+    const month = String(jstNow.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}-${month}` as YearMonthString;
   }
 }

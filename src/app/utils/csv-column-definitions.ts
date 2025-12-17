@@ -434,7 +434,9 @@ export const EMPLOYEE_CSV_COLUMNS_V2: CsvColumnDefinition[] = [
     getter: (emp) => emp.contactEmail ?? '',
     setter: (emp, val) => {
       const normalized = normalizeString(val);
-      if (normalized !== undefined) {
+      if (normalized === null) {
+        emp.contactEmail = null as any;
+      } else if (normalized !== undefined) {
         emp.contactEmail = normalized as string;
       }
     }
@@ -729,40 +731,42 @@ export const EMPLOYEE_CSV_COLUMNS_V2: CsvColumnDefinition[] = [
     header: '健康保険等級',
     getter: (emp) => emp.healthGrade ?? '',
     setter: (emp, val) => {
-      const parsed = parseNumber(val);
-      if (parsed !== undefined) {
-        emp.healthGrade = parsed as number;
-      }
+      // 標準報酬は履歴で管理するため、インポートでは無視
     }
   },
   {
     header: '健康保険標準報酬月額',
     getter: (emp) => emp.healthStandardMonthly ?? '',
     setter: (emp, val) => {
-      const parsed = parseNumber(val);
-      if (parsed !== undefined) {
-        emp.healthStandardMonthly = parsed as number;
-      }
+      // 標準報酬は履歴で管理するため、インポートでは無視
+    }
+  },
+  {
+    header: '健康保険適用開始年月',
+    getter: (emp) => '', // エクスポート時に履歴から取得（Task6で実装）
+    setter: (emp, val) => {
+      // 標準報酬は履歴で管理するため、インポートでは無視
     }
   },
   {
     header: '厚生年金等級',
     getter: (emp) => emp.pensionGrade ?? '',
     setter: (emp, val) => {
-      const parsed = parseNumber(val);
-      if (parsed !== undefined) {
-        emp.pensionGrade = parsed as number;
-      }
+      // 標準報酬は履歴で管理するため、インポートでは無視
     }
   },
   {
     header: '厚生年金標準報酬月額',
     getter: (emp) => emp.pensionStandardMonthly ?? '',
     setter: (emp, val) => {
-      const parsed = parseNumber(val);
-      if (parsed !== undefined) {
-        emp.pensionStandardMonthly = parsed as number;
-      }
+      // 標準報酬は履歴で管理するため、インポートでは無視
+    }
+  },
+  {
+    header: '厚生年金適用開始年月',
+    getter: (emp) => '', // エクスポート時に履歴から取得（Task6で実装）
+    setter: (emp, val) => {
+      // 標準報酬は履歴で管理するため、インポートでは無視
     }
   },
   // 旧CSV救済: 「標準報酬月額」→ healthStandardMonthly/pensionStandardMonthly の両方に設定
@@ -771,12 +775,7 @@ export const EMPLOYEE_CSV_COLUMNS_V2: CsvColumnDefinition[] = [
     aliases: ['標準報酬月額'],
     getter: () => '', // エクスポートには出さない（deprecated）
     setter: (emp, val) => {
-      const parsed = parseNumber(val);
-      if (parsed !== undefined && parsed !== null) {
-        // 旧CSV救済: 両方に同じ値を設定
-        emp.healthStandardMonthly = parsed as number;
-        emp.pensionStandardMonthly = parsed as number;
-      }
+      // 標準報酬は履歴で管理するため、インポートでは無視
     }
   },
   {

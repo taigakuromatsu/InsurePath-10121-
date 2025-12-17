@@ -18,15 +18,25 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { AsyncPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { combineLatest, defer, firstValueFrom, map, Observable, of, startWith, switchMap } from 'rxjs';
 
-import { InsuranceKind, StandardRewardDecisionKind, StandardRewardHistory, YearMonthString } from '../../types';
+import { Employee, InsuranceKind, StandardRewardDecisionKind, StandardRewardHistory, YearMonthString } from '../../types';
 import { getStandardRewardDecisionKindLabel } from '../../utils/label-utils';
 import { StandardRewardHistoryService } from '../../services/standard-reward-history.service';
 import { MastersService } from '../../services/masters.service';
 import { CurrentOfficeService } from '../../services/current-office.service';
+import { EmployeesService } from '../../services/employees.service';
+import { OfficesService } from '../../services/offices.service';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
+import { calculateStandardRewardsFromSalary } from '../../utils/standard-reward-calculator';
+import {
+  StandardRewardAutoInputConfirmDialogComponent,
+  StandardRewardAutoInputConfirmDialogData
+} from './standard-reward-auto-input-confirm-dialog.component';
 
 export interface StandardRewardHistoryFormDialogData {
   officeId: string;
   employeeId: string;
+  employee?: Employee;
   history?: StandardRewardHistory;
 }
 
@@ -43,6 +53,7 @@ export interface StandardRewardHistoryFormDialogData {
     MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
+    MatSnackBarModule,
     NgIf,
     NgFor,
     AsyncPipe,
@@ -57,13 +68,14 @@ export interface StandardRewardHistoryFormDialogData {
     <form class="dense-form" [formGroup]="form" (ngSubmit)="submit()" mat-dialog-content>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>保険種別 *</mat-label>
-        <mat-select formControlName="insuranceKind" required>
+        <mat-select formControlName="insuranceKind" required [disabled]="!!data.history">
           <mat-option value="health">健康保険</mat-option>
           <mat-option value="pension">厚生年金</mat-option>
         </mat-select>
         <mat-error *ngIf="form.controls.insuranceKind.hasError('required')">
           保険種別を選択してください
         </mat-error>
+        <mat-hint *ngIf="data.history">編集時は保険種別を変更できません</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
@@ -87,6 +99,12 @@ export interface StandardRewardHistoryFormDialogData {
         <mat-error *ngIf="form.controls.appliedFromYearMonth.hasError('pending')">
           重複チェック中...
         </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width readonly-field" *ngIf="insurableMonthlyWage$ | async as wage">
+        <mat-label>報酬月額（参照）</mat-label>
+        <input matInput [value]="wage | number" readonly />
+        <mat-hint>報酬月額は従業員フォームで編集してください。</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
@@ -136,6 +154,38 @@ export interface StandardRewardHistoryFormDialogData {
           {{ form.controls.note.value.length || 0 }}/1000
         </mat-hint>
       </mat-form-field>
+
+      <!-- 自動追加ボタン -->
+      <div class="auto-add-section" *ngIf="(insurableMonthlyWage$ | async) != null && (insurableMonthlyWage$ | async)! > 0">
+        <div class="auto-add-buttons">
+          <button
+            mat-stroked-button
+            type="button"
+            color="primary"
+            [disabled]="!canExecuteAutoAdd('health')"
+            (click)="onAutoAddHistoryClick('health')"
+            class="auto-add-button"
+            [matTooltip]="'報酬月額から保険マスタデータの等級表をもとに標準報酬履歴を自動追加します。'"
+            matTooltipPosition="above"
+          >
+            <mat-icon>auto_fix_high</mat-icon>
+            <span>報酬月額から自動追加（健保）</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            color="primary"
+            [disabled]="!canExecuteAutoAdd('pension')"
+            (click)="onAutoAddHistoryClick('pension')"
+            class="auto-add-button"
+            [matTooltip]="'報酬月額から保険マスタデータの等級表をもとに標準報酬履歴を自動追加します。'"
+            matTooltipPosition="above"
+          >
+            <mat-icon>auto_fix_high</mat-icon>
+            <span>報酬月額から自動追加（厚年）</span>
+          </button>
+        </div>
+      </div>
     </form>
 
     <div mat-dialog-actions align="end" class="dialog-actions">
@@ -199,6 +249,35 @@ export interface StandardRewardHistoryFormDialogData {
         background-color: #f5f5f5;
         cursor: default;
       }
+
+      .auto-add-section {
+        margin-top: 16px;
+        padding: 16px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+      }
+
+      .auto-add-buttons {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .auto-add-button {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      @media (max-width: 600px) {
+        .auto-add-buttons {
+          flex-direction: column;
+        }
+
+        .auto-add-button {
+          width: 100%;
+        }
+      }
     `
   ]
 })
@@ -207,6 +286,10 @@ export class StandardRewardHistoryFormDialogComponent {
   private readonly standardRewardHistoryService = inject(StandardRewardHistoryService);
   private readonly mastersService = inject(MastersService);
   private readonly currentOfficeService = inject(CurrentOfficeService);
+  private readonly employeesService = inject(EmployeesService);
+  private readonly officesService = inject(OfficesService);
+  private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
 
   protected readonly decisionKinds: StandardRewardDecisionKind[] = [
     'regular',
@@ -242,14 +325,14 @@ export class StandardRewardHistoryFormDialogComponent {
     )
   );
 
-  readonly masterBands$ = combineLatest([
+  readonly masterBands$: Observable<{ standardMonthly: number; grade: number }[] | null> = combineLatest([
     this.currentOfficeService.office$,
     this.insuranceKind$,
     this.appliedFromYearMonth$
   ]).pipe(
     switchMap(([office, insuranceKind, yearMonth]) => {
       if (!office || !insuranceKind || !yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
-        return of([]);
+        return of(null);
       }
 
       const yearMonthString = yearMonth as YearMonthString;
@@ -268,6 +351,10 @@ export class StandardRewardHistoryFormDialogComponent {
 
   readonly availableStandardMonthlyRewards$: Observable<number[]> = this.masterBands$.pipe(
     map((bands) => {
+      // nullの場合は空配列を返す
+      if (!bands) {
+        return [];
+      }
       // 標準報酬月額のリストを取得し、重複を除去してソート
       const amounts = bands.map((band) => band.standardMonthly);
       return [...new Set(amounts)].sort((a, b) => a - b);
@@ -278,14 +365,13 @@ export class StandardRewardHistoryFormDialogComponent {
     this.currentOfficeService.office$,
     this.insuranceKind$,
     this.appliedFromYearMonth$,
-    this.availableStandardMonthlyRewards$
+    this.masterBands$
   ]).pipe(
-    map(([office, insuranceKind, yearMonth, amounts]) => {
-      // 条件が満たされていて、まだデータが取得されていない場合のみローディング
+    map(([office, insuranceKind, yearMonth, bands]) => {
+      // 条件が満たされていて、まだデータが取得されていない場合（null）のみローディング
       const isValid = !!(office && insuranceKind && yearMonth && /^\d{4}-\d{2}$/.test(yearMonth));
-      // データが取得されたら（空配列でも）ローディング終了
-      // ただし、yearMonthが空文字列の場合はローディングしない
-      return isValid && yearMonth !== '' && amounts.length === 0;
+      // nullの間だけローディング（空配列の場合はローディング終了）
+      return isValid && yearMonth !== '' && bands === null;
     })
   );
 
@@ -307,10 +393,22 @@ export class StandardRewardHistoryFormDialogComponent {
     })
   );
 
+  /**
+   * 報酬月額を取得（従業員マスタから）
+   */
+  readonly insurableMonthlyWage$: Observable<number | null>;
+
   constructor(
     public readonly dialogRef: MatDialogRef<StandardRewardHistoryFormDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public readonly data: StandardRewardHistoryFormDialogData
   ) {
+    // 報酬月額を取得（従業員マスタから）
+    this.insurableMonthlyWage$ = data.employee
+      ? of(data.employee.payrollSettings?.insurableMonthlyWage ?? null)
+      : this.employeesService.get(this.data.officeId, this.data.employeeId).pipe(
+          map((employee) => employee?.payrollSettings?.insurableMonthlyWage ?? null)
+        );
+
     if (data.history) {
       this.form.patchValue({
         insuranceKind: data.history.insuranceKind,
@@ -408,6 +506,140 @@ export class StandardRewardHistoryFormDialogComponent {
   protected readonly getStandardRewardDecisionKindLabel =
     getStandardRewardDecisionKindLabel;
 
+  /**
+   * 自動追加ボタンが実行可能かどうかを判定
+   */
+  canExecuteAutoAdd(insuranceKind: 'health' | 'pension'): boolean {
+    const appliedFromYearMonth = this.form.get('appliedFromYearMonth')?.value;
+    // 適用開始年月が有効な形式であることを確認
+    return !!(appliedFromYearMonth && /^\d{4}-\d{2}$/.test(appliedFromYearMonth));
+  }
+
+  /**
+   * 自動追加ボタンクリック時の処理
+   */
+  async onAutoAddHistoryClick(insuranceKind: 'health' | 'pension'): Promise<void> {
+    const appliedFromYearMonth = this.form.get('appliedFromYearMonth')?.value as YearMonthString | null;
+    const insurableMonthlyWage = await firstValueFrom(this.insurableMonthlyWage$);
+
+    if (!appliedFromYearMonth || !insurableMonthlyWage || insurableMonthlyWage <= 0) {
+      return;
+    }
+
+    // オフィス情報を取得
+    const office = await firstValueFrom(this.officesService.watchOffice(this.data.officeId));
+    if (!office) {
+      return;
+    }
+
+    // 標準報酬を計算
+    const calcResult = await calculateStandardRewardsFromSalary(
+      office,
+      insurableMonthlyWage,
+      appliedFromYearMonth,
+      this.mastersService
+    );
+
+    // 保険種別に応じた値を取得
+    const grade = insuranceKind === 'health' ? calcResult.healthGrade : calcResult.pensionGrade;
+    const standardMonthly = insuranceKind === 'health' ? calcResult.healthStandardMonthly : calcResult.pensionStandardMonthly;
+    const error = insuranceKind === 'health' ? calcResult.errors.health : calcResult.errors.pension;
+
+    // エラーがある場合は処理を中断
+    if (error) {
+      this.snackBar.open(error, undefined, {
+        duration: 5000
+      });
+      return;
+    }
+
+    // 値がない場合は処理を中断
+    if (!grade || !standardMonthly) {
+      this.snackBar.open('標準報酬を計算できませんでした。', undefined, {
+        duration: 3000
+      });
+      return;
+    }
+
+    // 同月キー重複チェック
+    try {
+      const existingHistories = await firstValueFrom(
+        this.standardRewardHistoryService.listByInsuranceKind(
+          this.data.officeId,
+          this.data.employeeId,
+          insuranceKind
+        )
+      );
+
+      const isDuplicate = existingHistories.some(
+        (h) => h.appliedFromYearMonth === appliedFromYearMonth && (!this.data.history || h.id !== this.data.history.id)
+      );
+
+      if (isDuplicate) {
+        this.snackBar.open(
+          `この保険種別・適用開始年月（${appliedFromYearMonth}）の履歴が既に存在します。既存の履歴を編集してください。`,
+          '閉じる',
+          { duration: 5000 }
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('重複チェックに失敗しました:', error);
+      this.snackBar.open('重複チェックに失敗しました。', undefined, {
+        duration: 3000
+      });
+      return;
+    }
+
+    // 確認ダイアログを表示
+    const dialogRef = this.dialog.open<
+      StandardRewardAutoInputConfirmDialogComponent,
+      StandardRewardAutoInputConfirmDialogData,
+      'add' | 'cancel'
+    >(StandardRewardAutoInputConfirmDialogComponent, {
+      width: '600px',
+      disableClose: true,
+      data: {
+        salary: insurableMonthlyWage,
+        decisionYearMonth: appliedFromYearMonth,
+        healthGrade: insuranceKind === 'health' ? grade : null,
+        healthStandardMonthly: insuranceKind === 'health' ? standardMonthly : null,
+        pensionGrade: insuranceKind === 'pension' ? grade : null,
+        pensionStandardMonthly: insuranceKind === 'pension' ? standardMonthly : null,
+        healthError: insuranceKind === 'health' ? null : null,
+        pensionError: insuranceKind === 'pension' ? null : null
+      }
+    });
+
+    const result = await firstValueFrom(dialogRef.afterClosed());
+
+    if (result === 'add') {
+      // 履歴を追加（B案：保存して閉じる）
+      try {
+        await this.standardRewardHistoryService.save(this.data.officeId, this.data.employeeId, {
+          insuranceKind,
+          appliedFromYearMonth,
+          standardMonthlyReward: standardMonthly,
+          grade,
+          decisionKind: 'other',
+          note: `報酬月額${insurableMonthlyWage.toLocaleString()}円を基に算出`
+        });
+
+        this.snackBar.open('標準報酬履歴を追加しました', undefined, {
+          duration: 3000
+        });
+
+        // ダイアログを閉じる（B案：保存して完了）
+        this.dialogRef.close();
+      } catch (error) {
+        console.error('標準報酬履歴の追加に失敗しました:', error);
+        this.snackBar.open('標準報酬履歴の追加に失敗しました。', undefined, {
+          duration: 3000
+        });
+      }
+    }
+  }
+
   submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -421,12 +653,29 @@ export class StandardRewardHistoryFormDialogComponent {
       insuranceKind: value.insuranceKind,
       appliedFromYearMonth: value.appliedFromYearMonth,
       standardMonthlyReward: Number(value.standardMonthlyReward),
-      grade: value.grade != null ? Number(value.grade) : undefined,
-      decisionKind: value.decisionKind as StandardRewardDecisionKind,
-      note: value.note?.trim() || undefined,
-      createdAt: this.data.history?.createdAt,
-      createdByUserId: this.data.history?.createdByUserId
+      decisionKind: value.decisionKind as StandardRewardDecisionKind
     };
+
+    // gradeが設定されている場合のみ追加（undefinedはFirestoreに保存できない）
+    if (value.grade != null) {
+      payload.grade = Number(value.grade);
+    }
+
+    // noteが設定されている場合のみ追加（undefinedはFirestoreに保存できない）
+    const note = value.note?.trim();
+    if (note) {
+      payload.note = note;
+    }
+
+    // 編集時のみcreatedAt/createdByUserIdを追加
+    if (this.data.history) {
+      if (this.data.history.createdAt) {
+        payload.createdAt = this.data.history.createdAt;
+      }
+      if (this.data.history.createdByUserId) {
+        payload.createdByUserId = this.data.history.createdByUserId;
+      }
+    }
 
     this.dialogRef.close(payload);
   }

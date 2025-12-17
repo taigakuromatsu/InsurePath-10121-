@@ -296,8 +296,20 @@ interface EmployeeWithUpdatedBy extends Employee {
               <mat-icon color="primary">list</mat-icon> 従業員一覧
             </h2>
             <p class="mat-body-2" style="color: #666">
-              登録されている従業員の一覧を表示します。「従業員情報」と「管理情報」のヘッダーをクリックするとソートできます。
+              登録されている従業員の一覧を表示します。「従業員情報」と「管理情報」のヘッダーをクリックすると「カナ順」または「社員番号順」でソートできます。
             </p>
+            <div class="csv-note-box">
+              <div class="csv-note-title">
+                <mat-icon class="csv-note-icon">info</mat-icon>
+                <span>CSVの注意点</span>
+              </div>
+
+              <ul class="csv-note-list">
+                <li><strong>扶養家族</strong>：未対応</li>
+                <li><strong>標準報酬履歴</strong>：インポート対象外（エクスポートは「現在適用中」を参照表示）</li>
+                <li><strong>マイナンバー</strong>：セキュリティ上CSVに含めません</li>
+              </ul>
+            </div>
           </div>
           <div class="header-actions flex-row gap-2 flex-wrap">
             <div class="filter-section">
@@ -977,6 +989,43 @@ interface EmployeeWithUpdatedBy extends Employee {
         color: #d32f2f;
         font-weight: 600;
       }
+
+      .csv-note-box {
+        margin-top: 10px;
+        padding: 12px 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+      }
+
+      .csv-note-title {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 6px;
+      }
+
+      .csv-note-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #64748b;
+      }
+
+      .csv-note-list {
+        margin: 0;
+        padding-left: 1.2rem;
+        color: #666;
+        font-size: 0.85rem;
+        line-height: 1.6;
+      }
+
+      .csv-note-list li {
+        margin: 2px 0;
+      }
     `
   ]
 })
@@ -1319,7 +1368,7 @@ export class EmployeesPage {
       return;
     }
 
-    this.csvExportService.exportEmployees(employees);
+    await this.csvExportService.exportEmployees(employees);
     this.snackBar.open('CSVエクスポートが完了しました', '閉じる', { duration: 3000 });
   }
 

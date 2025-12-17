@@ -182,7 +182,7 @@ export class CsvImportService {
           bankSeen++;
           if (raw === '__CLEAR__') {
             bankClear++;
-          }
+        }
         }
         if (PAYROLL_HEADERS.has(colDef.header)) {
           payrollSeen++;
@@ -208,7 +208,7 @@ export class CsvImportService {
       // 全列__CLEAR__のときだけオブジェクトごと消す
       if (bankSeen > 0 && bankClear === bankSeen) {
         (cleaned as any).bankAccount = null;
-      }
+        }
       if (payrollSeen > 0 && payrollClear === payrollSeen) {
         (cleaned as any).payrollSettings = null;
       }
@@ -216,7 +216,7 @@ export class CsvImportService {
       if (Object.keys(cleaned).length > 0) {
         data.push(cleaned);
         rowIndexes.push(actualRowNumber);
-      }
+        }
     }
 
     // テンプレート未編集時のエラー追加
@@ -292,7 +292,7 @@ export class CsvImportService {
     dateFields.forEach((field) => {
       const value = employee[field];
       if (value !== undefined && value !== null && value !== '') {
-        if (typeof value !== 'string' || !datePattern.test(value)) {
+      if (typeof value !== 'string' || !datePattern.test(value)) {
           errors.push({
             rowIndex,
             field: field as string,

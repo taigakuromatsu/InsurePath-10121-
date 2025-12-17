@@ -264,7 +264,7 @@ export interface StandardRewardHistoryDialogData {
       }
 
       div[mat-dialog-content] {
-        max-height: 70vh;
+        max-height: calc(90vh - 120px);
         overflow-y: auto;
         padding: 16px;
         min-width: 800px;
@@ -412,7 +412,8 @@ export class StandardRewardHistoryDialogComponent {
         width: '520px',
         data: {
           officeId: this.data.employee.officeId,
-          employeeId: this.data.employee.id
+          employeeId: this.data.employee.id,
+          employee: this.data.employee
         }
       })
       .afterClosed()
@@ -430,6 +431,7 @@ export class StandardRewardHistoryDialogComponent {
         data: {
           officeId: this.data.employee.officeId,
           employeeId: this.data.employee.id,
+          employee: this.data.employee,
           history
         }
       })
