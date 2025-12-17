@@ -200,32 +200,7 @@ export class OfficeSetupPage implements OnInit {
   readonly loading = signal(false);
 
   ngOnInit(): void {
-    this.checkAndShowOnboarding();
-  }
-
-  private async checkAndShowOnboarding(): Promise<void> {
-    const profile = await firstValueFrom(this.currentUser.profile$);
-    if (!profile) {
-      return;
-    }
-
-    // 既にオンボーディングを見た場合はスキップ
-    if (profile.hasSeenOnboarding) {
-      return;
-    }
-
-    // オンボーディングダイアログを表示
-    const dialogRef = this.dialog.open(OnboardingDialogComponent, {
-      width: '600px',
-      disableClose: false
-    });
-
-    dialogRef.afterClosed().subscribe(async (result) => {
-      if (result) {
-        // フラグを更新
-        await this.currentUser.updateProfile({ hasSeenOnboarding: true });
-      }
-    });
+    // オンボーディングは事業所作成後に表示するため、ここでは何もしない
   }
 
   async createOffice(): Promise<void> {
@@ -243,6 +218,10 @@ export class OfficeSetupPage implements OnInit {
       });
       await this.currentUser.assignOffice(office.id);
       await this.currentUser.updateProfile({ role: 'admin' });
+      
+      // 事業所作成後にオンボーディングを表示
+      await this.showOnboardingAfterOfficeCreation();
+      
       await this.router.navigateByUrl('/offices');
       this.snackBar.open(
         '新しい事業所を作成しました。事業所設定画面で事業所記号や郵便番号などの識別情報も入力してください。',
@@ -254,6 +233,31 @@ export class OfficeSetupPage implements OnInit {
       this.snackBar.open('事業所の作成に失敗しました', '閉じる', { duration: 4000 });
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  private async showOnboardingAfterOfficeCreation(): Promise<void> {
+    const profile = await firstValueFrom(this.currentUser.profile$);
+    if (!profile) {
+      return;
+    }
+
+    // 既にオンボーディングを見た場合はスキップ
+    if (profile.hasSeenOnboarding) {
+      return;
+    }
+
+    // オンボーディングダイアログを表示
+    const dialogRef = this.dialog.open(OnboardingDialogComponent, {
+      width: '600px',
+      disableClose: false
+    });
+
+    // ダイアログが閉じられるまで待機
+    const result = await firstValueFrom(dialogRef.afterClosed());
+    if (result) {
+      // フラグを更新
+      await this.currentUser.updateProfile({ hasSeenOnboarding: true });
     }
   }
 }
