@@ -5,7 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { MatTabsModule } from '@angular/material/tabs';
+import { MatCardModule } from '@angular/material/card';
+import { MatMenuModule } from '@angular/material/menu';
 import { DecimalPipe } from '@angular/common';
 import { map, Observable, of, switchMap } from 'rxjs';
 
@@ -29,7 +30,8 @@ export interface StandardRewardHistoryDialogData {
     MatButtonModule,
     MatIconModule,
     MatTableModule,
-    MatTabsModule,
+    MatCardModule,
+    MatMenuModule,
     MatSnackBarModule,
     DecimalPipe
   ],
@@ -43,76 +45,75 @@ export interface StandardRewardHistoryDialogData {
     </h1>
 
     <div mat-dialog-content class="content">
-      <div class="section-title-with-action">
-        <h2 class="mat-h3 section-title">
-          <mat-icon>trending_up</mat-icon>
-          標準報酬履歴
-        </h2>
-        <ng-container *ngIf="canManageStandardRewardHistory$ | async">
-          <button
-            mat-stroked-button
-            color="primary"
-            type="button"
-            (click)="openAddStandardRewardHistory()"
-          >
-            <mat-icon>add</mat-icon>
-            履歴を追加
-          </button>
-        </ng-container>
-      </div>
-
-      <ng-container *ngIf="standardRewardHistories$ | async as histories">
-        <div class="standard-reward-empty" *ngIf="histories.length === 0">
-          <mat-icon>history</mat-icon>
-          <p>標準報酬履歴が登録されていません</p>
-        </div>
-
-        <div class="standard-reward-table" *ngIf="histories.length > 0">
-          <ng-container
-            *ngIf="canManageStandardRewardHistory$ | async as canManageStandardRewardHistory"
-          >
-            <mat-tab-group>
-              <!-- 健康保険のタブ -->
-              <mat-tab label="健康保険" *ngIf="((healthHistories$ | async)?.length ?? 0) > 0">
-                <table mat-table [dataSource]="(healthHistories$ | async) || []" class="admin-table">
-                  <ng-container matColumnDef="appliedFromYearMonth">
+      <ng-container *ngIf="{ canManage: (canManageStandardRewardHistory$ | async) } as vm">
+        <!-- 左右2カラム表示（PC幅） -->
+        <div class="histories-grid">
+          <!-- 健康保険カード -->
+          <ng-container *ngIf="healthHistories$ | async as healthHistories">
+            <mat-card class="history-card">
+              <mat-card-header class="card-header">
+                <div class="card-header-content">
+                  <mat-icon class="card-icon">local_hospital</mat-icon>
+                  <div class="card-title-section">
+                    <mat-card-title>健康保険</mat-card-title>
+                    <mat-card-subtitle>
+                      {{ healthHistories.length }}件
+                    </mat-card-subtitle>
+                  </div>
+                </div>
+                <button
+                  *ngIf="vm.canManage"
+                  mat-stroked-button
+                  color="primary"
+                  type="button"
+                  (click)="openAddStandardRewardHistory('health')"
+                  class="add-button-header"
+                >
+                  <mat-icon>add</mat-icon>
+                  履歴を追加
+                </button>
+              </mat-card-header>
+              <mat-card-content class="card-content">
+                <ng-container *ngIf="healthHistories.length > 0; else healthEmpty">
+                  <table mat-table [dataSource]="healthHistories" class="admin-table">
+                  <ng-container matColumnDef="health-appliedFromYearMonth">
                     <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
-                    <td mat-cell *matCellDef="let history">
+                    <td mat-cell *matCellDef="let history" class="mat-column-health-appliedFromYearMonth">
                       {{ history.appliedFromYearMonth }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="standardMonthlyReward">
+                  <ng-container matColumnDef="health-standardMonthlyReward">
                     <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
-                    <td mat-cell *matCellDef="let history">
+                    <td mat-cell *matCellDef="let history" class="mat-column-health-standardMonthlyReward">
                       {{ history.standardMonthlyReward | number }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="grade">
+                  <ng-container matColumnDef="health-grade">
                     <th mat-header-cell *matHeaderCellDef>等級</th>
-                    <td mat-cell *matCellDef="let history">
+                    <td mat-cell *matCellDef="let history" class="mat-column-health-grade">
                       {{ history.grade ?? '-' }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="decisionKind">
+                  <ng-container matColumnDef="health-decisionKind">
                     <th mat-header-cell *matHeaderCellDef>決定区分</th>
-                    <td mat-cell *matCellDef="let history">
+                    <td mat-cell *matCellDef="let history" class="mat-column-health-decisionKind">
                       {{ getStandardRewardDecisionKindLabel(history.decisionKind) }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="note">
+                  <ng-container matColumnDef="health-note">
                     <th mat-header-cell *matHeaderCellDef>メモ</th>
-                    <td mat-cell *matCellDef="let history" class="standard-reward-note">
+                    <td mat-cell *matCellDef="let history" class="mat-column-health-note standard-reward-note">
                       {{ history.note || '-' }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="actions">
-                    <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
-                    <td mat-cell *matCellDef="let history" class="actions-cell">
+                  <ng-container matColumnDef="health-actions">
+                    <th mat-header-cell *matHeaderCellDef class="mat-column-health-actions actions-header">操作</th>
+                    <td mat-cell *matCellDef="let history" class="mat-column-health-actions actions-cell">
                       <button
                         mat-icon-button
                         color="primary"
@@ -135,65 +136,111 @@ export interface StandardRewardHistoryDialogData {
                   <tr
                     mat-header-row
                     *matHeaderRowDef="
-                      canManageStandardRewardHistory
-                        ? displayedStandardRewardColumns
-                        : standardRewardColumnsWithoutActions
+                      vm.canManage
+                        ? displayedHealthColumns
+                        : healthColumnsWithoutActions
                     "
+                    sticky
                   ></tr>
                   <tr
                     mat-row
                     *matRowDef="
                       let row;
                       columns:
-                        canManageStandardRewardHistory
-                          ? displayedStandardRewardColumns
-                          : standardRewardColumnsWithoutActions
+                        vm.canManage
+                          ? displayedHealthColumns
+                          : healthColumnsWithoutActions
                     "
-                  ></tr>
-                </table>
-              </mat-tab>
+                  >                  </tr>
+                  </table>
+                </ng-container>
+                <ng-template #healthEmpty>
+                  <div class="standard-reward-empty">
+                    <mat-icon>history</mat-icon>
+                    <p>健康保険の標準報酬履歴が登録されていません</p>
+                    <button
+                      *ngIf="vm.canManage"
+                      mat-stroked-button
+                      color="primary"
+                      type="button"
+                      (click)="openAddStandardRewardHistory('health')"
+                      class="add-button"
+                    >
+                      <mat-icon>add</mat-icon>
+                      健康保険の履歴を追加
+                    </button>
+                  </div>
+                </ng-template>
+              </mat-card-content>
+            </mat-card>
+          </ng-container>
 
-              <!-- 厚生年金のタブ -->
-              <mat-tab label="厚生年金" *ngIf="((pensionHistories$ | async)?.length ?? 0) > 0">
-                <table mat-table [dataSource]="(pensionHistories$ | async) || []" class="admin-table">
-                  <ng-container matColumnDef="appliedFromYearMonth">
+          <!-- 厚生年金カード -->
+          <ng-container *ngIf="pensionHistories$ | async as pensionHistories">
+            <mat-card class="history-card">
+              <mat-card-header class="card-header">
+                <div class="card-header-content">
+                  <mat-icon class="card-icon">account_balance</mat-icon>
+                  <div class="card-title-section">
+                    <mat-card-title>厚生年金</mat-card-title>
+                    <mat-card-subtitle>
+                      {{ pensionHistories.length }}件
+                    </mat-card-subtitle>
+                  </div>
+                </div>
+                <button
+                  *ngIf="vm.canManage"
+                  mat-stroked-button
+                  color="primary"
+                  type="button"
+                  (click)="openAddStandardRewardHistory('pension')"
+                  class="add-button-header"
+                >
+                  <mat-icon>add</mat-icon>
+                  履歴を追加
+                </button>
+              </mat-card-header>
+              <mat-card-content class="card-content">
+                <ng-container *ngIf="pensionHistories.length > 0; else pensionEmpty">
+                  <table mat-table [dataSource]="pensionHistories" class="admin-table">
+                  <ng-container matColumnDef="pension-appliedFromYearMonth">
                     <th mat-header-cell *matHeaderCellDef>適用開始年月</th>
-                    <td mat-cell *matCellDef="let history">
+                    <td mat-cell *matCellDef="let history" class="mat-column-pension-appliedFromYearMonth">
                       {{ history.appliedFromYearMonth }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="standardMonthlyReward">
+                  <ng-container matColumnDef="pension-standardMonthlyReward">
                     <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
-                    <td mat-cell *matCellDef="let history">
+                    <td mat-cell *matCellDef="let history" class="mat-column-pension-standardMonthlyReward">
                       {{ history.standardMonthlyReward | number }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="grade">
+                  <ng-container matColumnDef="pension-grade">
                     <th mat-header-cell *matHeaderCellDef>等級</th>
-                    <td mat-cell *matCellDef="let history">
+                    <td mat-cell *matCellDef="let history" class="mat-column-pension-grade">
                       {{ history.grade ?? '-' }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="decisionKind">
+                  <ng-container matColumnDef="pension-decisionKind">
                     <th mat-header-cell *matHeaderCellDef>決定区分</th>
-                    <td mat-cell *matCellDef="let history">
+                    <td mat-cell *matCellDef="let history" class="mat-column-pension-decisionKind">
                       {{ getStandardRewardDecisionKindLabel(history.decisionKind) }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="note">
+                  <ng-container matColumnDef="pension-note">
                     <th mat-header-cell *matHeaderCellDef>メモ</th>
-                    <td mat-cell *matCellDef="let history" class="standard-reward-note">
+                    <td mat-cell *matCellDef="let history" class="mat-column-pension-note standard-reward-note">
                       {{ history.note || '-' }}
                     </td>
                   </ng-container>
 
-                  <ng-container matColumnDef="actions">
-                    <th mat-header-cell *matHeaderCellDef class="actions-header">操作</th>
-                    <td mat-cell *matCellDef="let history" class="actions-cell">
+                  <ng-container matColumnDef="pension-actions">
+                    <th mat-header-cell *matHeaderCellDef class="mat-column-pension-actions actions-header">操作</th>
+                    <td mat-cell *matCellDef="let history" class="mat-column-pension-actions actions-cell">
                       <button
                         mat-icon-button
                         color="primary"
@@ -216,24 +263,43 @@ export interface StandardRewardHistoryDialogData {
                   <tr
                     mat-header-row
                     *matHeaderRowDef="
-                      canManageStandardRewardHistory
-                        ? displayedStandardRewardColumns
-                        : standardRewardColumnsWithoutActions
+                      vm.canManage
+                        ? displayedPensionColumns
+                        : pensionColumnsWithoutActions
                     "
+                    sticky
                   ></tr>
                   <tr
                     mat-row
                     *matRowDef="
                       let row;
                       columns:
-                        canManageStandardRewardHistory
-                          ? displayedStandardRewardColumns
-                          : standardRewardColumnsWithoutActions
+                        vm.canManage
+                          ? displayedPensionColumns
+                          : pensionColumnsWithoutActions
                     "
-                  ></tr>
-                </table>
-              </mat-tab>
-            </mat-tab-group>
+                  >                  </tr>
+                  </table>
+                </ng-container>
+                <ng-template #pensionEmpty>
+                  <div class="standard-reward-empty">
+                    <mat-icon>history</mat-icon>
+                    <p>厚生年金の標準報酬履歴が登録されていません</p>
+                    <button
+                      *ngIf="vm.canManage"
+                      mat-stroked-button
+                      color="primary"
+                      type="button"
+                      (click)="openAddStandardRewardHistory('pension')"
+                      class="add-button"
+                    >
+                      <mat-icon>add</mat-icon>
+                      厚生年金の履歴を追加
+                    </button>
+                  </div>
+                </ng-template>
+              </mat-card-content>
+            </mat-card>
           </ng-container>
         </div>
       </ng-container>
@@ -264,24 +330,91 @@ export interface StandardRewardHistoryDialogData {
       }
 
       div[mat-dialog-content] {
-        max-height: calc(90vh - 120px);
-        overflow-y: auto;
         padding: 16px;
-        min-width: 800px;
+        overflow: auto;
+        box-sizing: border-box;
+        max-height: calc(90vh - 140px); /* title + actions 分を引く */
+        width: min(1400px, 95vw);
+        min-width: 0; /* 1200px固定をやめる */
+        background: #f5f5f5;
       }
 
-      .section-title-with-action {
+      .histories-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        height: auto;
+        align-items: start;
+      }
+
+      @media (max-width: 959px) {
+        .histories-grid {
+          grid-template-columns: 1fr;
+          height: auto;
+          min-height: auto;
+        }
+      }
+
+      .history-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e0e0e0;
+      }
+
+      .card-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        padding: 16px;
+        border-bottom: 1px solid #e0e0e0;
+        flex-shrink: 0;
+        border-radius: 8px 8px 0 0;
+        background: #ffffff;
       }
 
-      .section-title {
+      .card-header-content {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
+      }
+
+      .card-icon {
+        color: #1976d2;
+      }
+
+      .card-title-section {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .card-title-section mat-card-title {
         margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+
+      .card-title-section mat-card-subtitle {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #666;
+      }
+
+      .add-button-header {
+        flex-shrink: 0;
+      }
+
+      .card-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0;
+        min-height: 0;
+        border-radius: 0 0 8px 8px;
       }
 
       .standard-reward-empty {
@@ -302,22 +435,68 @@ export interface StandardRewardHistoryDialogData {
         opacity: 0.5;
       }
 
+      .standard-reward-empty .add-button {
+        margin-top: 16px;
+      }
+
       .standard-reward-table {
         margin-top: 16px;
       }
 
       .admin-table {
         width: 100%;
+        table-layout: fixed;
+      }
+
+      .admin-table th {
+        white-space: nowrap;
+        border-bottom: 2px solid #e0e0e0;
       }
 
       .admin-table th,
       .admin-table td {
-        padding: 12px 16px;
+        padding: 10px 12px;
         border-bottom: 1px solid #e0e0e0;
+        font-size: 13px;
       }
 
-      .admin-table th {
-        border-bottom: 2px solid #e0e0e0;
+      /* 適用開始年月 */
+      .mat-column-health-appliedFromYearMonth,
+      .mat-column-pension-appliedFromYearMonth {
+        width: 120px;
+        white-space: nowrap;
+      }
+
+      /* 標準報酬月額 */
+      .mat-column-health-standardMonthlyReward,
+      .mat-column-pension-standardMonthlyReward {
+        width: 120px;
+        text-align: right;
+      }
+
+      /* 等級 */
+      .mat-column-health-grade,
+      .mat-column-pension-grade {
+        width: 70px;
+        text-align: center;
+      }
+
+      /* 決定区分 */
+      .mat-column-health-decisionKind,
+      .mat-column-pension-decisionKind {
+        width: 96px;
+      }
+
+      /* メモ（ここを"固定"するのがポイント） */
+      .mat-column-health-note,
+      .mat-column-pension-note {
+        width: 200px;
+      }
+
+      /* 操作 */
+      .mat-column-health-actions,
+      .mat-column-pension-actions {
+        width: 96px;
       }
 
       .admin-table tr:last-child td {
@@ -342,8 +521,18 @@ export interface StandardRewardHistoryDialogData {
       }
 
       div[mat-dialog-actions] {
-        padding: 8px 16px 16px;
+        padding: 16px 24px;
         margin: 0;
+        gap: 8px;
+        border-top: 1px solid #e0e0e0;
+        background: #fafafa;
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      div[mat-dialog-actions] button {
+        display: inline-flex;
+        align-items: center;
         gap: 8px;
       }
     `
@@ -363,21 +552,28 @@ export class StandardRewardHistoryDialogComponent {
     map((profile) => profile?.role === 'admin' || profile?.role === 'hr')
   );
 
-  readonly displayedStandardRewardColumns: Array<
-    keyof Pick<
-      StandardRewardHistory,
-      'appliedFromYearMonth' | 'standardMonthlyReward' | 'grade' | 'decisionKind' | 'note'
-    > | 'actions'
-  > = [
-    'appliedFromYearMonth',
-    'standardMonthlyReward',
-    'grade',
-    'decisionKind',
-    'note',
-    'actions'
+  readonly displayedHealthColumns = [
+    'health-appliedFromYearMonth',
+    'health-standardMonthlyReward',
+    'health-grade',
+    'health-decisionKind',
+    'health-note',
+    'health-actions'
   ];
-  readonly standardRewardColumnsWithoutActions = this.displayedStandardRewardColumns.filter(
-    (column) => column !== 'actions'
+  readonly healthColumnsWithoutActions = this.displayedHealthColumns.filter(
+    (column) => column !== 'health-actions'
+  );
+
+  readonly displayedPensionColumns = [
+    'pension-appliedFromYearMonth',
+    'pension-standardMonthlyReward',
+    'pension-grade',
+    'pension-decisionKind',
+    'pension-note',
+    'pension-actions'
+  ];
+  readonly pensionColumnsWithoutActions = this.displayedPensionColumns.filter(
+    (column) => column !== 'pension-actions'
   );
 
   constructor(
@@ -406,14 +602,15 @@ export class StandardRewardHistoryDialogComponent {
 
   protected readonly getStandardRewardDecisionKindLabel = getStandardRewardDecisionKindLabel;
 
-  openAddStandardRewardHistory(): void {
+  openAddStandardRewardHistory(insuranceKind: InsuranceKind): void {
     this.dialog
       .open(StandardRewardHistoryFormDialogComponent, {
         width: '520px',
         data: {
           officeId: this.data.employee.officeId,
           employeeId: this.data.employee.id,
-          employee: this.data.employee
+          employee: this.data.employee,
+          initialInsuranceKind: insuranceKind
         }
       })
       .afterClosed()

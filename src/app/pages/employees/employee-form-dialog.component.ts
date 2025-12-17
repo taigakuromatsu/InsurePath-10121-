@@ -11,14 +11,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { NgFor, NgIf } from '@angular/common';
 import { HelpDialogComponent, HelpDialogData } from '../../components/help-dialog.component';
-import {
-  StandardRewardAutoInputConfirmDialogComponent,
-  StandardRewardAutoInputConfirmDialogData
-} from './standard-reward-auto-input-confirm-dialog.component';
-import {
-  StandardRewardHistoryAddConfirmDialogComponent,
-  StandardRewardHistoryAddConfirmDialogData
-} from './standard-reward-history-add-confirm-dialog.component';
 import { StandardRewardHistoryDialogComponent } from './standard-reward-history-dialog.component';
 import { ConfirmDialogComponent, ConfirmDialogData } from '../../components/confirm-dialog.component';
 
@@ -1606,7 +1598,7 @@ export class EmployeeFormDialogComponent {
     }
 
     this.dialog.open(StandardRewardHistoryDialogComponent, {
-      width: '1000px',
+      width: '1400px',
       maxWidth: '95vw',
       maxHeight: '90vh',
       data: {

@@ -1312,7 +1312,7 @@ export class EmployeesPage {
 
   openStandardRewardHistory(employee: Employee): void {
     this.dialog.open(StandardRewardHistoryDialogComponent, {
-      width: '1000px',
+      width: '1400px',
       maxWidth: '95vw',
       data: { employee }
     });
