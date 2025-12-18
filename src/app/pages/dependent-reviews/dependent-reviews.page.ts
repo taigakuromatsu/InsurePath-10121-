@@ -21,6 +21,7 @@ import { DependentsService } from '../../services/dependents.service';
 import { DependentReviewResult, DependentReview, Dependent, DependentReviewSession } from '../../types';
 import { ReviewFormDialogComponent } from './review-form-dialog.component';
 import { SessionFormDialogComponent } from './session-form-dialog.component';
+import { todayYmd } from '../../utils/date-helpers';
 
 interface DependentWithReview extends Dependent {
   employeeId: string;
@@ -682,7 +683,7 @@ export class DependentReviewsPage {
   private readonly dependentsService = inject(DependentsService);
 
   // 扶養状況の抽出に使う基準年月日。初期値は「今日」の YYYY-MM-DD。
-  referenceDate: string = new Date().toISOString().substring(0, 10);
+  referenceDate: string = todayYmd();
 
   readonly resultFilter$ = new BehaviorSubject<DependentReviewResult | 'all'>('all');
   readonly selectedSessionId$ = new BehaviorSubject<string | null>(null);
@@ -863,7 +864,7 @@ export class DependentReviewsPage {
       throw new Error('ユーザーIDが取得できませんでした');
     }
 
-    const reviewDate = this.referenceDate || new Date().toISOString().substring(0, 10);
+    const reviewDate = this.referenceDate || todayYmd();
     const reviewedBy = currentUserProfile?.displayName || '';
     const selectedSessionId = await firstValueFrom(this.selectedSessionId$);
 

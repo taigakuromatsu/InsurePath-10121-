@@ -1,4 +1,5 @@
 import { Employee, IsoDateString, StandardRewardHistory, YearMonthString } from '../types';
+import { ymdToDateLocal, dateToYearMonthLocal } from './date-helpers';
 
 /**
  * 保険料計算に必要な料率コンテキスト
@@ -234,25 +235,24 @@ export function isCareInsuranceTarget(
   birthDate: string,
   yearMonth: YearMonthString
 ): boolean {
-  const ym = toYearMonthOrNull(`${yearMonth}-01`);
-  if (!birthDate || !ym) return false;
+  // yearMonth は既に YearMonthString 型なので、検証目的でなければそのまま使用
+  const ym = yearMonth;
+  if (!birthDate) return false;
 
-  const birth = new Date(birthDate);
+  const birth = ymdToDateLocal(birthDate);
   if (isNaN(birth.getTime())) return false;
 
   // 40歳到達前日が属する年月
   const dayBefore40 = new Date(birth);
   dayBefore40.setFullYear(dayBefore40.getFullYear() + 40);
   dayBefore40.setDate(dayBefore40.getDate() - 1);
-  const startYm = toYearMonthOrNull(dayBefore40.toISOString().substring(0, 10));
-  if (!startYm) return false;
+  const startYm = dateToYearMonthLocal(dayBefore40);
 
   // 65歳到達前日が属する年月
   const dayBefore65 = new Date(birth);
   dayBefore65.setFullYear(dayBefore65.getFullYear() + 65);
   dayBefore65.setDate(dayBefore65.getDate() - 1);
-  const lossYm = toYearMonthOrNull(dayBefore65.toISOString().substring(0, 10));
-  if (!lossYm) return false;
+  const lossYm = dateToYearMonthLocal(dayBefore65);
 
   return startYm <= ym && ym < lossYm;
 }

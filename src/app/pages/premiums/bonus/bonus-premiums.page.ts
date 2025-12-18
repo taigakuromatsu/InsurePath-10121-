@@ -29,6 +29,7 @@ import { DocumentGenerationDialogComponent } from '../../documents/document-gene
 import { isCareInsuranceTarget, roundForEmployeeDeduction } from '../../../utils/premium-calculator';
 import { hasInsuranceInMonth } from '../../../utils/premium-calculator';
 import { getFiscalYear } from '../../../utils/bonus-calculator';
+import { ymdToDateLocal } from '../../../utils/date-helpers';
 import { DocumentGeneratorService, MonthlyBonusPaymentPayload } from '../../../services/document-generator.service';
 import { aggregateBonusesByEmployee } from '../../../utils/document-templates/monthly-bonus-payment';
 
@@ -41,7 +42,7 @@ import { aggregateBonusesByEmployee } from '../../../utils/document-templates/mo
 function calculateAge(birthDate: string | null | undefined, yearMonth: YearMonthString): number | undefined {
   if (!birthDate) return undefined;
   
-  const birth = new Date(birthDate);
+  const birth = ymdToDateLocal(birthDate);
   if (isNaN(birth.getTime())) return undefined;
   
   // 対象年月の月末日を取得

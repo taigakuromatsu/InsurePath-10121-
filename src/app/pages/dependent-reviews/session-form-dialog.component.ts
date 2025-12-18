@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 import { DependentReviewSession } from '../../types';
+import { todayYmd } from '../../utils/date-helpers';
 
 export interface SessionFormDialogData {
   referenceDate?: string;
@@ -136,7 +137,7 @@ export class SessionFormDialogComponent {
 
   readonly data = inject<SessionFormDialogData>(MAT_DIALOG_DATA);
 
-  private readonly today = new Date().toISOString().substring(0, 10);
+  private readonly today = todayYmd();
 
   form = this.fb.group({
     referenceDate: [

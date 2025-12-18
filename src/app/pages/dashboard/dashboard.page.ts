@@ -20,6 +20,7 @@ import { DataQualityService } from '../../services/data-quality.service';
 import { MastersService } from '../../services/masters.service';
 import { BonusPremium, Employee, MonthlyPremium, Office, PaymentStatus, SocialInsurancePayment, YearMonthString } from '../../types';
 import { hasInsuranceInMonth, isCareInsuranceTarget, roundForEmployeeDeduction } from '../../utils/premium-calculator';
+import { todayYearMonth } from '../../utils/date-helpers';
 
 Chart.register(...registerables);
 
@@ -1499,8 +1500,7 @@ export class DashboardPage implements OnInit {
 
   private async loadRankingData(officeId: string): Promise<void> {
     try {
-      const now = new Date();
-      const currentYearMonth = now.toISOString().substring(0, 7);
+      const currentYearMonth = todayYearMonth();
 
       const premiums = await firstValueFrom(
         this.monthlyPremiumsService.listByOfficeAndYearMonth(officeId, currentYearMonth)

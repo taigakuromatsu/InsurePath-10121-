@@ -14,6 +14,7 @@ import { EmployeesService } from '../../services/employees.service';
 import { DependentReviewsService } from '../../services/dependent-reviews.service';
 import { CurrentUserService } from '../../services/current-user.service';
 import { Dependent, DependentReviewResult, DependentReview } from '../../types';
+import { todayYmd } from '../../utils/date-helpers';
 
 export interface ReviewFormDialogData {
   review?: DependentReview;
@@ -122,7 +123,7 @@ export class ReviewFormDialogComponent {
   readonly data = inject<ReviewFormDialogData>(MAT_DIALOG_DATA);
 
   // 今日の日付 (YYYY-MM-DD)
-  private readonly today = new Date().toISOString().substring(0, 10);
+  private readonly today = todayYmd();
 
   form = this.fb.group({
     employeeId: [this.data.review?.employeeId || this.data.employeeId || '', Validators.required],

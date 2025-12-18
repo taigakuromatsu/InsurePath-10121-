@@ -21,6 +21,7 @@ import {
 } from '../../../utils/bonus-calculator';
 import { ConfirmDialogComponent, ConfirmDialogData } from '../../../components/confirm-dialog.component';
 import { getExemptionKindLabel } from '../../../utils/label-utils';
+import { todayYmd } from '../../../utils/date-helpers';
 
 export interface BonusFormDialogData {
   office: Office;
@@ -300,7 +301,7 @@ export class BonusFormDialogComponent implements OnDestroy {
 
   readonly form = this.fb.group({
     employeeId: ['', Validators.required],
-    payDate: [new Date().toISOString().substring(0, 10), Validators.required],
+    payDate: [todayYmd(), Validators.required],
     grossAmount: [null as number | null, [Validators.required, Validators.min(1)]],
     bonusNatureCode: ['', Validators.required],
     bonusNatureLabel: [''],
@@ -313,7 +314,7 @@ export class BonusFormDialogComponent implements OnDestroy {
     // フォームの初期値を設定
     this.form.patchValue({
       employeeId: this.data.bonus?.employeeId ?? this.insuredEmployees[0]?.id ?? '',
-      payDate: this.data.bonus?.payDate ?? new Date().toISOString().substring(0, 10),
+      payDate: this.data.bonus?.payDate ?? todayYmd(),
       grossAmount: this.data.bonus?.grossAmount ?? null,
       bonusNatureCode: (this.data.bonus?.bonusNatureCode ?? 'REGULAR_SEASONAL') as BonusNatureCode,
       bonusNatureLabel: this.data.bonus?.bonusNatureLabel ?? '',

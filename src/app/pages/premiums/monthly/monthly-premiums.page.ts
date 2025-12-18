@@ -26,6 +26,7 @@ import { Employee, MonthlyPremium, Office, YearMonthString } from '../../../type
 import { CsvExportService } from '../../../utils/csv-export.service';
 import { HelpDialogComponent, HelpDialogData } from '../../../components/help-dialog.component';
 import { isCareInsuranceTarget, hasInsuranceInMonth, getStandardRewardFromHistory } from '../../../utils/premium-calculator';
+import { ymdToDateLocal } from '../../../utils/date-helpers';
 
 /**
  * 生年月日と対象年月から年齢を計算する
@@ -36,7 +37,7 @@ import { isCareInsuranceTarget, hasInsuranceInMonth, getStandardRewardFromHistor
 function calculateAge(birthDate: string | null | undefined, yearMonth: YearMonthString): number | undefined {
   if (!birthDate) return undefined;
   
-  const birth = new Date(birthDate);
+  const birth = ymdToDateLocal(birthDate);
   if (isNaN(birth.getTime())) return undefined;
   
   // 対象年月の月末日を取得

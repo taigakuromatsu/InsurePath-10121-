@@ -20,6 +20,7 @@ import {
   isCareInsuranceTarget as checkIsCareInsuranceTarget
 } from '../../utils/premium-calculator';
 import { YearMonthString } from '../../types';
+import { todayYearMonth } from '../../utils/date-helpers';
 
 @Component({
   selector: 'ip-simulator-page',
@@ -793,7 +794,7 @@ export class SimulatorPage {
       const yearMonths: YearMonthString[] = [];
       if (calculationMode === 'single') {
         // 単月計算の場合、現在の年月を使用
-        yearMonths.push(new Date().toISOString().substring(0, 7) as YearMonthString);
+        yearMonths.push(todayYearMonth());
       } else {
         const startYearMonth = formValue.startYearMonth as string;
         const endYearMonth = formValue.endYearMonth as string;

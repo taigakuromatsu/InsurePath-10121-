@@ -1,13 +1,21 @@
+import { YearMonthString } from '../types';
+
 /**
  * YYYY-MM-DD形式の文字列をローカル日付（Dateオブジェクト）に変換
  * toISOString()のタイムゾーン問題を回避するため、ローカル時刻として解釈する
  *
  * @param value YYYY-MM-DD形式の文字列
- * @returns Dateオブジェクト（ローカル時刻）
+ * @returns Dateオブジェクト（ローカル時刻）。不正な入力の場合は new Date(NaN) を返す
  */
 export function ymdToDateLocal(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, (month ?? 1) - 1, day ?? 1);
+  const [y, m, d] = value.split('-');
+  const year = Number(y);
+  const month = Number(m);
+  const day = Number(d);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return new Date(NaN);
+  }
+  return new Date(year, month - 1, day);
 }
 
 /**
@@ -88,5 +96,29 @@ export function getNextWeekMonday(): string {
  */
 export function getSundayOfWeek(mondayStr: string): string {
   return addDays(mondayStr, 6);
+}
+
+/**
+ * ローカルタイム（JST想定）で今日のYYYY-MM形式の文字列を取得
+ *
+ * @returns YYYY-MM形式の文字列（例: "2025-12"）
+ */
+export function todayYearMonth(): YearMonthString {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}` as YearMonthString;
+}
+
+/**
+ * DateオブジェクトからYYYY-MM形式の文字列を取得（ローカル時刻）
+ *
+ * @param date Dateオブジェクト
+ * @returns YYYY-MM形式の文字列（例: "2025-12"）
+ */
+export function dateToYearMonthLocal(date: Date): YearMonthString {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}` as YearMonthString;
 }
 
