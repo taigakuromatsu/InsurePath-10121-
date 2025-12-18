@@ -22,7 +22,10 @@
 
 **高リスク（境界処理・致命的な誤判定）**:
 - `isCareInsuranceTarget()` - 40/65歳境界で介護保険対象判定が誤る
-- 現在年月の取得 - ランキング集計やシミュレーションの対象月が1ヶ月ズレる
+- **現在年月の取得** - **ランキング集計やシミュレーションの対象月が1ヶ月ズレる（月ズレ＝集計月ズレで致命的）**
+  - JSTの午前0時〜8時59分に実行すると、UTCでは前日になるため、前月として扱われる可能性
+  - 特に月初（例: 12月1日 00:00〜08:59 JST）に実行すると、UTCでは11月30日となり、11月のデータが集計対象になる
+  - ダッシュボードのランキングやシミュレーターの単月計算で、誤った月のデータが表示される致命的な問題
 
 **中リスク（日付比較・計算）**:
 - 年齢計算 - 誕生日近辺で1日ズレる
@@ -208,6 +211,34 @@ export function dateToYearMonthLocal(date: Date): YearMonthString {
 
 **注意**: `YearMonthString` 型のインポートが必要
 
+**追加推奨: `toYearMonthOrNull()` の月の範囲チェック強化**
+
+`premium-calculator.ts` の `toYearMonthOrNull()` 関数は、現在正規表現のみで `YYYY-MM` 形式をチェックしていますが、`2025-99` のような不正な月が通ってしまう可能性があります。
+
+**実装方針の選択**:
+
+`toYearMonthOrNull()` が `premium-calculator.ts` にローカル定義なら、強化はそこで行ってOKです。
+複数箇所で使う場合は、`date-helpers.ts` へ移管して共通化することを推奨します。
+
+**強化実装例**:
+
+データ品質を厳密にしたい場合は、月の範囲チェック（1-12）を追加することを推奨します：
+
+```typescript
+function toYearMonthOrNull(dateStr?: string | null): YearMonthString | null {
+  if (!dateStr) return null;
+  const ym = dateStr.substring(0, 7);
+  // YYYY-MM 形式（ゼロ埋め必須）であることを確認
+  if (!/^\d{4}-\d{2}$/.test(ym)) return null;
+  // 月の範囲チェック（1-12）
+  const m = Number(ym.substring(5, 7));
+  if (m < 1 || m > 12) return null;
+  return ym as YearMonthString;
+}
+```
+
+同様に、`YYYY-MM-DD` 形式の日付も厳密にチェックしたい場合は、別途 `isValidYmd()` 関数を作成することを推奨します。
+
 ---
 
 ### ステップ2: `isCareInsuranceTarget()` の修正（最優先）
@@ -246,14 +277,16 @@ export function isCareInsuranceTarget(
 
 **修正後（案A: date-helpers.ts を使用）**:
 ```typescript
-import { ymdToDateLocal, dateToYmdLocal } from './date-helpers';
+import { ymdToDateLocal, dateToYearMonthLocal } from './date-helpers';
 
 export function isCareInsuranceTarget(
   birthDate: string,
   yearMonth: YearMonthString
 ): boolean {
-  const ym = toYearMonthOrNull(`${yearMonth}-01`);
-  if (!birthDate || !ym) return false;
+  // yearMonth は既に YearMonthString 型なので、検証目的でなければそのまま使用
+  // 検証したい場合は isValidYearMonth(yearMonth) のような明示的な関数を使用することを推奨
+  const ym = yearMonth;
+  if (!birthDate) return false;
 
   const birth = ymdToDateLocal(birthDate);
   if (isNaN(birth.getTime())) return false;
@@ -262,19 +295,19 @@ export function isCareInsuranceTarget(
   const dayBefore40 = new Date(birth);
   dayBefore40.setFullYear(dayBefore40.getFullYear() + 40);
   dayBefore40.setDate(dayBefore40.getDate() - 1);
-  const startYm = toYearMonthOrNull(dateToYmdLocal(dayBefore40));
-  if (!startYm) return false;
+  const startYm = dateToYearMonthLocal(dayBefore40);
 
   // 65歳到達前日が属する年月
   const dayBefore65 = new Date(birth);
   dayBefore65.setFullYear(dayBefore65.getFullYear() + 65);
   dayBefore65.setDate(dayBefore65.getDate() - 1);
-  const lossYm = toYearMonthOrNull(dateToYmdLocal(dayBefore65));
-  if (!lossYm) return false;
+  const lossYm = dateToYearMonthLocal(dayBefore65);
 
   return startYm <= ym && ym < lossYm;
 }
 ```
+
+**注意**: `dateToYearMonthLocal()` は `date-helpers.ts` に追加する関数です（ステップ1参照）。これにより、`YYYY-MM-DD` → `YYYY-MM` の変換が意図明確になり、余計なバリデーション経路も減ります。
 
 **修正後（案B: YMD算術で直接計算・より堅牢）**:
 ```typescript
@@ -282,8 +315,9 @@ export function isCareInsuranceTarget(
   birthDate: string,
   yearMonth: YearMonthString
 ): boolean {
-  const ym = toYearMonthOrNull(`${yearMonth}-01`);
-  if (!birthDate || !ym) return false;
+  // yearMonth は既に YearMonthString 型なので、検証目的でなければそのまま使用
+  const ym = yearMonth;
+  if (!birthDate) return false;
 
   // YYYY-MM-DD形式を分解
   const [by, bm, bd] = birthDate.split('-').map(Number);
@@ -616,7 +650,17 @@ const birth = ymdToDateLocal(birthDate);
    - 対象年月: `2029-12` → `false`（39歳年）
    - 対象年月: `2030-01` → `true`（40〜64歳範囲内）
 
-5. **エッジケース**
+5. **2/29生まれのテスト（うるう年境界）**
+   - **重要**: 2/29生まれは、「到達日の扱い（2/28扱い or 3/1扱い）」を仕様として先に決める必要があります
+   - **現ロジックの挙動**: `setFullYear(+40)` の標準挙動に従う（多くの環境で非うるう年では3/1扱い→前日2/28）
+   - **テストケース例**:
+     - 生年月日: `1984-02-29`
+     - 40歳到達日が `2024-03-01` 扱いの場合 → 40歳到達前日: `2024-02-29` → 対象年月: `2024-02` が開始
+     - 40歳到達日が `2024-02-28` 扱いの場合 → 40歳到達前日: `2024-02-27` → 対象年月: `2024-02` が開始
+   - **実装時の注意**: 期待仕様を先に決め、その仕様に合わせて期待値を固定してください
+   - 同様に65歳境界でも `1984-02-29` → `2049-02-28` または `2049-03-01` の扱いを仕様として決める必要があります
+
+6. **エッジケース**
    - 空文字・不正な日付形式 → `false`
    - 不正な年月形式 → `false`
 
@@ -663,6 +707,13 @@ const birth = ymdToDateLocal(birthDate);
 import { todayYmd, ymdToDateLocal, dateToYmdLocal, todayYearMonth } from '../utils/date-helpers';
 ```
 
+**循環依存の確認**:
+
+`label-utils.ts` に `date-helpers.ts` をインポートする場合、循環依存が発生しないことを確認してください。
+- `date-helpers.ts` が `label-utils.ts` を参照していない場合は問題ありません
+- もし `date-helpers.ts` が `label-utils.ts` を参照している場合は、循環依存が発生するため、より下位層（`date-helpers.ts` は最下層）に寄せる必要があります
+- 現在の実装では、`date-helpers.ts` は `label-utils.ts` を参照していないため、循環依存の心配はありません
+
 ### 5-2. タイムスタンプは変更しない
 
 `createdAt`, `updatedAt` などのタイムスタンプは、UTC（`toISOString()`）のまま維持します。
@@ -670,8 +721,11 @@ import { todayYmd, ymdToDateLocal, dateToYmdLocal, todayYearMonth } from '../uti
 
 ### 5-3. 既存のテストの確認
 
-修正後、既存のテストが正しく動作することを確認してください。
-特に `isCareInsuranceTarget()` のテストケースは、修正前後で結果が変わらないことを確認します。
+修正後、既存のテストが期待仕様どおりに動作することを確認してください。
+特に `isCareInsuranceTarget()` のテストケースは、**修正前後で結果が変わる可能性がある**ことに注意してください。
+- この修正は「ズレを直す」ためのものなので、環境や境界ケースでは結果が変わって良い
+- 重要なのは「期待仕様どおりになること」であり、「修正前後で結果が変わらないこと」ではない
+- JST/UTCの混在による誤判定が修正され、正しい判定結果になることを確認する
 
 ### 5-4. 段階的な実装
 

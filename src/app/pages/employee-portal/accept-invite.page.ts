@@ -45,13 +45,13 @@ import { UserRole, UserProfile} from '../../types';
                 <mat-icon color="warn">login</mat-icon>
                 <div>
                   <h2>ログインが必要です</h2>
-                  <p class="muted">Googleでログインして招待を受け付けてください。</p>
+                  <p class="muted">ログインして招待を受け付けてください。</p>
                 </div>
               </div>
               <div class="actions">
                 <button mat-flat-button color="primary" (click)="goToLogin()">
                   <mat-icon>login</mat-icon>
-                  Googleでログイン
+                  ログイン
                 </button>
               </div>
             </div>
