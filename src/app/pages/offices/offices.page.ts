@@ -346,6 +346,12 @@ export class OfficesPage implements OnDestroy {
       if (!office) {
         return;
       }
+      
+      // フォームに未保存の変更がある場合はスキップ（編集中の内容を保護）
+      if (this.form.dirty) {
+        return;
+      }
+      
       this.currentOfficeValue = office;
       // 都道府県コードから都道府県名を設定（既存データの読み込み時）
       const formValue = { ...office };

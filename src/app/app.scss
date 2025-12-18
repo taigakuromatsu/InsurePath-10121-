@@ -38,15 +38,43 @@ mat-nav-list {
 a[mat-list-item] {
   border-radius: 0.5rem;
   margin-bottom: 0.25rem;
-  color: inherit;
+  color: rgba(255, 255, 255, 0.9) !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+a[mat-list-item]:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 1) !important;
 }
 
 a[mat-list-item] mat-icon {
   margin-right: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+a[mat-list-item]:hover mat-icon {
+  color: rgba(255, 255, 255, 1);
+}
+
+a[mat-list-item] span {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+a[mat-list-item]:hover span {
+  color: rgba(255, 255, 255, 1);
 }
 
 .active-link {
   background-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 1) !important;
+}
+
+.active-link mat-icon {
+  color: rgba(255, 255, 255, 1);
+}
+
+.active-link span {
+  color: rgba(255, 255, 255, 1);
 }
 
 .top-toolbar {

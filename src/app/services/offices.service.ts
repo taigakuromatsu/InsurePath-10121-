@@ -4,10 +4,10 @@ import {
   collection,
   collectionData,
   doc,
-  getDoc,
+  docData,
   setDoc
 } from '@angular/fire/firestore';
-import { from, map, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 
 import { Office } from '../types';
 
@@ -29,21 +29,14 @@ export class OfficesService {
 
   constructor(private readonly firestore: Firestore) {}
 
-  // 事業所を1件取得（現在は1回読み切りにしています）
+  /**
+   * 事業所をリアルタイムで監視（watch）
+   * データ変更を自動的に検知します。
+   */
   watchOffice(id: string): Observable<Office | null> {
     return this.inCtx(() => {
       const ref = doc(this.getCollectionRef(), id);
-    return from(getDoc(ref)).pipe(
-      map((snapshot) => {
-        if (!snapshot.exists()) {
-          return null;
-        }
-        return {
-          id: snapshot.id,
-          ...(snapshot.data() as any)
-        } as Office;
-      })
-    );
+      return docData(ref, { idField: 'id' }) as Observable<Office | null>;
     });
   }
 
