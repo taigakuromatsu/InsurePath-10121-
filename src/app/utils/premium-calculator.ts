@@ -75,9 +75,13 @@ export interface MonthlyPremiumCalculationResult {
 
 // 'YYYY-MM-DD' 形式の文字列 → 'YYYY-MM' だけ取り出す。
 // 空文字・undefined・null のときは null を返す。
+// 形式が不正（YYYY-MM 形式でない、ゼロ埋めなしなど）の場合も null を返す。
 function toYearMonthOrNull(dateStr?: string | null): YearMonthString | null {
   if (!dateStr) return null;
-  return dateStr.substring(0, 7) as YearMonthString;
+  const ym = dateStr.substring(0, 7);
+  // YYYY-MM 形式（ゼロ埋め必須）であることを確認
+  if (!/^\d{4}-\d{2}$/.test(ym)) return null;
+  return ym as YearMonthString;
 }
 
 /**
@@ -135,7 +139,12 @@ export function getStandardRewardFromHistory(
  *
  * 基本ルール:
  * - 取得日が属する月から、その月分の保険料が発生する
- * - 喪失日が属する月の前月分まで保険料が発生する（喪失月は対象外）
+ * - 喪失日が属する月の前月分まで保険料が発生する（喪失月は原則対象外）
+ * - 例外：同月得喪（取得日と喪失日が同じ月）の場合は、その月分の保険料が必要（協会けんぽFAQ準拠）
+ *
+ * 月単位の有効範囲:
+ * - 通常： [取得月, 喪失月) （喪失月は含まない）
+ * - 同月得喪（取得月＝喪失月）： その月だけ有効
  *
  * 重要:
  * - 資格取得日が未入力の場合、その保険種別は常に対象外
@@ -157,15 +166,37 @@ export function hasInsuranceInMonth(
   const acquisitionYm = toYearMonthOrNull(acquisitionDate);
   const lossYm = toYearMonthOrNull(lossDate);
 
-  if (acquisitionYm && yearMonth < acquisitionYm) {
+  if (!acquisitionYm) {
     return false;
   }
 
-  if (lossYm && yearMonth >= lossYm) {
+  // 取得月より前は対象外
+  if (yearMonth < acquisitionYm) {
     return false;
   }
 
-  return true;
+  // 防御的チェック：喪失日が存在するのに形式不正な場合は対象外（データ不正として扱う）
+  if (lossDate && !lossYm) {
+    return false;
+  }
+
+  // 喪失日の指定がないなら、取得月以降は対象
+  if (!lossYm) {
+    return true;
+  }
+
+  // データ不整合チェック：喪失月が取得月より前の場合は対象外（エラーケース）
+  if (lossYm < acquisitionYm) {
+    return false;
+  }
+
+  // 同月得喪は「その月だけ」対象（協会けんぽFAQ準拠）
+  if (acquisitionYm === lossYm) {
+    return yearMonth === acquisitionYm;
+  }
+
+  // 通常は「喪失月以降は対象外」＝ 喪失月は含めない
+  return yearMonth < lossYm;
 }
 
 /**
@@ -232,7 +263,9 @@ export function isCareInsuranceTarget(
  * 健保・厚年それぞれの標準報酬（月額）と等級を前提に計算する。
  * 片方のみ揃っている場合は揃っている保険種別のみ計算し、もう片方は 0 として扱う。
  *
- * 標準報酬は、履歴から取得を試み、履歴がない場合は従業員データの標準報酬を使用する。
+ * 標準報酬は、標準報酬履歴から取得する。
+ * 履歴がない場合は計算不可（null を返す）。
+ * 理由：Phase 3 以降、標準報酬は履歴で管理する方針のため、履歴が必須。
  *
  * @param employee - 従業員情報
  * @param rateContext - 料率コンテキスト
