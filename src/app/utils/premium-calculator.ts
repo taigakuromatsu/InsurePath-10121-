@@ -98,7 +98,7 @@ export function roundForEmployeeDeduction(amount: number): number {
 }
 
 /**
- * 標準報酬履歴から、指定年月に適用される標準報酬月額を取得する。
+ * 標準報酬履歴から、指定年月に適用される標準報酬月額と等級を取得する。
  *
  * ルール:
  * - appliedFromYearMonth <= yearMonth を満たす履歴のうち、最新のものを取得
@@ -106,12 +106,12 @@ export function roundForEmployeeDeduction(amount: number): number {
  *
  * @param histories - 標準報酬履歴の配列（保険種別でフィルタ済み）
  * @param yearMonth - 対象年月（'YYYY-MM'形式）
- * @returns 適用される標準報酬月額、または null
+ * @returns 適用される標準報酬月額と等級、または null
  */
 export function getStandardRewardFromHistory(
   histories: StandardRewardHistory[],
   yearMonth: YearMonthString
-): number | null {
+): { standardMonthlyReward: number; grade?: number } | null {
   if (!histories || histories.length === 0) {
     return null;
   }
@@ -132,7 +132,11 @@ export function getStandardRewardFromHistory(
     return 0;
   });
 
-  return sortedHistories[0].standardMonthlyReward;
+  const latestHistory = sortedHistories[0];
+  return {
+    standardMonthlyReward: latestHistory.standardMonthlyReward,
+    grade: latestHistory.grade
+  };
 }
 
 /**
@@ -290,23 +294,27 @@ export function calculateMonthlyPremiumForEmployee(
   const hasHealthInsurance = hasInsuranceInMonth(employee, rateContext.yearMonth, 'health');
   const hasPensionInsurance = hasInsuranceInMonth(employee, rateContext.yearMonth, 'pension');
 
-  // 標準報酬を履歴から取得（履歴がない場合は計算不可）
+  // 標準報酬と等級を履歴から取得（履歴がない場合は計算不可）
   let healthStandardMonthly: number | null = null;
+  let healthGrade: number | null = null;
   let pensionStandardMonthly: number | null = null;
+  let pensionGrade: number | null = null;
   
   if (standardRewardHistories && standardRewardHistories.length > 0) {
-    // 健康保険の履歴から標準報酬を取得
+    // 健康保険の履歴から標準報酬と等級を取得
     const healthHistories = standardRewardHistories.filter((h) => h.insuranceKind === 'health');
     const healthFromHistory = getStandardRewardFromHistory(healthHistories, rateContext.yearMonth);
     if (healthFromHistory != null) {
-      healthStandardMonthly = healthFromHistory;
+      healthStandardMonthly = healthFromHistory.standardMonthlyReward;
+      healthGrade = healthFromHistory.grade ?? null;
     }
     
-    // 厚生年金の履歴から標準報酬を取得
+    // 厚生年金の履歴から標準報酬と等級を取得
     const pensionHistories = standardRewardHistories.filter((h) => h.insuranceKind === 'pension');
     const pensionFromHistory = getStandardRewardFromHistory(pensionHistories, rateContext.yearMonth);
     if (pensionFromHistory != null) {
-      pensionStandardMonthly = pensionFromHistory;
+      pensionStandardMonthly = pensionFromHistory.standardMonthlyReward;
+      pensionGrade = pensionFromHistory.grade ?? null;
     }
   }
   
@@ -328,18 +336,16 @@ export function calculateMonthlyPremiumForEmployee(
   const healthStandard = healthStandardMonthly ?? 0;
   const pensionStandard = pensionStandardMonthly ?? 0;
 
-  // 2. 健康保険の計算可否を判定（履歴から取得した標準報酬を使用）
+  // 2. 健康保険の計算可否を判定（履歴から取得した標準報酬を使用、等級のチェックは削除）
   const canCalcHealth =
     hasHealthInsurance &&
     healthStandard > 0 &&
-    employee.healthGrade != null &&
     rateContext.healthRate != null;
 
-  // 3. 厚生年金の計算可否を判定（履歴から取得した標準報酬を使用）
+  // 3. 厚生年金の計算可否を判定（履歴から取得した標準報酬を使用、等級のチェックは削除）
   const canCalcPension =
     hasPensionInsurance &&
     pensionStandard > 0 &&
-    employee.pensionGrade != null &&
     rateContext.pensionRate != null;
 
   // 4. 両方不可ならスキップ
@@ -387,9 +393,11 @@ export function calculateMonthlyPremiumForEmployee(
     employeeId: employee.id,
     officeId: employee.officeId,
     yearMonth: rateContext.yearMonth,
-    healthGrade: canCalcHealth ? employee.healthGrade! : 0,
+    // 等級が未設定の場合は0を返す（UI表示時は0を「—」表示にする）
+    healthGrade: canCalcHealth ? (healthGrade ?? 0) : 0,
     healthStandardMonthly: canCalcHealth ? healthStandard : 0,
-    pensionGrade: canCalcPension ? employee.pensionGrade! : 0,
+    // 等級が未設定の場合は0を返す（UI表示時は0を「—」表示にする）
+    pensionGrade: canCalcPension ? (pensionGrade ?? 0) : 0,
     pensionStandardMonthly: canCalcPension ? pensionStandard : 0,
     amounts: {
       healthCareFull,

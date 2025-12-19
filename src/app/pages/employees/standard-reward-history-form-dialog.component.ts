@@ -122,7 +122,7 @@ export interface StandardRewardHistoryFormDialogData {
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>標準報酬月額 *</mat-label>
-        <mat-select formControlName="standardMonthlyReward" required [disabled]="!(availableStandardMonthlyRewards$ | async)?.length">
+        <mat-select formControlName="standardMonthlyReward" required>
           <mat-option *ngFor="let amount of availableStandardMonthlyRewards$ | async" [value]="amount">
             {{ amount | number }}円
           </mat-option>
@@ -425,6 +425,26 @@ export class StandardRewardHistoryFormDialogComponent {
       this.form.controls.insuranceKind.disable({ emitEvent: false });
     }
 
+    // 初期は無効（選択肢が揃うまで）
+    this.form.controls.standardMonthlyReward.disable({ emitEvent: false });
+
+    // 選択肢の有無に応じて標準報酬月額フィールドを有効化/無効化
+    // 注意: 値のクリアは456-464行目のロジックで行うため、ここではenable/disableのみ
+    this.availableStandardMonthlyRewards$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((amounts) => {
+        const ctrl = this.form.controls.standardMonthlyReward;
+        const currentValue = ctrl.value;
+        if (amounts && amounts.length > 0) {
+          // 選択肢がある → 有効化
+          ctrl.enable({ emitEvent: false });
+        } else {
+          // 選択肢がない → 無効化
+          // 値のクリアは456-464行目のロジックで行う（既存の値が選択肢に含まれていない場合のみクリア）
+          ctrl.disable({ emitEvent: false });
+        }
+      });
+
     // 保険種別が変更されたときも重複チェックを再実行
     this.form.controls.insuranceKind.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -434,11 +454,13 @@ export class StandardRewardHistoryFormDialogComponent {
 
     // 保険種別または適用開始年月が変更されたとき、標準報酬月額の選択肢が変更される
     // 現在選択されている値が新しい選択肢に含まれていない場合は、nullにリセット
+    // 注意: 選択肢が空配列の場合は、マスターデータがまだ読み込まれていない可能性があるため、値をクリアしない
     combineLatest([this.insuranceKind$, this.appliedFromYearMonth$, this.availableStandardMonthlyRewards$])
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(([, , availableAmounts]) => {
         const currentValue = this.form.controls.standardMonthlyReward.value;
-        if (currentValue !== null && !availableAmounts.includes(currentValue)) {
+        // 選択肢が空配列の場合は、マスターデータがまだ読み込まれていない可能性があるため、値をクリアしない
+        if (currentValue !== null && availableAmounts.length > 0 && !availableAmounts.includes(currentValue)) {
           this.form.controls.standardMonthlyReward.setValue(null);
           this.form.controls.grade.setValue(null);
         }

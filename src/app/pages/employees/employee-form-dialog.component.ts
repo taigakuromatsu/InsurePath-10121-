@@ -468,6 +468,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>資格取得日（健保）</mat-label>
         <input matInput type="date" formControlName="healthQualificationDate" min="1900-01-01" max="2100-12-31" />
+        <mat-icon matSuffix matTooltip="取得日は手続き上の基準日です。通常は入社日が取得日になりますが、加入要件を満たす日が後になる場合はその日が取得日になります。原則、この日が属する月から保険料の対象になります（同月得喪など例外あり）。確定した日付を入力してください。" matTooltipClass="ip-wide-tooltip" matTooltipPosition="above" matTooltipShowDelay="150" class="info-icon">info</mat-icon>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -484,6 +485,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>資格喪失日（健保）</mat-label>
         <input matInput type="date" formControlName="healthLossDate" min="1900-01-01" max="2100-12-31" />
+        <mat-icon matSuffix matTooltip="喪失日は手続き上の基準日です。通常は退職日の翌日になることが多いですが、年齢到達・死亡など退職以外の理由で喪失する場合もあります。原則、この日が属する月の前月分までが保険料の対象になります（同月得喪など例外あり）。確定した喪失日を入力してください。" matTooltipClass="ip-wide-tooltip" matTooltipPosition="above" matTooltipShowDelay="150" class="info-icon">info</mat-icon>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -509,6 +511,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>資格取得日（厚年）</mat-label>
         <input matInput type="date" formControlName="pensionQualificationDate" min="1900-01-01" max="2100-12-31" />
+        <mat-icon matSuffix matTooltip="取得日は手続き上の基準日です。通常は入社日が取得日になりますが、加入要件を満たす日が後になる場合はその日が取得日になります。原則、この日が属する月から保険料の対象になります（同月得喪など例外あり）。確定した日付を入力してください。" matTooltipClass="ip-wide-tooltip" matTooltipPosition="above" matTooltipShowDelay="150" class="info-icon">info</mat-icon>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -525,6 +528,7 @@ export interface EmployeeDialogData {
       <mat-form-field appearance="outline">
         <mat-label>資格喪失日（厚年）</mat-label>
         <input matInput type="date" formControlName="pensionLossDate" min="1900-01-01" max="2100-12-31" />
+        <mat-icon matSuffix matTooltip="喪失日は手続き上の基準日です。通常は退職日の翌日になることが多いですが、年齢到達・死亡など退職以外の理由で喪失する場合もあります。原則、この日が属する月の前月分までが保険料の対象になります（同月得喪など例外あり）。確定した喪失日を入力してください。" matTooltipClass="ip-wide-tooltip" matTooltipPosition="above" matTooltipShowDelay="150" class="info-icon">info</mat-icon>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -856,6 +860,20 @@ export interface EmployeeDialogData {
       .grade-field {
         min-width: 0;
       }
+
+      .info-icon {
+        color: rgba(0, 0, 0, 0.54);
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        cursor: help;
+        margin-left: 4px;
+      }
+
+      .info-icon:hover {
+        color: rgba(0, 0, 0, 0.87);
+      }
+
 
       .readonly-field .mat-mdc-text-field-wrapper {
         background-color: #f5f5f5;

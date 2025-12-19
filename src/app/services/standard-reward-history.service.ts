@@ -81,16 +81,16 @@ export class StandardRewardHistoryService {
     employeeId: string,
     insuranceKind: InsuranceKind
   ): Promise<StandardRewardHistory | null> {
-    return this.inCtxAsync(async () => {
-    const ref = query(
+    const ref = this.inCtx(() => query(
       this.collectionPath(officeId, employeeId),
       where('insuranceKind', '==', insuranceKind),
       orderBy('appliedFromYearMonth', 'desc'),
       limit(1)
-    );
-    const snapshot = await firstValueFrom(collectionData(ref, { idField: 'id' }));
+    ));
+    // collectionData も injection context 内で呼び出す必要がある
+    const obs = this.inCtx(() => collectionData(ref, { idField: 'id' }));
+    const snapshot = await firstValueFrom(obs);
     return snapshot.length > 0 ? (snapshot[0] as StandardRewardHistory) : null;
-    });
   }
 
   async save(
@@ -98,9 +98,9 @@ export class StandardRewardHistoryService {
     employeeId: string,
     history: Partial<StandardRewardHistory> & { id?: string }
   ): Promise<Employee | null> {
-    return this.inCtxAsync(async () => {
+    // 参照生成は injection context 内で作るのが安全
     const historiesRef = this.collectionPath(officeId, employeeId);
-    const ref = history.id ? doc(historiesRef, history.id) : doc(historiesRef);
+    const ref = this.inCtx(() => (history.id ? doc(historiesRef, history.id) : doc(historiesRef)));
     const now = new Date().toISOString();
     const currentUser = await firstValueFrom(this.currentUserService.profile$);
 
@@ -143,12 +143,12 @@ export class StandardRewardHistoryService {
       }
     }
 
-    await setDoc(ref, payload, { merge: true });
+    // setDoc 呼び出し"そのもの"を injection context で包む
+    await this.inCtx(() => setDoc(ref, payload, { merge: true }));
 
     // 保存後にEmployeeを同期
     const insuranceKind = payload.insuranceKind ?? 'health';
     return await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
-    });
   }
 
   /**
@@ -208,14 +208,13 @@ export class StandardRewardHistoryService {
     historyId: string,
     insuranceKind?: InsuranceKind
   ): Promise<void> {
-    return this.inCtxAsync(async () => {
-    const ref = doc(this.collectionPath(officeId, employeeId), historyId);
-    await deleteDoc(ref);
+    const ref = this.inCtx(() => doc(this.collectionPath(officeId, employeeId), historyId));
+    // deleteDoc も同じ理屈で injection context で包む
+    await this.inCtx(() => deleteDoc(ref));
 
     // 保険種別が分かる場合は削除後に同期
     if (insuranceKind) {
       await this.syncEmployeeFromHistory(officeId, employeeId, insuranceKind);
     }
-    });
   }
 }

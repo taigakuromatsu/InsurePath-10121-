@@ -102,10 +102,10 @@ export class BonusPremiumsService {
     bonus: Partial<BonusPremium> & { employeeId: string; payDate: IsoDateString },
     previousId?: string
   ): Promise<void> {
-    return this.inCtxAsync(async () => {
     const collectionRef = this.getCollectionRef(officeId);
     const docId = this.buildDocId(bonus.employeeId, bonus.payDate);
-    const ref = doc(collectionRef, docId);
+    // 参照生成は injection context 内で作るのが安全
+    const ref = this.inCtx(() => doc(collectionRef, docId));
     const now = new Date().toISOString();
 
     const payload: BonusPremium = {
@@ -150,24 +150,24 @@ export class BonusPremiumsService {
       Object.entries(payload).filter(([, value]) => value !== undefined)
     ) as BonusPremium;
 
-    await setDoc(ref, cleanPayload, { merge: true });
+    // setDoc 呼び出し"そのもの"を injection context で包む
+    await this.inCtx(() => setDoc(ref, cleanPayload, { merge: true }));
 
       // ★ 支給日 or 従業員ID変更で docId が変わった場合、旧ドキュメントを削除
     if (previousId && previousId !== docId) {
-      const oldRef = doc(collectionRef, previousId);
-      await deleteDoc(oldRef);
+      const oldRef = this.inCtx(() => doc(collectionRef, previousId));
+      // deleteDoc も同じ理屈で injection context で包む
+      await this.inCtx(() => deleteDoc(oldRef));
     }
-    });
   }
 
   /**
    * 賞与支給履歴の削除
    */
   async deleteBonusPremium(officeId: string, id: string): Promise<void> {
-    return this.inCtxAsync(async () => {
-    const ref = doc(this.getCollectionRef(officeId), id);
-    return deleteDoc(ref);
-    });
+    const ref = this.inCtx(() => doc(this.getCollectionRef(officeId), id));
+    // deleteDoc も同じ理屈で injection context で包む
+    await this.inCtx(() => deleteDoc(ref));
   }
 
   /**
@@ -219,18 +219,18 @@ export class BonusPremiumsService {
     natureCode: BonusNatureCode,
     excludePayDate?: IsoDateString
   ): Promise<number> {
-    return this.inCtxAsync(async () => {
     const { startDate, endDate } = this.getBonusLimitPeriod(payDate);
 
     const ref = this.getCollectionRef(officeId);
-    const q = query(
+    const q = this.inCtx(() => query(
       ref,
       where('employeeId', '==', employeeId),
       where('bonusNatureCode', '==', natureCode),
       orderBy('payDate', 'asc')
-    );
+    ));
 
-    const snapshot = await getDocs(q);
+    // getDocs も injection context 内で呼び出す必要がある
+    const snapshot = await this.inCtx(() => getDocs(q));
     const bonuses = snapshot.docs
       .map((d) => ({ id: d.id, ...(d.data() as any) } as BonusPremium))
       .filter((b) => {
@@ -243,7 +243,6 @@ export class BonusPremiumsService {
       });
 
     return bonuses.length;
-    });
   }
 
   /**
@@ -256,15 +255,15 @@ export class BonusPremiumsService {
     fiscalYear: string,
     excludePayDate?: IsoDateString
   ): Promise<number> {
-    return this.inCtxAsync(async () => {
     const ref = this.getCollectionRef(officeId);
-    const q = query(
+    const q = this.inCtx(() => query(
       ref,
       where('employeeId', '==', employeeId),
       where('fiscalYear', '==', fiscalYear)
-    );
+    ));
 
-    const snapshot = await firstValueFrom(from(getDocs(q)));
+    // getDocs も injection context 内で呼び出す必要がある
+    const snapshot = await firstValueFrom(from(this.inCtx(() => getDocs(q))));
     const bonuses = snapshot.docs
       .map((d) => d.data() as BonusPremium)
       .filter((b) => !excludePayDate || b.payDate !== excludePayDate);
@@ -273,7 +272,6 @@ export class BonusPremiumsService {
       (sum, b) => sum + (b.healthEffectiveAmount ?? b.standardBonusAmount),
       0
     );
-    });
   }
 
   /**
@@ -290,14 +288,14 @@ export class BonusPremiumsService {
     yearMonth: YearMonthString,
     excludePayDate?: IsoDateString
   ): Promise<number> {
-    return this.inCtxAsync(async () => {
     const ref = this.getCollectionRef(officeId);
     const targetYear = yearMonth.substring(0, 4);
     const targetMonth = yearMonth.substring(5, 7);
 
-    const q = query(ref, where('employeeId', '==', employeeId));
+    const q = this.inCtx(() => query(ref, where('employeeId', '==', employeeId)));
 
-    const snapshot = await firstValueFrom(from(getDocs(q)));
+    // getDocs も injection context 内で呼び出す必要がある
+    const snapshot = await firstValueFrom(from(this.inCtx(() => getDocs(q))));
     const bonuses = snapshot.docs
       .map((d) => d.data() as BonusPremium)
       .filter((b) => {
@@ -315,7 +313,6 @@ export class BonusPremiumsService {
       });
 
     return bonuses.reduce((sum, b) => sum + (b.pensionEffectiveAmount ?? 0), 0);
-    });
   }
 
   /**
@@ -333,7 +330,6 @@ export class BonusPremiumsService {
     employee: Employee,
     yearMonth: YearMonthString
   ): Promise<void> {
-    return this.inCtxAsync(async () => {
     const officeId = office.id;
     const ref = this.getCollectionRef(officeId);
 
@@ -341,14 +337,15 @@ export class BonusPremiumsService {
     const fiscalYear = String(getFiscalYear((`${yearMonth}-01`) as IsoDateString));
 
     // 対象従業員 × 対象年度の賞与レコードを取得（支給日昇順）
-    const q = query(
+    const q = this.inCtx(() => query(
       ref,
       where('employeeId', '==', employee.id),
       where('fiscalYear', '==', fiscalYear),
       orderBy('payDate', 'asc')
-    );
+    ));
 
-    const snapshot = await getDocs(q);
+    // getDocs も injection context 内で呼び出す必要がある
+    const snapshot = await this.inCtx(() => getDocs(q));
     const allBonuses = snapshot.docs.map(
       (d) =>
         ({
@@ -440,10 +437,10 @@ export class BonusPremiumsService {
         totalEmployer: result.totalEmployer
       };
 
-      const docRef = doc(ref, bonus.id);
-      await setDoc(docRef, updated, { merge: true });
+      // doc と setDoc の呼び出しを injection context で包む
+      const docRef = this.inCtx(() => doc(ref, bonus.id));
+      await this.inCtx(() => setDoc(docRef, updated, { merge: true }));
     }
-    });
   }
 
   /**
@@ -461,19 +458,19 @@ export class BonusPremiumsService {
     employee: Employee,
     fiscalYear: string
   ): Promise<void> {
-    return this.inCtxAsync(async () => {
     const officeId = office.id;
     const ref = this.getCollectionRef(officeId);
 
     // 対象従業員 × 対象年度 の賞与を支給日昇順で取得
-    const q = query(
+    const q = this.inCtx(() => query(
       ref,
       where('employeeId', '==', employee.id),
       where('fiscalYear', '==', fiscalYear),
       orderBy('payDate', 'asc')
-    );
+    ));
 
-    const snapshot = await getDocs(q);
+    // getDocs も injection context 内で呼び出す必要がある
+    const snapshot = await this.inCtx(() => getDocs(q));
     const bonuses = snapshot.docs.map(
       (d) =>
         ({
@@ -564,9 +561,10 @@ export class BonusPremiumsService {
         totalEmployer: result.totalEmployer
       };
 
-      await setDoc(doc(ref, bonus.id), updated, { merge: true });
+      // doc と setDoc の呼び出しを injection context で包む
+      const docRef = this.inCtx(() => doc(ref, bonus.id));
+      await this.inCtx(() => setDoc(docRef, updated, { merge: true }));
     }
-    });
   }
 
   /**

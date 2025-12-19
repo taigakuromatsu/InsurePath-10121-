@@ -253,4 +253,22 @@ body {
   p { margin: 0; font-size: 13px; }
 }
 
+/* =========================================
+   長文ツールチップ（資格取得日/喪失日用）
+   ========================================= */
+/* tooltipClassで指定したクラスは.mdc-tooltip.mat-mdc-tooltip要素に適用される */
+.mat-mdc-tooltip-panel .mdc-tooltip.ip-wide-tooltip .mdc-tooltip__surface,
+.mat-mdc-tooltip-panel .mat-mdc-tooltip.ip-wide-tooltip .mdc-tooltip__surface {
+  display: block !important;
+  width: min(800px, calc(100vw - 32px)) !important;
+  max-width: min(800px, calc(100vw - 32px)) !important;
+  min-width: min(600px, calc(100vw - 32px)) !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 10px 12px;
+}
+
 
