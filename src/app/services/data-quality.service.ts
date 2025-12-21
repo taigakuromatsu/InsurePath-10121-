@@ -285,10 +285,23 @@ export class DataQualityService {
         // 健康保険の資格喪失日より後の履歴をチェック
         if (emp.healthLossDate) {
           const healthLossYearMonth = this.toYearMonth(emp.healthLossDate);
+          const healthQualificationYearMonth = emp.healthQualificationDate
+            ? this.toYearMonth(emp.healthQualificationDate)
+            : null;
           const healthHistories = histories.filter((h) => h.insuranceKind === 'health');
-          const invalidHealthHistories = healthHistories.filter(
-            (h) => h.appliedFromYearMonth >= healthLossYearMonth
-          );
+          // 同月得喪の場合は喪失月の履歴を除外（その月は有効なため）
+          const isSameMonthAcquisitionLoss =
+            healthQualificationYearMonth !== null &&
+            healthQualificationYearMonth === healthLossYearMonth;
+          const invalidHealthHistories = healthHistories.filter((h) => {
+            if (isSameMonthAcquisitionLoss) {
+              // 同月得喪の場合：喪失月より後の履歴のみ検出（喪失月は除外）
+              return h.appliedFromYearMonth > healthLossYearMonth;
+            } else {
+              // 通常の場合：喪失月以降の履歴を検出
+              return h.appliedFromYearMonth >= healthLossYearMonth;
+            }
+          });
           if (invalidHealthHistories.length > 0) {
             const latestInvalid = invalidHealthHistories.sort((a, b) =>
               b.appliedFromYearMonth.localeCompare(a.appliedFromYearMonth)
@@ -309,10 +322,23 @@ export class DataQualityService {
         // 厚生年金の資格喪失日より後の履歴をチェック
         if (emp.pensionLossDate) {
           const pensionLossYearMonth = this.toYearMonth(emp.pensionLossDate);
+          const pensionQualificationYearMonth = emp.pensionQualificationDate
+            ? this.toYearMonth(emp.pensionQualificationDate)
+            : null;
           const pensionHistories = histories.filter((h) => h.insuranceKind === 'pension');
-          const invalidPensionHistories = pensionHistories.filter(
-            (h) => h.appliedFromYearMonth >= pensionLossYearMonth
-          );
+          // 同月得喪の場合は喪失月の履歴を除外（その月は有効なため）
+          const isSameMonthAcquisitionLoss =
+            pensionQualificationYearMonth !== null &&
+            pensionQualificationYearMonth === pensionLossYearMonth;
+          const invalidPensionHistories = pensionHistories.filter((h) => {
+            if (isSameMonthAcquisitionLoss) {
+              // 同月得喪の場合：喪失月より後の履歴のみ検出（喪失月は除外）
+              return h.appliedFromYearMonth > pensionLossYearMonth;
+            } else {
+              // 通常の場合：喪失月以降の履歴を検出
+              return h.appliedFromYearMonth >= pensionLossYearMonth;
+            }
+          });
           if (invalidPensionHistories.length > 0) {
             const latestInvalid = invalidPensionHistories.sort((a, b) =>
               b.appliedFromYearMonth.localeCompare(a.appliedFromYearMonth)
