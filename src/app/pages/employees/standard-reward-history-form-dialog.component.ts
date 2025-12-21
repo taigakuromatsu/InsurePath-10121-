@@ -625,7 +625,6 @@ export class StandardRewardHistoryFormDialogComponent {
         return;
       }
     } catch (error) {
-      console.error('重複チェックに失敗しました:', error);
       this.snackBar.open('重複チェックに失敗しました。', undefined, {
         duration: 3000
       });

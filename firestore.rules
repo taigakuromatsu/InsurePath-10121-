@@ -734,15 +734,31 @@ service cloud.firestore {
         }
 
         match /standardRewardHistories/{historyId} {
-          allow read: if belongsToOffice(officeId) && isAdminOrHr(officeId);
+          // 読み取り: admin/hr は全件、employee は自分の employeeId の履歴のみ
+          allow read: if belongsToOffice(officeId) && (
+            isAdminOrHr(officeId) ||
+            (isInsureEmployee(officeId) && isOwnEmployee(officeId, employeeId))
+          );
+          // 書き込み: admin/hr のみ
           allow create, update, delete: if belongsToOffice(officeId) && isAdminOrHr(officeId);
         }
       }
 
       // 月次保険料
       match /monthlyPremiums/{docId} {
+        // 読み取り: admin/hr は全件、employee は自分の employeeId のデータのみ
         allow read: if belongsToOffice(officeId) && (isAdminOrHr(officeId) || (isInsureEmployee(officeId) && resource.data.employeeId == currentUser().data.employeeId));
-        allow create, update, delete: if isAdminOrHr(officeId);
+        // 書き込み: admin/hr は全件、employee は自分の employeeId のデータのみ（自動再計算用）
+        allow create, update: if belongsToOffice(officeId) && (
+          isAdminOrHr(officeId) ||
+          (
+            isInsureEmployee(officeId) &&
+            request.resource.data.employeeId == currentUser().data.employeeId &&
+            (!exists(/databases/$(database)/documents/offices/$(officeId)/monthlyPremiums/$(docId)) || resource.data.employeeId == currentUser().data.employeeId)
+          )
+        );
+        // 削除: admin/hr のみ
+        allow delete: if isAdminOrHr(officeId);
       }
 
       // 賞与保険料

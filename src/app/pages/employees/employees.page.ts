@@ -1074,7 +1074,6 @@ export class EmployeesPage {
 
   // リアルタイムリスナーで従業員一覧を監視（データ変更を自動的に検知）
   readonly employees$ = this.officeId$.pipe(
-    tap((officeId) => console.log('[EmployeesPage] officeId$', officeId)),
     switchMap((officeId) => {
       if (!officeId) {
         return of([] as Employee[]);
@@ -1509,7 +1508,6 @@ export class EmployeesPage {
       this.snackBar.open('従業員を削除しました', '閉じる', { duration: 3000 });
       // リアルタイムリスナーにより自動的に一覧が更新される
     } catch (error) {
-      console.error(error);
       this.snackBar.open('従業員の削除に失敗しました', '閉じる', {
         duration: 4000
       });

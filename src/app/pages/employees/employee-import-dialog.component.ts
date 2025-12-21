@@ -586,7 +586,6 @@ export class EmployeeImportDialogComponent {
           createdCount++;
         }
       } catch (error) {
-        console.error(error);
         errors.push({ rowIndex: row.rowIndex, message: '保存に失敗しました' });
       }
     }

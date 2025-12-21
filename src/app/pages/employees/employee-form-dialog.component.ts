@@ -1306,7 +1306,6 @@ export class EmployeeFormDialogComponent {
       // 右側ヒント用にマスク済み文字列もセット
       this.maskedMyNumber = this.myNumberService.mask(decrypted);
     } catch (error) {
-      console.error('Failed to decrypt employee myNumber', error);
       this.maskedMyNumber = null;
     }
   }
@@ -1334,7 +1333,6 @@ export class EmployeeFormDialogComponent {
       }
       return savedId;
     } catch (error) {
-      console.error('従業員情報の保存に失敗しました', error);
       this.snackBar.open('従業員情報の保存に失敗しました。時間をおいて再度お試しください。', undefined, {
         duration: 3000
       });

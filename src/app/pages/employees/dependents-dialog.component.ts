@@ -323,7 +323,6 @@ export class DependentsDialogComponent {
       );
       this.snackBar.open('扶養家族を削除しました', undefined, { duration: 2500 });
     } catch (error) {
-      console.error(error);
       this.snackBar.open('削除に失敗しました。時間をおいて再度お試しください。', undefined, {
         duration: 3000
       });

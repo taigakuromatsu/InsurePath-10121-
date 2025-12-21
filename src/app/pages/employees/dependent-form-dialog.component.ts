@@ -284,7 +284,6 @@ export class DependentFormDialogComponent {
       // 右側ヒント用にマスク済み文字列もセット
       this.maskedMyNumber = this.myNumberService.mask(decrypted);
     } catch (error) {
-      console.error('Failed to decrypt dependent myNumber', error);
       this.maskedMyNumber = null;
     }
   }

@@ -149,7 +149,6 @@ export class InviteEmployeeDialogComponent {
       const baseUrl = window.location.origin;
       this.inviteUrl.set(`${baseUrl}/employee-portal/accept-invite?token=${invite.id}`);
     } catch (err) {
-      console.error(err);
       this.error.set('招待URLの生成に失敗しました。しばらくしてから再度お試しください。');
     } finally {
       this.loading.set(false);

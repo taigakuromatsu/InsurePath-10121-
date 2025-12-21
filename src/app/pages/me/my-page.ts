@@ -1923,10 +1923,8 @@ export class MyPage {
         try {
           const currentUser = this.auth.currentUser;
           if (currentUser) {
-            // 全従業員を取得（saveForMonth に必要）
-            const employees: Employee[] = await firstValueFrom(
-              this.employeesService.list(officeId)
-            );
+            // 既に取得済みの従業員情報を使用（マイページでは自分のデータのみ再計算）
+            const employees: Employee[] = [employee];
 
             const calcDate = new Date().toISOString();
             await this.monthlyPremiumsService.saveForMonth({
