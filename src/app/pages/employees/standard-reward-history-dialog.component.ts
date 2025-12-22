@@ -364,6 +364,7 @@ export interface StandardRewardHistoryDialogData {
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         border: 1px solid #e0e0e0;
+        min-width: 0; /* flexboxの子要素がはみ出さないように */
       }
 
       .card-header {
@@ -375,12 +376,17 @@ export interface StandardRewardHistoryDialogData {
         flex-shrink: 0;
         border-radius: 8px 8px 0 0;
         background: #ffffff;
+        gap: 12px;
+        min-width: 0; /* flexboxの子要素がはみ出さないように */
+        overflow: hidden; /* はみ出しを防ぐ */
       }
 
       .card-header-content {
         display: flex;
         align-items: center;
         gap: 12px;
+        flex: 1;
+        min-width: 0; /* flexboxの子要素がはみ出さないように */
       }
 
       .card-icon {
@@ -407,6 +413,52 @@ export interface StandardRewardHistoryDialogData {
 
       .add-button-header {
         flex-shrink: 0;
+        white-space: nowrap;
+        margin: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+      /* Material 3 ボタンの内部構造を上書き */
+      .add-button-header ::ng-deep {
+        .mdc-button {
+          padding: 0 12px !important;
+          min-width: auto !important;
+          height: 36px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+
+        .mdc-button__ripple {
+          padding: 0 !important;
+        }
+
+        .mdc-button__label {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 4px !important;
+          white-space: nowrap !important;
+          padding: 0 !important;
+          line-height: 1 !important;
+        }
+
+        .mat-mdc-button-persistent-ripple {
+          display: none;
+        }
+      }
+
+      /* アイコンのスタイル */
+      .add-button-header mat-icon {
+        margin: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 18px !important;
+        height: 18px !important;
+        font-size: 18px !important;
+        line-height: 18px !important;
+        flex-shrink: 0;
+        display: inline-block !important;
       }
 
       .card-content {
@@ -437,6 +489,39 @@ export interface StandardRewardHistoryDialogData {
 
       .standard-reward-empty .add-button {
         margin-top: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      /* Material 3 ボタンの内部構造を上書き */
+      .standard-reward-empty .add-button ::ng-deep {
+        .mdc-button {
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+
+        .mdc-button__label {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 4px !important;
+          white-space: nowrap !important;
+        }
+      }
+
+      /* アイコンのスタイル */
+      .standard-reward-empty .add-button mat-icon {
+        margin: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 18px !important;
+        height: 18px !important;
+        font-size: 18px !important;
+        line-height: 18px !important;
+        flex-shrink: 0;
+        display: inline-block !important;
+        vertical-align: middle;
       }
 
       .standard-reward-table {
